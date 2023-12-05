@@ -1,0 +1,17 @@
+[tool.poetry]
+name = "abyss"
+version = "0.1.0"
+description = ""
+authors = ["Your Name <you@example.com>"]
+readme = "README.md"
+packages = [{include = "abyss", from = "src"}]
+
+[tool.poetry.dependencies]
+python = "~3.11"
+mediapipe = "^0.10.8"
+loguru = "^0.7.2"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
