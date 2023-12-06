@@ -12,6 +12,7 @@ def get_resource(
         "root_fol",
         "sample_fol",
         "3D_model_fol",
+        "pose_fol",
     ]
 ) -> Path:
     """Get the path of the requested resource."""
@@ -24,6 +25,8 @@ def get_resource(
     # folders that are not in the package
     if which_res == "3D_model_fol":
         return Path.home() / "data" / "3d_models"
+    elif which_res == "pose_fol":
+        return Path.home() / "data" / "pose"
 
     # folders that are in the package
     if which_res == "root_fol":
