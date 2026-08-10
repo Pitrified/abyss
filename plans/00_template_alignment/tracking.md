@@ -44,12 +44,11 @@ Analysis and decisions in [`00_feature_inventory.md`](00_feature_inventory.md).
 | 5  | docs and agent instructions        | [`05_docs_and_agents.md`](05_docs_and_agents.md)             | done    |
 
 Status values: draft / planned / in progress / done / superseded / discarded.
-All five phases are done. One item is still carried out of the initiative, not blocking:
+All five phases are done, and both carried items are closed:
 
 1. ~~Bump the pose-tools pin to `v0.2.0`.~~ Done 2026-08-10, once the tag was pushed.
-2. **Run `notebooks/sample01.ipynb` end to end.** It needs `~/data/pose/yoga01.mp4` and
-   `~/.mediapipe/models/pose_landmarker.task`, neither of which exists on this box. Until then the
-   pose-tools swap is verified by imports and type checks, not by behaviour.
+2. ~~Run `notebooks/sample01.ipynb` end to end.~~ Done 2026-08-10, after fetching the missing
+   assets. The pose-tools swap is now verified by behaviour, not just by imports and type checks.
 
 Phases 1 and 2 touch other repos (`python-project-template`, `pose-tools`, `repomgr`,
 `linux-box-cloudflare`); only 3-5 are commits in `abyss`.
@@ -166,3 +165,21 @@ Append-only. Newest at the bottom.
   tests and optionally auto-merges, which is aimed at a repo whose work is on `main`, and abyss's
   reboot still lives on `reboot/template-alignment`. Once that merges, the automated path is the
   one to use.
+- 2026-08-10 : fetched the two missing local assets and closed the last open item. Model:
+  `pose_landmarker_full` float16 (9.0 MB) from Google's official mediapipe-models CDN, copied to
+  `~/.mediapipe/models/pose_landmarker.task` (the name `ModelManager` expects). Video: 10 s cut
+  from a CC BY 3.0 Wikimedia Commons clip of a woman demonstrating yoga, at
+  `~/data/pose/yoga01.mp4`, with provenance and the license recorded in `~/data/pose/README.md`.
+  Pixabay was tried first and blocks non-browser clients (403); Commons serves files directly.
+  No ffmpeg on this box, so the clip was cut and re-encoded with OpenCV, and only the first 30 MB
+  of the 181 MB source was fetched via an HTTP range request. Seeking in the Theora/webm sources is
+  unreliable under OpenCV - it silently returns short reads - so the cut skips frames sequentially.
+  **`notebooks/sample01.ipynb` now executes top to bottom with no errors** (via `nbclient`, run
+  in-memory so the tracked file stays stripped). MediaPipe finds a pose in 20/20 sampled frames at
+  ~0.95 mean landmark visibility, and `draw_pose_landmarks` renders a correct skeleton.
+  Two small findings for `pose-tools`, neither blocking: (1) mediapipe 1.0.0 raises
+  `TypeError: 'NoneType' object is not callable` from `PoseLandmarker.__del__` at interpreter
+  shutdown - cosmetic, but `BaseLandmarkerFrame` exposes no `close()` or context manager, so the
+  task object is only ever released by GC; adding one would make teardown deterministic.
+  (2) the model manager knows the filenames but not where to get them - a documented download
+  helper would remove a manual setup step for every consumer.
