@@ -59,7 +59,7 @@ requires-dist = [
     { name = "loguru", specifier = ">=0.7.3" },
     { name = "matplotlib", specifier = ">=3.9" },
     { name = "opencv-contrib-python", specifier = ">=4.10" },
-    { name = "pose-tools", git = "https://github.com/Pitrified/pose-tools?rev=v0.1.0" },
+    { name = "pose-tools", git = "https://github.com/Pitrified/pose-tools?rev=v0.2.0" },
 ]
 
 [package.metadata.requires-dev]
@@ -875,8 +875,8 @@ wheels = [
 
 [[package]]
 name = "pose-tools"
-version = "0.1.0"
-source = { git = "https://github.com/Pitrified/pose-tools?rev=v0.1.0#9a613a1c0c0d985ab25c890a15f904eedb081e42" }
+version = "0.2.0"
+source = { git = "https://github.com/Pitrified/pose-tools?rev=v0.2.0#103503188b424be5d327c503ce86b3ab9cc88a72" }
 dependencies = [
     { name = "loguru" },
     { name = "matplotlib" },

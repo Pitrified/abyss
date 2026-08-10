@@ -44,11 +44,9 @@ Analysis and decisions in [`00_feature_inventory.md`](00_feature_inventory.md).
 | 5  | docs and agent instructions        | [`05_docs_and_agents.md`](05_docs_and_agents.md)             | done    |
 
 Status values: draft / planned / in progress / done / superseded / discarded.
-All five phases are done. Two items are carried out of the initiative, neither blocking:
+All five phases are done. One item is still carried out of the initiative, not blocking:
 
-1. **Bump the pose-tools pin to `v0.2.0`** once that tag is pushed. `repomgr status` already
-   reports `abyss: deps behind: pose-tools`. Behaviour does not change - abyss resolves mediapipe
-   1.0.0 under either pin - so this is the declaration catching up with reality.
+1. ~~Bump the pose-tools pin to `v0.2.0`.~~ Done 2026-08-10, once the tag was pushed.
 2. **Run `notebooks/sample01.ipynb` end to end.** It needs `~/data/pose/yoga01.mp4` and
    `~/.mediapipe/models/pose_landmarker.task`, neither of which exists on this box. Until then the
    pose-tools swap is verified by imports and type checks, not by behaviour.
@@ -161,3 +159,10 @@ Append-only. Newest at the bottom.
   `abyss (consumer) <- pose-tools`. repomgr also reports `abyss: deps behind: pose-tools` off its
   own bat, having noticed the local v0.2.0 tag. Refreshed the expansion folder's prerequisites,
   which are now all met, and its stale reference to the deleted `utils/data.py`.
+- 2026-08-10 : bumped the pose-tools pin to `v0.2.0` now that the tag is on the remote. `uv sync`
+  replaced 0.1.0 with 0.2.0 and `make check` stays green; mediapipe is 1.0.0 as before, since the
+  old floor already permitted it - the pin bump makes the declaration honest, it does not change
+  what runs. Did this by hand rather than through `repomgr update-deps`: that flow branches, syncs,
+  tests and optionally auto-merges, which is aimed at a repo whose work is on `main`, and abyss's
+  reboot still lives on `reboot/template-alignment`. Once that merges, the automated path is the
+  one to use.
