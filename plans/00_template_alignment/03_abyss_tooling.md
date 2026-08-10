@@ -71,6 +71,14 @@ Both are properties of this box, and both belong in the copilot instructions in 
   means any verification that needs a window has to happen on a machine with a display or be
   replaced by writing frames to a file.
 
+## Amendment (2026-08-10)
+
+The original exit criteria said a clean `ruff check .` over the whole repo, which contradicted the
+plan's own instruction to leave modules that phase 4 deletes. Reality settled it: 74 of the 85
+initial findings, and all 10 pyright errors, are inside those eight modules. Polishing code that
+is about to be deleted is waste, so the criteria above are scoped to the surviving files and the
+whole-repo clean becomes phase 4's exit criterion.
+
 ## Out of scope
 
 - Deleting the duplicated modules or importing from `pose_tools` (phase 4).
@@ -80,7 +88,9 @@ Both are properties of this box, and both belong in the copilot instructions in 
 ## Done when
 
 - `uv sync --all-extras --all-groups` succeeds on 3.14 and `python -c "import mediapipe"` works.
-- `uv run ruff check .` and `uv run ruff format --check .` are clean.
-- `uv run pyright` is clean.
+- `uv run ruff format --check .` is clean, and `uv run ruff check .` is clean **over the files
+  that survive phase 4** (`src/abyss/params`, `src/abyss/metaclasses`, `tests/`, `scripts/`).
+  The duplicated modules are left dirty on purpose - see the amendment below.
+- `uv run pyright` is clean over those same files.
 - `uv run pytest` passes with at least the params tests present.
 - `pre-commit run --all-files` passes, including `nbstripout --verify`.

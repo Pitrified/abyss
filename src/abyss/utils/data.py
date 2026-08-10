@@ -13,7 +13,7 @@ def get_resource(
         "sample_fol",
         "3D_model_fol",
         "pose_fol",
-    ]
+    ],
 ) -> Path:
     """Get the path of the requested resource."""
     # resources

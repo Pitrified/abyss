@@ -1,6 +1,5 @@
 """Misc utils for landmark detection."""
 
-
 from enum import IntEnum
 from typing import Literal, Mapping, TypeVar, cast, get_args
 
@@ -65,8 +64,7 @@ def get_landmarks_from_result(
     result: PoseLandmarkerResult,
     which_info: Literal["world"],
     pose_idx: int = 0,
-) -> list[Landmark] | None:
-    ...
+) -> list[Landmark] | None: ...
 
 
 @overload
@@ -74,8 +72,7 @@ def get_landmarks_from_result(
     result: PoseLandmarkerResult,
     which_info: Literal["normalized"],
     pose_idx: int = 0,
-) -> list[NormalizedLandmark] | None:
-    ...
+) -> list[NormalizedLandmark] | None: ...
 
 
 def get_landmarks_from_result(
@@ -96,15 +93,13 @@ def get_landmarks_from_result(
 @overload
 def list_land_to_landlist(
     landmarks: list[NormalizedLandmark],
-) -> NormalizedLandmarkList:
-    ...
+) -> NormalizedLandmarkList: ...
 
 
 @overload
 def list_land_to_landlist(
     landmarks: list[Landmark],
-) -> LandmarkList:
-    ...
+) -> LandmarkList: ...
 
 
 def list_land_to_landlist(
