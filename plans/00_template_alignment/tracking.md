@@ -183,3 +183,10 @@ Append-only. Newest at the bottom.
   task object is only ever released by GC; adding one would make teardown deterministic.
   (2) the model manager knows the filenames but not where to get them - a documented download
   helper would remove a manual setup step for every consumer.
+- 2026-08-11 : merged `reboot/template-alignment` into `main` (fast-forward, 19 commits) - `main`
+  had been the 2023 poetry code all along, so nothing but the branch reflected the reboot until
+  now. Bumped the pin to `pose-tools@v0.2.1` on `chore/pose-tools-0.2.1` and switched the
+  notebook's landmarker to a `with` block, which is what the new `close()` is for: the mediapipe
+  1.0.0 shutdown traceback is gone (measured 0, was 1 per process). Also refreshed the notebook's
+  commented download command, which still pointed at `pose_landmarker_heavy/float16/1` while the
+  working URL is `pose_landmarker_full/float16/latest`.
