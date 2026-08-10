@@ -40,11 +40,12 @@ Analysis and decisions in [`00_feature_inventory.md`](00_feature_inventory.md).
 | 1  | Makefile into the template         | [`01_template_makefile.md`](01_template_makefile.md)         | done    |
 | 2  | pose-tools v0.1.0 + repomgr roles  | [`02_pose_tools_release.md`](02_pose_tools_release.md)       | in progress |
 | 3  | abyss tooling migration            | [`03_abyss_tooling.md`](03_abyss_tooling.md)                 | done    |
-| 4  | dedupe against pose-tools          | [`04_dedupe_and_params.md`](04_dedupe_and_params.md)         | in progress |
-| 5  | docs and agent instructions        | [`05_docs_and_agents.md`](05_docs_and_agents.md)             | planned |
+| 4  | dedupe against pose-tools          | [`04_dedupe_and_params.md`](04_dedupe_and_params.md)         | done    |
+| 5  | docs and agent instructions        | [`05_docs_and_agents.md`](05_docs_and_agents.md)             | done    |
 
 Status values: draft / planned / in progress / done / superseded / discarded.
-The six open questions that gated phases 1, 4 and 5 are answered.
+All five phases are done. The one item carried out of phase 4 is running
+`notebooks/sample01.ipynb` end to end, which needs data this box does not have.
 
 Phases 1 and 2 touch other repos (`python-project-template`, `pose-tools`, `repomgr`,
 `linux-box-cloudflare`); only 3-5 are commits in `abyss`.
@@ -131,3 +132,12 @@ Append-only. Newest at the bottom.
   all 11 pre-commit hooks pass; 8 tests pass. **Open: the notebook has not been run end to end**,
   for want of `~/data/pose/yoga01.mp4` and `~/.mediapipe/models/pose_landmarker.task`. The headless
   constraint turned out not to be the blocker there - it draws via matplotlib, not cv.imshow.
+- 2026-08-10 : phase 5 done (aee7f22). `.github/copilot-instructions.md` + the `CLAUDE.md`
+  one-liner, leading with the pose-tools boundary table since that is the mistake a cold agent
+  makes; the CPU-only, headless and `--no-sync` rules are recorded there. `docs/guides/` copied
+  from the template (uv, pre-commit, makefile, the last adapted to pose-tools), `docs/library/`
+  written fresh for the boundary and the params layer. README rewritten. Dropped the `docs` and
+  `docs-build` Makefile targets, which would have been broken with no mkdocs, and pointed
+  `dev-<lib>` at pose-tools.
+  **Reboot complete**: `make check` green, all 11 pre-commit hooks green, `src/abyss/` down to
+  `params/` + `metaclasses/` from the 8 duplicated modules it started with.
