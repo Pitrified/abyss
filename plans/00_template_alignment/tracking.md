@@ -24,6 +24,9 @@ Analysis and decisions in [`00_feature_inventory.md`](00_feature_inventory.md).
   mkdocs and no Pages workflow, just a plain `docs/` with `guides/` and `library/`; no `AGENTS.md`
   or `.github/agents/`, only `copilot-instructions.md` + the `CLAUDE.md` one-liner; keep both
   `scratch_space/` and `plans/`.
+- **No legacy shims.** "Migrate" governs how the repo is rebuilt, not what may change inside it:
+  imports are rewritten freely, and anything folded into pose-tools is deleted outright rather
+  than kept alive behind a re-export or alias.
 - **Build only what has a caller.** The params/config layer comes across, but only the branches in
   use now - no speculative env types, path entries, or config models.
 - **This box has no Nvidia GPU and no display.** mediapipe defaults to the CPU delegate and its
@@ -72,3 +75,5 @@ Append-only. Newest at the bottom.
   Checked the two environment constraints raised: no `nvidia-smi` on this box, but mediapipe
   defaults to the CPU delegate and neither repo sets `delegate`, so it is a no-op; `DISPLAY` is
   unset, which does bite - `utils/cv.py:cv_imshow_rgb` and `tests/video/camera.py` cannot run here.
+- 2026-08-10 : clarified Q3 - "migrate" meant do not regenerate the repo, not preserve abyss's
+  modules. Imports change freely and no compatibility shims are kept; phase 4 says so explicitly.

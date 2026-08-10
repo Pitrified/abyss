@@ -49,8 +49,9 @@ Depends on phase 2 (a pinned `pose-tools` tag to declare) and, for the Makefile,
 - Add `tests/conftest.py` and the first real tests (params and paths, mirroring pose-tools'
   `tests/params/`), so the suite is not empty.
 - Add the Makefile from phase 1 with abyss's own targets left for later.
-- Q3 says migrate, so `src/abyss/` keeps its shape here: this phase adds files beside the existing
-  tree and changes no imports.
+- `src/abyss/` is left alone in this phase - files are added beside the existing tree, imports are
+  not touched. That is sequencing, not preservation: it keeps a tooling failure distinguishable
+  from a refactor failure. Phase 4 then rewrites imports and deletes modules freely.
 - Expect the first `ruff check` under `select = ["ALL"]` on 2023 code to produce a large number of
   findings, mostly docstrings and typing. Fix them here rather than carrying `noqa` forward - but
   a module slated for deletion in phase 4 is not worth polishing; leave those and let phase 4

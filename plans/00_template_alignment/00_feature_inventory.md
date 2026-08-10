@@ -328,6 +328,10 @@ Three phases, in order:
   README intent.
   ANS: **Migrate.** Keep the existing `src/` scaffold and trim what is duplicated. No renamer run,
   no wholesale delete: the tree stays, the duplicated modules leave.
+  Scope of "migrate": it constrains *how the repo is rebuilt* (edit in place, do not regenerate),
+  not what may change inside it. **Imports change freely, and no legacy shims.** Use `pose_tools`
+  wherever it has the code; if a file has been folded into pose-tools, delete it from abyss rather
+  than leaving a re-export, an alias, or a deprecation wrapper behind.
 - Q4: **Docs** (#6, #7). mkdocs-material + the `docs.yml` Pages workflow, or skip until abyss has
   an API worth reading? 11/11 siblings have it, but abyss is an app, not a library.
   ANS: **Defer mkdocs and the GitHub Actions workflow.** Keep a plain `docs/` tree with `guides/`

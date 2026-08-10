@@ -32,6 +32,12 @@ Depends on phase 3 (the pose-tools dep must already be declared and installable)
 - Then delete `src/abyss/{utils/cv.py,utils/plt.py,utils/mediapipe.py,video/frame.py,video/load.py,
   landmarker/pose.py,landmarker/drawing.py}` and import from `pose_tools` instead. Note the module
   rename: abyss's `landmarker/` is `landmark/` in pose-tools.
+- **No shims.** Call sites are rewritten to import from `pose_tools` directly. No re-export module
+  keeping the old `abyss.utils.cv` path alive, no aliases, no deprecation wrappers, no
+  `try: from pose_tools ... except ImportError` fallbacks. A file that has been folded into
+  pose-tools leaves abyss entirely, and empty packages (`utils/`, `video/`, `landmarker/`) go with
+  it rather than lingering as `__init__.py`-only directories. There are no external consumers of
+  `abyss` to keep compatible - it is an app, and this is the phase that is allowed to break imports.
 - Delete `utils/data.py` outright. `get_resource()` is a hand-rolled path registry with a
   `Literal` of five keys and an implicit `None` return on unknown input; the params layer added in
   phase 3 replaces it. Port **only the branches something actually uses** - of its five keys, carry
@@ -55,7 +61,8 @@ Depends on phase 3 (the pose-tools dep must already be declared and installable)
 
 ## Done when
 
-- No file under `src/abyss/` has a same-purpose counterpart in `pose_tools`.
+- No file under `src/abyss/` has a same-purpose counterpart in `pose_tools`, and nothing in
+  `src/abyss/` merely re-exports from `pose_tools`.
 - `uv run ruff check .`, `uv run pyright` and `uv run pytest` still pass.
 - `notebooks/sample01.ipynb` runs top to bottom against the installed `pose-tools` (headless, so
   no `cv.imshow` cells), and its output is stripped before commit.
