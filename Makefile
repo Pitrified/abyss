@@ -1,4 +1,4 @@
-.PHONY: help sync lint format typecheck test check docs docs-build nbstrip undev dev-sample-lib
+.PHONY: help sync lint format typecheck test check nbstrip undev dev-pose-tools
 
 MAKEFLAGS += --no-print-directory
 .DEFAULT_GOAL := help
@@ -9,8 +9,8 @@ MAKEFLAGS += --no-print-directory
 UV_RUN := uv run --no-sync
 
 # Local checkouts used by the dev-<lib> targets. Override on the command line:
-#   make dev-sample-lib SAMPLE_LIB_PATH=~/dev/sample-lib
-SAMPLE_LIB_PATH ?= ../sample-lib
+#   make dev-pose-tools POSE_TOOLS_PATH=~/dev/pose-tools
+POSE_TOOLS_PATH ?= ../pose-tools
 
 help:  ## Show this help (list targets and their descriptions)
 	@grep -hE '^[a-zA-Z0-9_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
@@ -47,16 +47,6 @@ nbstrip:  ## Strip notebook outputs (pre-commit only verifies, this fixes)
 	if [ -n "$$files" ]; then $(UV_RUN) nbstripout $$files; else echo "no tracked notebooks"; fi
 
 ########
-# DOCS #
-########
-
-docs:  ## Serve the docs locally with MkDocs
-	$(UV_RUN) mkdocs serve
-
-docs-build:  ## Build the docs, failing on any warning
-	$(UV_RUN) mkdocs build --strict
-
-########
 # DEPS #
 ########
 # Point the venv at a local checkout of an internal library, instead of the git
@@ -68,9 +58,9 @@ docs-build:  ## Build the docs, failing on any warning
 # you, but nothing protects a bare `uv run` in a terminal. `make undev` is the
 # deliberate way back.
 
-dev-sample-lib:  ## Install sample-lib from a local editable path (see DEPS notes)
-	uv pip install -e "$(SAMPLE_LIB_PATH)"
-	@echo "sample-lib installed from $(SAMPLE_LIB_PATH)"
+dev-pose-tools:  ## Install pose-tools from a local editable path (see DEPS notes)
+	uv pip install -e "$(POSE_TOOLS_PATH)"
+	@echo "pose-tools installed from $(POSE_TOOLS_PATH)"
 	@echo "WARNING: a bare 'uv run' or 'uv sync' reverts this to the pinned tag."
 	@echo "         use make targets (they pass --no-sync), or 'make undev' to revert on purpose."
 
