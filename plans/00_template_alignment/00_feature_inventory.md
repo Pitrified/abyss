@@ -297,26 +297,45 @@ Three phases, in order:
    functionality on top of it plus the render layer. Identity gets assessed as that happens - it is
    an output of phase 3, not an input.
 
-## Decisions still open
+## Settled
 
-1. **Code disposition.** Three options:
-   - (a) delete `src/abyss/{utils,video,landmarker}` wholesale, import from `pose_tools`;
-   - (b) keep them, port only the tooling - fastest, but locks in the duplication;
-   - (c) diff each module, push anything abyss has that pose-tools lacks *into* pose-tools, then delete.
-     Proposal: (c) for the handful of files, (a) as the end state. Note the pose-tools versions are
-     uniformly larger, so (c) is probably a small job or a no-op.
-2. **pose-tools versioning.** Cut `v0.1.0` in pose-tools by hand (proposal), and separately decide
-   whether `repomgr release` gets built - see the section above. Also: register `pose-tools` and
-   `abyss` in `repomgr`'s `repos.toml`, which does not exist on this box yet.
-3. **Python version.** Siblings are all `==3.14.*`. abyss is `~3.11`, and mediapipe wheels are the
-   constraint here - pose-tools already claims 3.14 with mediapipe, so verify that it actually installs.
-4. **Docs / agents / scratch_space** (#6, #10, #11): full template parity, or lean subset?
-5. **Rewrite vs migrate.** Given 563 lines, mostly duplicated: is this a `git rm -r src/` and a
-   fresh `src/abyss/` from the template renamer, or an in-place migration? Proposal: fresh, keeping
-   the notebook and the README intent.
-6. **Makefile sequencing** (#19). Add it to `python-project-template` first and pull it into abyss
-   from there, or write it in abyss now and backport? Proposal: template first - it is a 40-line
-   file and abyss is the natural first consumer.
+- **Python 3.14, like every sibling.** mediapipe was the only real risk. `pose-tools`' `uv.lock`
+  resolves `mediapipe 0.10.33` under `requires-python = "==3.14.*"`, and the wheel it picks is
+  `mediapipe-0.10.33-py3-none-manylinux_2_28_x86_64.whl` - `py3-none`, so it is ABI-agnostic and
+  does not need a cp314 build. Nothing blocks the jump from `~3.11`. Still worth an actual
+  `uv sync` early in phase 3, since no `.venv` exists in pose-tools to prove it was ever installed.
+- **Makefile lands in the template first**, abyss consumes it (phase 1). It is a small file and
+  abyss is the natural first consumer.
+- **pose-tools `v0.1.0` gets cut by hand**; `repomgr release` is spun off, see above.
+
+## Open questions
+
+- Q1: **`--no-sync` or `--with-editable`?** The two survivable answers to `uv run` reverting the
+  editable install. `UV_RUN := uv run --no-sync` in the Makefile is less invasive but only binds
+  `make` targets - the editor and bare `uv run` still revert the env behind you.
+  `--with-editable` on every invocation is stateless and cannot be reverted, but has to be threaded
+  through every entry point and leaves the base env on the pinned tag. This shapes the template
+  Makefile, so it is the one answer phase 1 cannot start without.
+  ANS: ...
+- Q2: **Code disposition for `src/abyss/`.** (a) delete `{utils,video,landmarker}` and import from
+  `pose_tools`; (b) keep them, port tooling only - fastest, locks in the duplication; (c) diff each
+  module, push anything abyss has that pose-tools lacks *into* pose-tools, then delete.
+  Proposal: (c) then (a). The pose-tools versions are uniformly larger, so (c) is likely small.
+  ANS: ...
+- Q3: **Rewrite or migrate?** 563 lines, mostly duplicated: `git rm -r src/` and regenerate from
+  the template renamer, or edit in place? Proposal: regenerate, keeping the notebook and the
+  README intent.
+  ANS: ...
+- Q4: **Docs** (#6, #7). mkdocs-material + the `docs.yml` Pages workflow, or skip until abyss has
+  an API worth reading? 11/11 siblings have it, but abyss is an app, not a library.
+  ANS: ...
+- Q5: **Agents** (#10). Full `.github/agents/` set of six plus `AGENTS.md`, or just
+  `copilot-instructions.md` + the `CLAUDE.md` one-liner?
+  ANS: ...
+- Q6: **`scratch_space/` alongside `plans/`** (#11). The template convention is `scratch_space/`;
+  this initiative already chose `plans/`. Keep both with a split role (scratch = throwaway
+  notebooks, plans = decisions), or drop one?
+  ANS: ...
 
 ## Rejected already
 
@@ -329,7 +348,17 @@ Three phases, in order:
   haystack/openai/chroma dependency set and the webapp scaffold, neither of which abyss needs.
   Take the structure and config files, not the payload. (Revisit if #15 flips.)
 
-## Next files in this folder
+## Phases
 
-- `01_*` - the disposition decision for `src/abyss/` once decision 1 is answered.
-- `02_*` - the concrete migration steps (pyproject rewrite, tooling drop-in, folder skeleton).
+Derived from this analysis and tracked in [`tracking.md`](tracking.md):
+
+| # | Phase | Plan |
+| - | ----- | ---- |
+| 1 | Makefile into the template | [`01_template_makefile.md`](01_template_makefile.md) |
+| 2 | pose-tools v0.1.0 + repomgr roles | [`02_pose_tools_release.md`](02_pose_tools_release.md) |
+| 3 | abyss tooling migration | [`03_abyss_tooling.md`](03_abyss_tooling.md) |
+| 4 | dedupe against pose-tools | [`04_dedupe_and_params.md`](04_dedupe_and_params.md) |
+| 5 | docs and agent instructions | [`05_docs_and_agents.md`](05_docs_and_agents.md) |
+
+Growing abyss's own functionality and the render layer is **not** part of this initiative -
+it is spun off to [`../01_abyss_expansion/00_start.md`](../01_abyss_expansion/00_start.md).

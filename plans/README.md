@@ -2,6 +2,11 @@
 
 Planning notes for abyss, one folder per initiative (`00_template_alignment` is the first).
 
+Multi-phase initiatives follow the tracked-development layout: `00_start.md`-style bootstrap file
+(analysis, decisions, numbered `Qn` open questions with `ANS:` placeholders), `tracking.md` as the
+index to read first (phases table + append-only log), and one `NN_phase_name.md` sub-plan per phase.
+Work that surfaces mid-effort but is out of scope becomes a **sibling folder**, not an extra phase.
+
 ## Plans are ADRs - for closed folders
 
 - The **current** folder (highest number, the feature being worked on) is freely editable:
