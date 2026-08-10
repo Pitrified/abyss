@@ -1,5 +1,5 @@
 ---
-status: draft
+status: planned
 ---
 
 # Phase 1 - Makefile into python-project-template
@@ -10,9 +10,10 @@ The template is ahead of every sibling on tooling but has no task runner. Seven 
 independently and converged on the same shape, so there is a standard to lift rather than invent.
 This phase writes it into `python-project-template`, where abyss then picks it up in phase 3.
 
-Draft rather than planned: **Q1 in [`00_feature_inventory.md`](00_feature_inventory.md) must be
-answered first** - whether local-editable development is protected by `--no-sync` or by
-`--with-editable`. That answer is the difference between two different files.
+Q1 is answered: **`--no-sync`**. Every target that runs project code goes through a single
+`UV_RUN := uv run --no-sync`, and `sync` is the one explicit "rebuild the env from the lock" entry
+point. The accepted cost is that only `make` targets are protected - the editor and a bare
+`uv run` still revert an editable install behind you - so `dev-<lib>` has to say that out loud.
 
 Context: [`00_feature_inventory.md`](00_feature_inventory.md), sections "The one thing the template
 lacks: a Makefile" and "Settle first: `uv run` silently reverts `uv pip install -e`".
@@ -31,14 +32,15 @@ Work lands in `python-project-template`, not in this repo.
   the `grep '## '` + awk idiom, `MAKEFLAGS += --no-print-directory`, then `sync`, `lint`, `format`,
   `typecheck`, `test`, `docs`, `nbstrip`. Keep the `##` comment as the only source of help text and
   the banner-comment sectioning.
-- Apply the Q1 answer uniformly - either a single `UV_RUN := uv run --no-sync` that every target
-  goes through, or `--with-editable` threaded through the run targets.
+- Route every code-running target through `UV_RUN := uv run --no-sync`. `sync` stays plain
+  `uv sync --all-extras --all-groups`; nothing else syncs implicitly.
 - Rewrite the `dev-<lib>` stub so its echo tells the truth: reverting is the default, not the
   opt-in. Add `undev` (plain `uv sync`) as the named way back.
 - Consider a `status`-style target that reports whether an internal dep currently resolves to its
   pinned tag or to a local path, since nothing else surfaces that.
-- Add a `docs/guides/makefile.md` in the template covering the targets and the auto-sync trap,
-  and link it from `mkdocs.yml`'s nav next to `uv.md` and `pre_commit.md`.
+- Add `docs/guides/makefile.md` in the template covering the targets and the auto-sync trap,
+  next to `uv.md` and `pre_commit.md`, and link it from `mkdocs.yml`'s nav. (The template keeps
+  mkdocs; abyss is the one deferring it - see Q4.)
 - Correct `linux-box-cloudflare/docs/git-tag-libraries.md`, which currently says "Running
   `uv sync` afterwards reverts to the pinned git tag" - implying only an explicit sync reverts.
   `kit-hub`, `media-downloader` and `laife` ship the affected targets and inherit the same bug.
@@ -57,5 +59,6 @@ Work lands in `python-project-template`, not in this repo.
 - `make lint`, `make typecheck`, `make test`, `make docs` all run in the template itself.
 - The scenario measured in `00_feature_inventory.md` is re-run against the new file: install a
   library editable, then run the Makefile's test target, and confirm the editable install is still
-  what resolves.
+  what resolves. Re-run it once more with a bare `uv run` to confirm the known hole behaves as
+  documented rather than as a surprise.
 - The guide page builds in `mkdocs`, and the `git-tag-libraries.md` correction is in.

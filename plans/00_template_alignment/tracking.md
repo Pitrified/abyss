@@ -19,20 +19,29 @@ Analysis and decisions in [`00_feature_inventory.md`](00_feature_inventory.md).
   `repomgr/scratch_space/08-release-command/00_start.md`. pose-tools `v0.1.0` is cut by hand.
 - **Growing abyss's own features is a separate initiative** -
   [`../01_abyss_expansion/00_start.md`](../01_abyss_expansion/00_start.md).
+- **Q1-Q6 answered 2026-08-10** (see the bootstrap file for the full text): `--no-sync` in the
+  Makefile; diff-upstream-delete against pose-tools; migrate `src/` rather than regenerate; no
+  mkdocs and no Pages workflow, just a plain `docs/` with `guides/` and `library/`; no `AGENTS.md`
+  or `.github/agents/`, only `copilot-instructions.md` + the `CLAUDE.md` one-liner; keep both
+  `scratch_space/` and `plans/`.
+- **Build only what has a caller.** The params/config layer comes across, but only the branches in
+  use now - no speculative env types, path entries, or config models.
+- **This box has no Nvidia GPU and no display.** mediapipe defaults to the CPU delegate and its
+  wheel has no CUDA build, so nothing changes there; but `cv.imshow` paths cannot run here, which
+  constrains how phase 4 verifies the notebook.
 
 ## Phases
 
 | #  | Phase                              | Plan                                                        | Status  |
 | -- | ---------------------------------- | ----------------------------------------------------------- | ------- |
-| 1  | Makefile into the template         | [`01_template_makefile.md`](01_template_makefile.md)         | draft   |
+| 1  | Makefile into the template         | [`01_template_makefile.md`](01_template_makefile.md)         | planned |
 | 2  | pose-tools v0.1.0 + repomgr roles  | [`02_pose_tools_release.md`](02_pose_tools_release.md)       | planned |
 | 3  | abyss tooling migration            | [`03_abyss_tooling.md`](03_abyss_tooling.md)                 | planned |
-| 4  | dedupe against pose-tools          | [`04_dedupe_and_params.md`](04_dedupe_and_params.md)         | draft   |
-| 5  | docs and agent instructions        | [`05_docs_and_agents.md`](05_docs_and_agents.md)             | draft   |
+| 4  | dedupe against pose-tools          | [`04_dedupe_and_params.md`](04_dedupe_and_params.md)         | planned |
+| 5  | docs and agent instructions        | [`05_docs_and_agents.md`](05_docs_and_agents.md)             | planned |
 
 Status values: draft / planned / in progress / done / superseded / discarded.
-Phase 1 is `draft` because Q1 (`--no-sync` vs `--with-editable`) has to be answered before it can
-be written. Phases 4 and 5 are `draft` pending Q2/Q3 and Q4/Q5/Q6 respectively.
+All five are `planned`: the six open questions that gated phases 1, 4 and 5 are answered.
 
 Phases 1 and 2 touch other repos (`python-project-template`, `pose-tools`, `repomgr`,
 `linux-box-cloudflare`); only 3-5 are commits in `abyss`.
@@ -58,3 +67,8 @@ Append-only. Newest at the bottom.
   `pose-tools` - but with no `roles`, so they are fetch-only.
 - 2026-08-10 : confirmed mediapipe is not a blocker for Python 3.14 - `pose-tools`' lock resolves
   `mediapipe 0.10.33` as a `py3-none` wheel. Split the effort into the five phases above.
+- 2026-08-10 : Q1-Q6 answered and folded into the phase plans. Phase 5 shrank considerably (no
+  mkdocs, no Pages workflow, no agents folder), so phase 3 also drops the `docs` dependency group.
+  Checked the two environment constraints raised: no `nvidia-smi` on this box, but mediapipe
+  defaults to the CPU delegate and neither repo sets `delegate`, so it is a no-op; `DISPLAY` is
+  unset, which does bite - `utils/cv.py:cv_imshow_rgb` and `tests/video/camera.py` cannot run here.

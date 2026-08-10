@@ -1,5 +1,5 @@
 ---
-status: draft
+status: planned
 ---
 
 # Phase 4 - dedupe against pose-tools
@@ -9,9 +9,9 @@ status: draft
 Removes the half of `src/abyss/` that `pose-tools` already carries, so there is one implementation
 of each utility rather than two drifting copies. This is the phase the whole reboot exists for.
 
-Draft: depends on **Q2** (code disposition) and **Q3** (rewrite vs migrate) in
-[`00_feature_inventory.md`](00_feature_inventory.md). The plan below assumes the proposed answers -
-diff first, upstream anything unique, then delete - and needs rewriting if either answer changes.
+Q2 and Q3 are answered: **diff first, upstream anything unique, then delete** - and
+**migrate rather than regenerate**. The `src/abyss/` scaffold stays; only the duplicated modules
+leave. No renamer run, no wholesale `git rm -r src/`.
 
 Depends on phase 3 (the pose-tools dep must already be declared and installable).
 
@@ -34,10 +34,15 @@ Depends on phase 3 (the pose-tools dep must already be declared and installable)
   rename: abyss's `landmarker/` is `landmark/` in pose-tools.
 - Delete `utils/data.py` outright. `get_resource()` is a hand-rolled path registry with a
   `Literal` of five keys and an implicit `None` return on unknown input; the params layer added in
-  phase 3 replaces it. The two paths it knows that pose-tools' paths do not
-  (`~/data/3d_models`, `~/data/pose`) become entries in `AbyssPaths`.
+  phase 3 replaces it. Port **only the branches something actually uses** - of its five keys, carry
+  over the ones with a live caller and drop the rest rather than transcribing all five into
+  `AbyssPaths`. Same rule for env types and config models: no speculative entries, add them when a
+  caller appears.
 - Update `notebooks/sample01.ipynb` to the new imports and re-run it end to end. It is the only
   executable proof that the swap preserved behaviour, since there are no tests over this code.
+  Caveat from phase 3: this box is headless, so any cell that opens an OpenCV window cannot run
+  here - convert those to matplotlib/inline output or file writes, or run the notebook on a
+  machine with a display.
 - Whatever remains in `src/abyss/` after this is, by definition, abyss's own - which is the input
   to the expansion initiative, not a decision to take here.
 
@@ -52,6 +57,6 @@ Depends on phase 3 (the pose-tools dep must already be declared and installable)
 
 - No file under `src/abyss/` has a same-purpose counterpart in `pose_tools`.
 - `uv run ruff check .`, `uv run pyright` and `uv run pytest` still pass.
-- `notebooks/sample01.ipynb` runs top to bottom against the installed `pose-tools`, and its output
-  is stripped before commit.
+- `notebooks/sample01.ipynb` runs top to bottom against the installed `pose-tools` (headless, so
+  no `cv.imshow` cells), and its output is stripped before commit.
 - If anything was upstreamed: a new pose-tools tag exists and abyss's pin points at it.

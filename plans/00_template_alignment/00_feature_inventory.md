@@ -83,12 +83,12 @@ Scan across 32 sibling repos. "Modern set" = the 11 repos fully on the template
 | 3 | **pyright** | `[tool.pyright]` with `venvPath`/`venv`, `include = ["src", "tests"]` | 11/11 | **port** |
 | 4 | **pre-commit** | ruff check+format, pyright, uv-lock, nbstripout `--verify`, detect-secrets, standard hygiene hooks | 11/11 | **port** - nbstripout matters, abyss has a notebook |
 | 5 | **detect-secrets** | `.secrets.baseline` | 11/11 | port with #4 (low value here, but it is what the pre-commit config expects) |
-| 6 | **mkdocs-material + api-autonav** | `mkdocs.yml`, `docs/{index,getting-started,contributing}.md`, `docs/guides/{uv,pre_commit,params_config}.md` | 11/11 | **open pick** - is abyss a library people read docs for, or an app? |
-| 7 | **GH Actions `docs.yml`** | builds/deploys docs to Pages | 11/11 | ride on #6 |
+| 6 | **mkdocs-material + api-autonav** | `mkdocs.yml`, `docs/{index,getting-started,contributing}.md`, `docs/guides/{uv,pre_commit,params_config}.md` | 11/11 | **deferred (Q4)** - plain `docs/{guides,library}/` markdown instead, no site build |
+| 7 | **GH Actions `docs.yml`** | builds/deploys docs to Pages | 11/11 | **deferred (Q4)** with mkdocs |
 | 8 | **params/config pattern** | `params/` singleton `<Proj>Params` + `<Proj>Paths` + `env_type.py` + `load_env.py` (creds at `~/cred/<proj>/.env`), `config/` pydantic `BaseModelKwargs` models, `metaclasses/singleton.py` | 11/11 | **port** - replaces abyss's hand-rolled `utils/data.py:get_resource` |
 | 9 | **`.github/copilot-instructions.md` + `CLAUDE.md` one-liner import** | single source of agent instructions | 11/11 copilot; CLAUDE.md in only 2 of them (`lang-tools`, `lang-tutor`) | **port both** (per global convention) |
-| 10 | **`.github/agents/` + `AGENTS.md`** | 6 agent definitions (meta, docs, dev-plan, dev-prototype, dev-implementation, test) | 11/11 | **open pick** - useful, but is it noise for a small project? |
-| 11 | **`scratch_space/`** | prototyping notebooks + feature notes, template's own convention | 11/11 | **open pick** - we chose `plans/` (controcanto/epub-fixer style) for planning; scratch_space would be for throwaway notebooks only. Possible overlap, decide one. |
+| 10 | **`.github/agents/` + `AGENTS.md`** | 6 agent definitions (meta, docs, dev-plan, dev-prototype, dev-implementation, test) | 11/11 | **declined (Q5)** - `copilot-instructions.md` + `CLAUDE.md` only |
+| 11 | **`scratch_space/`** | prototyping notebooks + feature notes, template's own convention | 11/11 | **keep both (Q6)** - `scratch_space/` for throwaway prototyping, `plans/` for decisions that outlive a session |
 | 12 | **pytest (+ pytest-asyncio), `tests/conftest.py`** | real test tree mirroring `src/` | 11/11 | **port** - abyss has zero tests; `tests/video/camera.py` is a manual script and should move to `scripts/` |
 | 13 | **notebook group** | ipykernel, ipywidgets, nbformat, nbstripout, rich, tqdm | 11/11 | **port** - abyss is notebook-driven |
 | 14 | **Typer CLI** | `[project.scripts]` entry point | 1/11 (`repomgr`; also `controcanto` and the template) | **skip for now** - no CLI need stated |
@@ -316,26 +316,32 @@ Three phases, in order:
   `--with-editable` on every invocation is stateless and cannot be reverted, but has to be threaded
   through every entry point and leaves the base env on the pinned tag. This shapes the template
   Makefile, so it is the one answer phase 1 cannot start without.
-  ANS: ...
+  ANS: **`--no-sync`.** Accepted residual hole: the editor and a bare `uv run` in a terminal can
+  still revert the env behind you; only `make` targets are protected, so `dev-<lib>` must say so.
 - Q2: **Code disposition for `src/abyss/`.** (a) delete `{utils,video,landmarker}` and import from
   `pose_tools`; (b) keep them, port tooling only - fastest, locks in the duplication; (c) diff each
   module, push anything abyss has that pose-tools lacks *into* pose-tools, then delete.
   Proposal: (c) then (a). The pose-tools versions are uniformly larger, so (c) is likely small.
-  ANS: ...
+  ANS: **(c) then (a)**, as recommended - diff first, upstream anything unique, then delete.
 - Q3: **Rewrite or migrate?** 563 lines, mostly duplicated: `git rm -r src/` and regenerate from
   the template renamer, or edit in place? Proposal: regenerate, keeping the notebook and the
   README intent.
-  ANS: ...
+  ANS: **Migrate.** Keep the existing `src/` scaffold and trim what is duplicated. No renamer run,
+  no wholesale delete: the tree stays, the duplicated modules leave.
 - Q4: **Docs** (#6, #7). mkdocs-material + the `docs.yml` Pages workflow, or skip until abyss has
   an API worth reading? 11/11 siblings have it, but abyss is an app, not a library.
-  ANS: ...
+  ANS: **Defer mkdocs and the GitHub Actions workflow.** Keep a plain `docs/` tree with `guides/`
+  and `library/` subfolders (the `repomgr` shape) - markdown read in the repo, no site build.
+  Nothing stops mkdocs being added later over the same files.
 - Q5: **Agents** (#10). Full `.github/agents/` set of six plus `AGENTS.md`, or just
   `copilot-instructions.md` + the `CLAUDE.md` one-liner?
-  ANS: ...
+  ANS: **Just `.github/copilot-instructions.md` + the `CLAUDE.md` one-liner.** No `AGENTS.md`,
+  no `.github/agents/`.
 - Q6: **`scratch_space/` alongside `plans/`** (#11). The template convention is `scratch_space/`;
   this initiative already chose `plans/`. Keep both with a split role (scratch = throwaway
   notebooks, plans = decisions), or drop one?
-  ANS: ...
+  ANS: **Keep both**, with the split role: `scratch_space/` for throwaway prototyping,
+  `plans/` for decisions that outlive a session.
 
 ## Rejected already
 
