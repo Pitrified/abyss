@@ -37,14 +37,14 @@ Analysis and decisions in [`00_feature_inventory.md`](00_feature_inventory.md).
 
 | #  | Phase                              | Plan                                                        | Status  |
 | -- | ---------------------------------- | ----------------------------------------------------------- | ------- |
-| 1  | Makefile into the template         | [`01_template_makefile.md`](01_template_makefile.md)         | planned |
+| 1  | Makefile into the template         | [`01_template_makefile.md`](01_template_makefile.md)         | done    |
 | 2  | pose-tools v0.1.0 + repomgr roles  | [`02_pose_tools_release.md`](02_pose_tools_release.md)       | planned |
 | 3  | abyss tooling migration            | [`03_abyss_tooling.md`](03_abyss_tooling.md)                 | planned |
 | 4  | dedupe against pose-tools          | [`04_dedupe_and_params.md`](04_dedupe_and_params.md)         | planned |
 | 5  | docs and agent instructions        | [`05_docs_and_agents.md`](05_docs_and_agents.md)             | planned |
 
 Status values: draft / planned / in progress / done / superseded / discarded.
-All five are `planned`: the six open questions that gated phases 1, 4 and 5 are answered.
+The six open questions that gated phases 1, 4 and 5 are answered.
 
 Phases 1 and 2 touch other repos (`python-project-template`, `pose-tools`, `repomgr`,
 `linux-box-cloudflare`); only 3-5 are commits in `abyss`.
@@ -85,4 +85,15 @@ Append-only. Newest at the bottom.
   documents the split); phase 5 claimed to be "roughly three files"; and phase 2's exit criterion
   assumed `repomgr status` shows roles, replaced with a `dep-graph` check that is honestly marked
   as verifiable only after phase 3.
+- 2026-08-10 : phase 1 done. `Makefile` + `docs/guides/makefile.md` committed to
+  `python-project-template` on `feat/makefile` (e6f739c), nav updated. Re-ran the editable
+  experiment against the real file: `make test` holds the local checkout across repeated runs, a
+  bare `uv run` reverts as documented, `make undev` reverts on purpose. Added `check` (lint +
+  typecheck + test) and `docs-build` (`mkdocs build --strict`) beyond the lifted core; skipped the
+  `status`-style "tag or local path" target as speculative, since `make dev-<lib>` now warns
+  loudly instead. Template `make lint`/`typecheck`/`docs-build` are clean;
+  `tests/config/test_env_vars.py` fails for want of `~/cred/project-name/.env`, which is
+  pre-existing and unrelated. Corrected `linux-box-cloudflare/docs/git-tag-libraries.md` on
+  `docs/uv-no-sync` (3326d0e), including a note that kit-hub/media-downloader/laife ship the old
+  unprotected targets.
 

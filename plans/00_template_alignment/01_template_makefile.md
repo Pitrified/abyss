@@ -1,5 +1,5 @@
 ---
-status: planned
+status: done
 ---
 
 # Phase 1 - Makefile into python-project-template
