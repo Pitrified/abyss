@@ -9,7 +9,7 @@ status: planned
 The remaining template features, all documentation rather than code. Last because none of it is
 worth writing until the source has stopped moving in phase 4.
 
-Q4, Q5 and Q6 are answered, and they shrink this phase to roughly three files:
+Q4, Q5 and Q6 are answered, and they cut this phase down considerably:
 **no mkdocs and no Pages workflow** (plain `docs/` with `guides/` and `library/` instead),
 **no `AGENTS.md` and no `.github/agents/`** (just `copilot-instructions.md` and the `CLAUDE.md`
 one-liner), and **both `scratch_space/` and `plans/` are kept** with distinct roles.
@@ -34,8 +34,9 @@ one-liner), and **both `scratch_space/` and `plans/` are kept** with distinct ro
     `repomgr` shape.
   - Write them as ordinary files that mkdocs could later consume unchanged, so deferring the site
     build costs nothing if it is added in the expansion.
-- **`scratch_space/`** with a `.gitkeep`, for throwaway prototyping notebooks. `plans/` keeps
-  decisions that outlive a session. Say which is which in the README so the split does not rot.
+- **Document the `scratch_space/` vs `plans/` split** in the README (the folders themselves are
+  created in phase 3): `scratch_space/` for throwaway prototyping notebooks, `plans/` for decisions
+  that outlive a session. Writing it down is what stops the split rotting.
 - **README rewrite.** The current three lines state the goal ("compute the position of the viewer /
   of the screen / render the scene the viewer sees") and should survive verbatim, but the file needs
   install steps, the pose-tools relationship, and pointers to `plans/` and `docs/`.

@@ -1,5 +1,5 @@
 ---
-status: draft
+status: done
 ---
 
 # Template alignment - feature inventory
@@ -8,8 +8,9 @@ Goal of this initiative: bring `abyss` (last touched at the poetry era, 4 commit
 in line with `python-project-template` and with what the sibling repos actually run today,
 and decide what abyss keeps as its own code versus what it consumes from `pose-tools`.
 
-This file is the **menu**: what exists elsewhere, what abyss has, and the open picks.
-No decisions are final here - marks are proposals.
+This file is the analysis the phases were derived from: what exists elsewhere, what abyss has,
+and what was decided. Q1-Q6 below are answered; the answers are the decision record, and the work
+they produced lives in [`tracking.md`](tracking.md) and the `NN_*.md` sub-plans.
 
 ## Where abyss stands today
 
@@ -95,7 +96,7 @@ Scan across 32 sibling repos. "Modern set" = the 11 repos fully on the template
 | 15 | **FastAPI webapp scaffold** | `webapp/` routers/services/core, `fastapi-tools` extra, templates/static, CSP hardening | template + `fastapi-tools` consumers | **skip** - unless the "render the scene" output wants a browser view. Flag for later. |
 | 16 | **`data/`, `cache/`, `scripts/`, `static/` skeleton with `.gitkeep`** | conventional folders wired to `<Proj>Paths` | 11/11 | port with #8 |
 | 17 | **`.vscode/settings.json`** | shared editor + cSpell settings | 10/32, but of the modern set only the template | port, cheap |
-| 18 | **Depend on internal libs by git tag** | `<lib> @ git+https://github.com/Pitrified/<lib>@vX.Y.Z` | `kit-hub`, `media-downloader`, `lang-tools`, `laife` all consume `llm-core` this way | **the key decision** - see below |
+| 18 | **Depend on internal libs by git tag** | `<lib> @ git+https://github.com/Pitrified/<lib>@vX.Y.Z` | `kit-hub`, `media-downloader`, `lang-tools`, `laife` all consume `llm-core` this way | **decided** - pin the tag; see "Cutting the pose-tools tag" and Q1 for the local-dev half |
 | 19 | **`Makefile`** | self-documenting task runner over `uv run` | 7 repos, **not in the template** - see below | **port, and write it back to the template** |
 
 ## The one thing the template lacks: a Makefile

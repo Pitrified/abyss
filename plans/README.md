@@ -20,7 +20,8 @@ Work that surfaces mid-effort but is out of scope becomes a **sibling folder**, 
 
 ## Frontmatter
 
-Every markdown file in a plan folder carries the tracked-development style frontmatter:
+The bootstrap file and every phase sub-plan carry the tracked-development style frontmatter.
+`tracking.md` does not - it is the index, and the phases table is where status lives:
 
 ```yaml
 ---
@@ -29,4 +30,6 @@ status: draft   # draft | planned | in progress | done | superseded | discarded
 ```
 
 `draft` = brainstorm material, not yet the plan of record; `done` = decision taken or analysis closed;
-`in progress` = currently being implemented. The frontmatter and reality must agree.
+`in progress` = currently being implemented. A sub-plan's frontmatter and its row in `tracking.md`
+must agree with each other and with reality. The bootstrap file is `done` once its open questions
+are answered, and goes back to `draft` if a new batch is opened.

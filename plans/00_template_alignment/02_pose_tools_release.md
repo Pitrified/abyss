@@ -58,4 +58,6 @@ Then, in `linux-box-cloudflare/configs/repomgr/repos.toml`:
 
 - `git -C ~/repos/pose-tools tag` lists `v0.1.0`, annotated, and it is pushed.
 - A throwaway `uv pip install` from the tag URL succeeds.
-- `repomgr status` shows both repos with their roles and no health regression.
+- `repomgr status` runs clean with no health regression, and `repomgr dep-graph` shows `abyss`
+  depending on `pose-tools` - which only works once phase 3 has declared the dep, so this last
+  criterion is verified retroactively.

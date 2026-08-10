@@ -77,3 +77,12 @@ Append-only. Newest at the bottom.
   unset, which does bite - `utils/cv.py:cv_imshow_rgb` and `tests/video/camera.py` cannot run here.
 - 2026-08-10 : clarified Q3 - "migrate" meant do not regenerate the repo, not preserve abyss's
   modules. Imports change freely and no compatibility shims are kept; phase 4 says so explicitly.
+- 2026-08-10 : consistency pass over the folder. Fixed six drifts: the README claimed every file
+  carries status frontmatter (`tracking.md` does not); the bootstrap file still opened with "no
+  decisions are final here" and sat at `status: draft` with all six questions answered (now
+  `done`); the dependency table still called the git-tag pin "the key decision - see below";
+  `scratch_space/` was created in both phase 3 and phase 5 (phase 3 owns it, phase 5 only
+  documents the split); phase 5 claimed to be "roughly three files"; and phase 2's exit criterion
+  assumed `repomgr status` shows roles, replaced with a `dep-graph` check that is honestly marked
+  as verifiable only after phase 3.
+
