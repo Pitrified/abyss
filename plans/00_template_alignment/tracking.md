@@ -122,3 +122,12 @@ Append-only. Newest at the bottom.
   (2) abyss's poetry-era `.gitignore` ignored `*.ipynb`, fighting nbstripout; replaced with the
   sibling one. Also had to ignore `CPY001` - abyss resolved ruff 0.16.2 where siblings are on
   0.15.8, and the newer ruff enforces copyright notices that no repo in the fleet has.
+- 2026-08-10 : phase 4 all but done (a57f6c0). Deleted the eight duplicated modules and rewired the
+  notebook and camera script to `pose_tools`, no shims, empty packages removed. `src/abyss/` is now
+  `params/` + `metaclasses/` only. The upstream step was a no-op: `list_land_to_landlist` was the
+  sole unique symbol and it only existed to feed the mediapipe API that 1.0.0 deleted. Trimmed the
+  direct dependencies to what is actually imported - mediapipe and numpy are no longer among them,
+  matplotlib is (the notebook), opencv stays (the camera script). ruff, ruff format, pyright and
+  all 11 pre-commit hooks pass; 8 tests pass. **Open: the notebook has not been run end to end**,
+  for want of `~/data/pose/yoga01.mp4` and `~/.mediapipe/models/pose_landmarker.task`. The headless
+  constraint turned out not to be the blocker there - it draws via matplotlib, not cv.imshow.

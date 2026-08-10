@@ -1,5 +1,5 @@
 ---
-status: planned
+status: in progress
 ---
 
 # Phase 4 - dedupe against pose-tools
@@ -58,6 +58,21 @@ Depends on phase 3 (the pose-tools dep must already be declared and installable)
 - Restructuring what remains into a viewer/screen/render architecture - that is
   [`../01_abyss_expansion/00_start.md`](../01_abyss_expansion/00_start.md).
 - Improving pose-tools beyond accepting whatever abyss upstreams.
+
+## Outcome (2026-08-10)
+
+The diff pass found **nothing to upstream**, so the `v0.2.0` step did not happen. The one symbol
+abyss had that pose-tools lacks, `list_land_to_landlist`, converted landmarks into the protobuf
+`NormalizedLandmarkList` that the old `mediapipe.python.solutions.drawing_utils` required.
+pose-tools draws through `mediapipe.tasks.python.vision.drawing_utils`, which takes the landmarks
+directly - so the function is obsolete, not missing. mediapipe 1.0.0 removed the module it depended
+on outright, so it could not have run anyway.
+
+The notebook could not be executed end to end: `~/data/pose/yoga01.mp4` and
+`~/.mediapipe/models/pose_landmarker.task` are both absent on this box. What was verified instead
+is that every import in it resolves and that `ModelManager` fails with a clear, named error. The
+headless worry turned out to be smaller than expected - the notebook draws through matplotlib, not
+`cv.imshow`, so a display is not what blocks it. **Running it is the one open item of this phase.**
 
 ## Done when
 
