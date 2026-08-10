@@ -38,7 +38,7 @@ Analysis and decisions in [`00_feature_inventory.md`](00_feature_inventory.md).
 | #  | Phase                              | Plan                                                        | Status  |
 | -- | ---------------------------------- | ----------------------------------------------------------- | ------- |
 | 1  | Makefile into the template         | [`01_template_makefile.md`](01_template_makefile.md)         | done    |
-| 2  | pose-tools v0.1.0 + repomgr roles  | [`02_pose_tools_release.md`](02_pose_tools_release.md)       | planned |
+| 2  | pose-tools v0.1.0 + repomgr roles  | [`02_pose_tools_release.md`](02_pose_tools_release.md)       | in progress |
 | 3  | abyss tooling migration            | [`03_abyss_tooling.md`](03_abyss_tooling.md)                 | planned |
 | 4  | dedupe against pose-tools          | [`04_dedupe_and_params.md`](04_dedupe_and_params.md)         | planned |
 | 5  | docs and agent instructions        | [`05_docs_and_agents.md`](05_docs_and_agents.md)             | planned |
@@ -96,4 +96,15 @@ Append-only. Newest at the bottom.
   pre-existing and unrelated. Corrected `linux-box-cloudflare/docs/git-tag-libraries.md` on
   `docs/uv-no-sync` (3326d0e), including a note that kit-hub/media-downloader/laife ship the old
   unprotected targets.
+- 2026-08-10 : phase 2 taken to its manual step. `pose-tools` synced for the first time on this
+  box, which closed the last phase-3 risk empirically: python 3.14.4 + mediapipe 0.10.33 + cv2
+  4.13.0 all import. Its checks were run before tagging - ruff clean, pyright 0 errors, pytest
+  81 passed once `~/cred/pose-tools/.env` was created from the repo's own `nokeys.env` (the
+  documented setup step; the same test fails in the template for the same missing-file reason).
+  Added `[project.urls]` and `CHANGELOG.md`, committed as `chore: release v0.1.0` (9a613a1) and
+  tagged `v0.1.0` annotated. Every symbol named in the changelog was grepped against `src/`
+  before writing it. `repos.toml` roles set on `config/repomgr-roles` (0b6e5eb) and verified with
+  `repomgr status`, which now reports both repos (red only because they are ahead of upstream).
+  **Blocked: the user must run `git push origin main v0.1.0` in pose-tools.** Phase 3 cannot
+  declare the dep until that tag is reachable over https.
 
