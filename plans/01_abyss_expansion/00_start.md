@@ -5,12 +5,9 @@ status: draft
 # Abyss expansion - own functionality and the render layer
 
 Spun off from [`../00_template_alignment/00_feature_inventory.md`](../00_template_alignment/00_feature_inventory.md),
-which covers the reboot: tooling, and deduplication against `pose-tools`. That initiative
-deliberately stops at "abyss builds, lints, tests, and contains no duplicated code". Everything
-about what abyss *does* lives here.
-
-Not planned in phases yet - it starts when the template alignment is done and there is a clean
-repo to build in.
+which covered the reboot: tooling, and deduplication against `pose-tools`. That initiative is done
+and merged - the repo builds, lints, type-checks and tests, and `src/abyss/` holds only `params/`
+and `metaclasses/`. Everything about what abyss *does* lives here.
 
 ## What this is
 
@@ -20,40 +17,105 @@ The README states the goal, and it has not changed since the first commit:
 2. Compute the position of the screen.
 3. Render the scene the viewer sees on the screen.
 
-Step 1 is pose tracking, which `pose-tools` covers. Steps 2 and 3 are abyss's own, and step 3 -
-the render layer - does not exist in any form today.
+That is head-coupled perspective, the "fish tank VR" effect: the screen behaves like a window
+rather than a picture, because the projection is rebuilt from wherever the viewer's eye actually
+is. The maths at the end is an **off-axis (asymmetric) frustum** - given the eye position in the
+screen's coordinate frame, and the screen rectangle's corners, the projection matrix follows
+directly. That part is well-trodden and not where the risk lives.
 
-## The split with pose-tools
+The risk is upstream of it: getting a *metric* eye position out of a webcam, and knowing where the
+screen is relative to the camera. Steps 1 and 2 are the work; step 3 is the payoff.
 
-`pose-tools` is the **general** library: mediapipe landmarkers, video frame loading, landmark
-arrays with visibility masking, homography, landmark distance, signal tracking. It is shared with
-`climbing-wire` and `holo-table`, so nothing abyss-specific belongs there.
+## What already exists
 
-abyss adds its own functionality on top plus the render layer. The boundary test when something
-new is written: would `climbing-wire` want this? If yes it goes upstream to pose-tools; if it is
-about viewers, screens, or rendering a scene, it stays here.
+From `pose-tools` (pinned at `v0.2.1`):
 
-abyss's identity is an **output** of this initiative, not an input. It gets assessed as the
-functionality accumulates rather than declared up front.
+| Piece | Use here |
+| ----- | -------- |
+| `landmark.pose.PoseLandmarkerFrame` | body landmarks, including a rough head position |
+| `landmark.landmark_array.LandmarkArray` | numpy landmark container with visibility masking |
+| `geometry.signal_tracker.SignalTracker` | smoothing a noisy per-frame scalar - the viewer position will jitter, and jitter in a projection matrix is visible immediately |
+| `geometry.homography` | feature-matched homography between two images, plus `perspective_transform` |
+| `video.load` / `video.frame` | camera and file capture |
+| `landmark.model_manager.ModelManager` | resolves `.task` model files |
 
-## Known unknowns
+What is **missing**, and matters:
 
-Nothing here is decided; these are the questions this folder will have to open with.
+- **No face landmarker.** pose-tools wraps pose and hand only. MediaPipe's `FaceLandmarker`
+  supports `output_facial_transformation_matrixes`, i.e. a 4x4 head pose relative to the camera -
+  which is much closer to "where is the viewer's eye" than body landmarks are. If we go that way,
+  `pose_tools.landmark.face` is a prerequisite, and `ModelManager.MODEL_FILENAMES` needs a
+  `face_landmarker` entry. See Q1.
+- **No camera model.** Nothing anywhere knows the camera's focal length or field of view, and
+  without it pixel measurements cannot become distances.
+- **No renderer.** Nothing draws a 3D scene. `utils.plt` and `utils.cv` display images, that is all.
 
-- Screen geometry: is the screen pose known/calibrated up front, or recovered from the video?
-  `pose-tools` has `geometry/homography.py` and `geometry/landmark_geometry.py`, which is the
-  obvious starting material either way.
-- Render target: offline frames, a live OpenCV window, or a browser view. The last one would
-  reopen the FastAPI webapp scaffold question (#15 in the inventory), currently declined.
-- Whether any of this justifies a Typer CLI entry point (#14, also currently declined).
-- What "the scene" is: a 3D model rendered per viewpoint, or a reprojection of captured content.
-  the deleted `utils/data.py` knew a `~/data/3d_models` folder, which hints at the former. Nothing
-  reads it now - `AbyssPaths` deliberately dropped that entry - so it is a hint from history, not a
-  live path.
+`geometry.landmark_geometry` is currently a re-export shim over two functions in `utils.mediapipe`;
+treat it as a namespace to grow into, not as existing capability.
 
-## Prerequisites - all met as of 2026-08-10
+## Shape of the problem
 
-- Template alignment is done, all five phases. `make check` is green and `src/abyss/` is
-  `params/` + `metaclasses/` only.
-- `pose-tools` is pinned at a released tag. Bump the pin to `v0.2.0` before starting - see the
-  carried items in [`../00_template_alignment/tracking.md`](../00_template_alignment/tracking.md).
+Three coordinate frames have to be related:
+
+```text
+camera frame  --(intrinsics: FOV / focal length)-->  metric 3D
+   eye position measured here
+
+screen frame  --(rigid transform: where the screen is relative to the camera)-->  camera frame
+   projection is built here
+```
+
+The camera is typically clipped to the top of the screen, so the rigid transform is *nearly*
+identity plus an offset - which tempts a hardcoded guess. That guess is exactly what makes the
+effect feel wrong when the viewer moves off-centre, so it deserves an explicit answer (Q2).
+
+Scale is the subtle part. A monocular camera cannot recover absolute distance without a reference:
+either a known physical dimension (interpupillary distance is the usual choice, ~63 mm mean, but it
+varies per person), or a calibration step where the viewer sits at a measured distance once.
+MediaPipe's world landmarks are metric-ish but centred on the subject's hips, not the camera, so
+they do not hand us this for free.
+
+## Open questions
+
+- Q1: **Face landmarker or pose landmarker for the eye position?** Face gives a head-pose matrix and
+  eye landmarks directly, at the cost of adding `face.py` to pose-tools first. Pose is already
+  wrapped but its head landmarks are coarse for this purpose. A third option is both: pose to find
+  the person, face for the eye.
+  ANS: ...
+- Q2: **How do we learn the camera intrinsics and the screen geometry?** Options: measure by hand
+  and store in `AbyssParams` (simple, per-machine, no code); a one-off checkerboard calibration
+  with OpenCV (accurate, more machinery); or assume a nominal FOV and screen size and accept the
+  error. This decides whether a calibration phase exists at all.
+  ANS: ...
+- Q3: **What renders, and where?** Offline frames to a file, a live OpenCV window, or a browser
+  view. This box is headless and CPU-only, so a live window cannot be developed or demoed here -
+  whatever we pick, the loop has to be verifiable without a display. A browser target would reopen
+  the FastAPI scaffold question (#15 in the reboot inventory), currently declined.
+  ANS: ...
+- Q4: **What is "the scene"?** A 3D model rendered per viewpoint (needs a real renderer - moderngl,
+  pyrender, or three.js in a browser), or layered 2D parallax (much cheaper, and enough to prove the
+  effect), or a reprojection of captured content. The deleted `utils/data.py` knew a
+  `~/data/3d_models` folder, which hints at the first - but nothing reads it now.
+  ANS: ...
+- Q5: **Real-time, or offline-first?** Offline - process a recorded clip, write annotated frames -
+  is far easier to test and works headless. Real-time is the actual goal and imposes a latency
+  budget on CPU-only inference. The phases below assume offline first; say if that is wrong.
+  ANS: ...
+- Q6: **One eye or two?** A single cyclopean eye is the standard simplification and is what the
+  README implies. Stereo would need a display capable of it, so this is likely a no - worth
+  recording as a decision rather than an omission.
+  ANS: ...
+
+## The boundary with pose-tools
+
+Unchanged, and it governs where new code goes: would `climbing-wire` want it? A face landmarker
+wrapper, a camera-intrinsics model, landmark smoothing - general, so upstream. A screen model, an
+off-axis frustum, a scene renderer - abyss's own.
+
+`pose-tools` must never import `abyss`.
+
+## Phases
+
+Sketched in [`tracking.md`](tracking.md), all `draft` until the questions above are answered.
+The sequencing principle is that each phase should be verifiable headless, on a recorded clip,
+before anything depends on a live camera and a screen.
