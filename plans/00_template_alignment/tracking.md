@@ -107,4 +107,3 @@ Append-only. Newest at the bottom.
   `repomgr status`, which now reports both repos (red only because they are ahead of upstream).
   **Blocked: the user must run `git push origin main v0.1.0` in pose-tools.** Phase 3 cannot
   declare the dep until that tag is reachable over https.
-
