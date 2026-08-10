@@ -47,9 +47,13 @@ Nothing here is decided; these are the questions this folder will have to open w
   reopen the FastAPI webapp scaffold question (#15 in the inventory), currently declined.
 - Whether any of this justifies a Typer CLI entry point (#14, also currently declined).
 - What "the scene" is: a 3D model rendered per viewpoint, or a reprojection of captured content.
-  `utils/data.py` referenced a `~/data/3d_models` folder, which hints at the former.
+  the deleted `utils/data.py` knew a `~/data/3d_models` folder, which hints at the former. Nothing
+  reads it now - `AbyssPaths` deliberately dropped that entry - so it is a hint from history, not a
+  live path.
 
-## Prerequisites
+## Prerequisites - all met as of 2026-08-10
 
-- Template alignment phases 3-4 done: the repo builds, and `src/abyss/` contains only abyss code.
-- `pose-tools` pinned at a released tag, so its API is a fixed target rather than a moving one.
+- Template alignment is done, all five phases. `make check` is green and `src/abyss/` is
+  `params/` + `metaclasses/` only.
+- `pose-tools` is pinned at a released tag. Bump the pin to `v0.2.0` before starting - see the
+  carried items in [`../00_template_alignment/tracking.md`](../00_template_alignment/tracking.md).

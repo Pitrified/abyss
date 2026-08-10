@@ -38,14 +38,20 @@ Analysis and decisions in [`00_feature_inventory.md`](00_feature_inventory.md).
 | #  | Phase                              | Plan                                                        | Status  |
 | -- | ---------------------------------- | ----------------------------------------------------------- | ------- |
 | 1  | Makefile into the template         | [`01_template_makefile.md`](01_template_makefile.md)         | done    |
-| 2  | pose-tools v0.1.0 + repomgr roles  | [`02_pose_tools_release.md`](02_pose_tools_release.md)       | in progress |
+| 2  | pose-tools v0.1.0 + repomgr roles  | [`02_pose_tools_release.md`](02_pose_tools_release.md)       | done    |
 | 3  | abyss tooling migration            | [`03_abyss_tooling.md`](03_abyss_tooling.md)                 | done    |
 | 4  | dedupe against pose-tools          | [`04_dedupe_and_params.md`](04_dedupe_and_params.md)         | done    |
 | 5  | docs and agent instructions        | [`05_docs_and_agents.md`](05_docs_and_agents.md)             | done    |
 
 Status values: draft / planned / in progress / done / superseded / discarded.
-All five phases are done. The one item carried out of phase 4 is running
-`notebooks/sample01.ipynb` end to end, which needs data this box does not have.
+All five phases are done. Two items are carried out of the initiative, neither blocking:
+
+1. **Bump the pose-tools pin to `v0.2.0`** once that tag is pushed. `repomgr status` already
+   reports `abyss: deps behind: pose-tools`. Behaviour does not change - abyss resolves mediapipe
+   1.0.0 under either pin - so this is the declaration catching up with reality.
+2. **Run `notebooks/sample01.ipynb` end to end.** It needs `~/data/pose/yoga01.mp4` and
+   `~/.mediapipe/models/pose_landmarker.task`, neither of which exists on this box. Until then the
+   pose-tools swap is verified by imports and type checks, not by behaviour.
 
 Phases 1 and 2 touch other repos (`python-project-template`, `pose-tools`, `repomgr`,
 `linux-box-cloudflare`); only 3-5 are commits in `abyss`.
@@ -150,3 +156,8 @@ Append-only. Newest at the bottom.
   Also drafted the CPY001 issue for `python-project-template`
   (`scratch_space/issue_ruff_cpy001.md`, branch `chore/ruff-cpy001`): ruff 0.16 stabilised the rule,
   so `select = ALL` fails 49 files there on a fresh resolve while the committed lock hides it.
+- 2026-08-10 : closed phase 2 - its blocking push landed, and its exit criteria now verify:
+  `v0.1.0` is on the remote, abyss resolves the dep from the tag, and `repomgr dep-graph` prints
+  `abyss (consumer) <- pose-tools`. repomgr also reports `abyss: deps behind: pose-tools` off its
+  own bat, having noticed the local v0.2.0 tag. Refreshed the expansion folder's prerequisites,
+  which are now all met, and its stale reference to the deleted `utils/data.py`.

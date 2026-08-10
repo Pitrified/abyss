@@ -1,5 +1,5 @@
 ---
-status: in progress
+status: done
 ---
 
 # Phase 2 - cut pose-tools v0.1.0 and wire up repomgr roles
@@ -53,11 +53,6 @@ Then, in `linux-box-cloudflare/configs/repomgr/repos.toml`:
   Both are noted in the spin-off.
 - Any change to pose-tools' source. If phase 4 finds abyss has code pose-tools lacks, that lands
   in a later `v0.2.0`, not in this tag.
-
-## Blocked on
-
-`git push origin main v0.1.0` in `pose-tools`, which only the user can run - this box has no
-GitHub credentials. Everything else in this phase is committed locally.
 
 ## Done when
 
