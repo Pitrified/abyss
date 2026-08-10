@@ -141,3 +141,12 @@ Append-only. Newest at the bottom.
   `dev-<lib>` at pose-tools.
   **Reboot complete**: `make check` green, all 11 pre-commit hooks green, `src/abyss/` down to
   `params/` + `metaclasses/` from the 8 duplicated modules it started with.
+- 2026-08-10 : post-reboot follow-ups. `pose-tools` bumped to `mediapipe>=1.0` and locked 1.0.0,
+  released as v0.2.0 (1035031, tagged locally, push pending). No source change was needed - it
+  already drew through `mediapipe.tasks` - and ruff/pyright/81 tests pass on 1.0.0, though the
+  suite never constructs a landmarker, so inference itself is still unproven here. **abyss stays
+  pinned at v0.1.0 until that tag is pushed**; bumping first would break `uv sync`. Note abyss
+  already resolves mediapipe 1.0.0 either way, so the pin bump is about honesty, not behaviour.
+  Also drafted the CPY001 issue for `python-project-template`
+  (`scratch_space/issue_ruff_cpy001.md`, branch `chore/ruff-cpy001`): ruff 0.16 stabilised the rule,
+  so `select = ALL` fails 49 files there on a fresh resolve while the committed lock hides it.
