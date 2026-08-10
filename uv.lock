@@ -17,12 +17,9 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "loguru" },
-    { name = "mediapipe" },
-    { name = "numpy" },
+    { name = "matplotlib" },
     { name = "opencv-contrib-python" },
     { name = "pose-tools" },
-    { name = "pydantic" },
-    { name = "python-dotenv" },
 ]
 
 [package.dev-dependencies]
@@ -60,12 +57,9 @@ test = [
 [package.metadata]
 requires-dist = [
     { name = "loguru", specifier = ">=0.7.3" },
-    { name = "mediapipe", specifier = ">=0.10" },
-    { name = "numpy", specifier = ">=2.0" },
+    { name = "matplotlib", specifier = ">=3.9" },
     { name = "opencv-contrib-python", specifier = ">=4.10" },
     { name = "pose-tools", git = "https://github.com/Pitrified/pose-tools?rev=v0.1.0" },
-    { name = "pydantic", specifier = ">=2.0" },
-    { name = "python-dotenv", specifier = ">=1.0" },
 ]
 
 [package.metadata.requires-dev]

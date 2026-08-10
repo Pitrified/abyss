@@ -4,8 +4,7 @@ Manual script: needs a camera and a display, so it cannot run headless.
 """
 
 import cv2 as cv
-
-from abyss.video.load import VideoFrameIterator
+from pose_tools.video.load import VideoFrameIterator
 
 
 def show_camera_feed(max_frame_count: int = 20) -> None:
