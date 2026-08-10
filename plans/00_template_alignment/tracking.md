@@ -39,8 +39,8 @@ Analysis and decisions in [`00_feature_inventory.md`](00_feature_inventory.md).
 | -- | ---------------------------------- | ----------------------------------------------------------- | ------- |
 | 1  | Makefile into the template         | [`01_template_makefile.md`](01_template_makefile.md)         | done    |
 | 2  | pose-tools v0.1.0 + repomgr roles  | [`02_pose_tools_release.md`](02_pose_tools_release.md)       | in progress |
-| 3  | abyss tooling migration            | [`03_abyss_tooling.md`](03_abyss_tooling.md)                 | planned |
-| 4  | dedupe against pose-tools          | [`04_dedupe_and_params.md`](04_dedupe_and_params.md)         | planned |
+| 3  | abyss tooling migration            | [`03_abyss_tooling.md`](03_abyss_tooling.md)                 | done    |
+| 4  | dedupe against pose-tools          | [`04_dedupe_and_params.md`](04_dedupe_and_params.md)         | in progress |
 | 5  | docs and agent instructions        | [`05_docs_and_agents.md`](05_docs_and_agents.md)             | planned |
 
 Status values: draft / planned / in progress / done / superseded / discarded.
@@ -107,3 +107,18 @@ Append-only. Newest at the bottom.
   `repomgr status`, which now reports both repos (red only because they are ahead of upstream).
   **Blocked: the user must run `git push origin main v0.1.0` in pose-tools.** Phase 3 cannot
   declare the dep until that tag is reachable over https.
+- 2026-08-10 : phase 3 done (e511328, b8d6143). uv + hatchling + 3.14, ruff/pyright/pre-commit,
+  the folder skeleton, the Makefile, `AbyssParams`/`AbyssPaths` and 8 tests. Trimmed harder than
+  the plan said: no `env_type` (LOCAL/RENDER is meaningless for a desktop app), no `load_env`, no
+  `config/` or `data_models/` - nothing had a caller - which also dropped pydantic and
+  python-dotenv from the direct deps. `AbyssPaths` adds only `pose_fol`, because pose-tools'
+  `ModelManager` already resolves the mediapipe model paths.
+  Two surprises. (1) **mediapipe resolved to 1.0.0**, not the 0.10.33 pose-tools locked, because
+  pose-tools' constraint is `>=0.10`. 1.0.0 removed `mediapipe.python.solutions.*` and
+  `framework.formats.landmark_pb2`, so abyss's 2023 `utils/mediapipe.py` and `landmarker/drawing.py`
+  are dead code against it - all 10 pyright errors are there. Every pose-tools module imports fine
+  under 1.0.0 and its suite passes (80/81, the one failure being a path test resolving against
+  site-packages). Worth deciding separately whether pose-tools should cap mediapipe.
+  (2) abyss's poetry-era `.gitignore` ignored `*.ipynb`, fighting nbstripout; replaced with the
+  sibling one. Also had to ignore `CPY001` - abyss resolved ruff 0.16.2 where siblings are on
+  0.15.8, and the newer ruff enforces copyright notices that no repo in the fleet has.
