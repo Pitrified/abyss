@@ -54,8 +54,14 @@ Sketch of each, to be replaced by real sub-plans once the questions land:
 Append-only. Newest at the bottom.
 
 - 2026-08-11 : bootstrapped the initiative after the reboot merged to `main`. Surveyed what
-  `pose-tools@v0.2.1` provides and what is missing: no face landmarker (MediaPipe's
+  `pose-tools@v0.2.1` provided and what is missing: no face landmarker (MediaPipe's
   `FaceLandmarker` does expose `output_facial_transformation_matrixes`, i.e. head pose relative to
   the camera, which pose-tools does not wrap), no camera model, no renderer. Checked `holo-table`
   for prior art since the name suggested overlap - it is pinch-gesture streaming over a socket,
   nothing to reuse here. Framed the problem as three coordinate frames and wrote Q1-Q6.
+- 2026-08-13 : repinned pose-tools to `v0.3.0`, after a cleanup pass over that repo
+  (`pose-tools/scratch_space/02_cleanup/`) removed the `geometry.landmark_geometry` shim, the
+  `load_env()` import side effect, and the whole template config scaffold. Nothing abyss imports
+  was touched: all 7 symbols still resolve, `import pose_tools` no longer reads
+  `~/cred/pose-tools/.env`, and `make check` is green. Established as a rule that abyss imports
+  pose-tools symbols from where they are defined, never through a re-export module.

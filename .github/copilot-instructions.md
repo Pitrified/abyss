@@ -20,7 +20,7 @@ The package name is `abyss` throughout the source.
 | Drawing landmarks on a frame            | `pose_tools.landmark.drawing`                               |
 | Landmark arrays, visibility, distances  | `pose_tools.landmark.landmark_array` / `.distance`          |
 | Video frames and iteration              | `pose_tools.video.frame` / `.load`                          |
-| Homography, landmark geometry, tracking | `pose_tools.geometry.*`                                     |
+| Homography and signal tracking          | `pose_tools.geometry.*`                                     |
 | OpenCV / matplotlib display helpers     | `pose_tools.utils.cv` / `.plt`                              |
 | MediaPipe result conversions            | `pose_tools.utils.mediapipe`                                |
 

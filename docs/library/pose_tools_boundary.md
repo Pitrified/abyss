@@ -25,7 +25,8 @@ pose-tools had already moved to `mediapipe.tasks.python.vision`, and kept workin
 | Landmark arrays and visibility masking   | `pose_tools.landmark.landmark_array`               |
 | Landmark distances                       | `pose_tools.landmark.distance`                     |
 | Frames, video iteration and loading      | `pose_tools.video.frame`, `.load`                  |
-| Homography and landmark geometry         | `pose_tools.geometry.homography`, `.landmark_geometry` |
+| Homography                               | `pose_tools.geometry.homography`                   |
+| Normalized / pixel coordinate conversion | `pose_tools.utils.mediapipe`                       |
 | Smoothing noisy per-frame signals        | `pose_tools.geometry.signal_tracker`               |
 | OpenCV and matplotlib display helpers    | `pose_tools.utils.cv`, `.plt`                      |
 | MediaPipe result conversions             | `pose_tools.utils.mediapipe`                       |

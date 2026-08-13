@@ -28,7 +28,7 @@ screen is relative to the camera. Steps 1 and 2 are the work; step 3 is the payo
 
 ## What already exists
 
-From `pose-tools` (pinned at `v0.2.1`):
+From `pose-tools` (pinned at `v0.3.0`):
 
 | Piece | Use here |
 | ----- | -------- |
@@ -50,8 +50,11 @@ What is **missing**, and matters:
   without it pixel measurements cannot become distances.
 - **No renderer.** Nothing draws a 3D scene. `utils.plt` and `utils.cv` display images, that is all.
 
-`geometry.landmark_geometry` is currently a re-export shim over two functions in `utils.mediapipe`;
-treat it as a namespace to grow into, not as existing capability.
+`geometry.landmark_geometry` used to be a re-export shim over two functions in `utils.mediapipe`.
+It was deleted in pose-tools v0.3.0, along with the template config scaffold and the `load_env()`
+import side effect - see `pose-tools/scratch_space/02_cleanup/`. Coordinate conversion lives in
+`utils.mediapipe`; import it from there. No shims: nothing gets routed through a namespace to
+justify the namespace.
 
 ## Shape of the problem
 
