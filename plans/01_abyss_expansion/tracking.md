@@ -43,7 +43,7 @@ here, so phase 1 is unblocked.
 | #  | Phase                          | Plan | Status |
 | -- | ------------------------------ | ---- | ------ |
 | 0  | face landmarker in pose-tools  | tracked in pose-tools | done, shipped as v0.4.0 |
-| 1  | viewer position from a clip    | -    | planned |
+| 1  | viewer position from a clip    | [`01_viewer_position.md`](01_viewer_position.md) | planned |
 | 2  | camera and screen model        | -    | planned |
 | 3  | off-axis projection            | -    | planned |
 | 4  | minimal scene through it       | -    | planned, real renderer spun off |
@@ -59,8 +59,8 @@ Sketch of each, to be replaced by real sub-plans as they are picked up:
   `v0.4.0` and pinned here. Face runs alone - the two landmarkers were never wired together, since
   face alone answers the question. It stays listed as the cross-repo prerequisite it was.
 - **1 - viewer position from a clip.** Recorded video in, a per-frame 3D eye position out, smoothed
-  with `SignalTracker`. Output is a plot and a CSV, both checkable headless. This is where the
-  scale problem gets solved or explicitly deferred.
+  with the `utils.np_signal` filters, not `SignalTracker` - see the sub-plan. Output is a plot and a
+  CSV, both checkable headless. This is where the scale problem gets solved or explicitly deferred.
 - **2 - camera and screen model.** Nominal published numbers, not a calibration step: focal length
   or FOV for a capture device, width and height in metres plus origin relative to the camera for a
   display device. Four pydantic models - camera, stream, screen, sink - constructed from literals in
@@ -128,3 +128,19 @@ Append-only. Newest at the bottom.
   here: every new symbol imports, the face model resolves, and `make check` is green. Also fetched
   `~/data/pose/face01.mp4` while working upstream - `yoga01.mp4` contains no face MediaPipe can
   detect, so it was useless for this half of the work. Phase 1 has a clip, a model and a landmarker.
+- 2026-08-14 : planned phase 1, measuring against `face01.mp4` before writing rather than after.
+  Findings that shaped it. MediaPipe's transformation-matrix depth is self-consistent with a pinhole
+  model - `ipd_px * depth` holds to 2.1%, `iris_px * depth` to 4.1% - but the implied focal length is
+  ~1000 px on a 1920-wide frame, about 88 degrees, which is MediaPipe's default camera rather than
+  this one. Interpupillary distance turns out to be the wrong depth cue: it correlates -0.76 with
+  absolute yaw, so it collapses exactly when the viewer turns their head, while the iris diameter
+  correlates only -0.21 and the matrix accounts for pose outright.
+  Two review corrections, both worth recording because both were my errors. `SignalTracker` is a
+  gesture *classifier*, not a smoother: `update()` returns a thresholded derivative and the smoothed
+  value is a side attribute, so phase 1 uses the `utils.np_signal` primitives it is built on. That
+  claim had been sitting in `00_start.md` and `tracking.md` since the bootstrap survey, uninspected;
+  both are now corrected. And the scale analysis in my first draft was wrong: a wrong focal length
+  scales depth *only*, because `f` cancels in the lateral conversion, while a wrong head-size
+  reference scales all three axes. Verified numerically. It matters because a wrong FOV stretches
+  depth against lateral rather than scaling the trajectory uniformly - a distortion of the frustum,
+  not a change of units.

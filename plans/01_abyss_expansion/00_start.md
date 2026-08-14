@@ -34,7 +34,7 @@ From `pose-tools` (pinned at `v0.3.0`):
 | ----- | -------- |
 | `landmark.pose.PoseLandmarkerFrame` | body landmarks, including a rough head position |
 | `landmark.landmark_array.LandmarkArray` | numpy landmark container with visibility masking |
-| `geometry.signal_tracker.SignalTracker` | smoothing a noisy per-frame scalar - the viewer position will jitter, and jitter in a projection matrix is visible immediately |
+| `utils.np_signal` (`create_left_triangle_filter`, `roll_append_smooth`) | smoothing a noisy per-frame scalar - the viewer position will jitter, and jitter in a projection matrix is visible immediately. Corrected on 2026-08-14: this row named `geometry.signal_tracker.SignalTracker`, which is a gesture *classifier* built on these primitives, not a smoother - see [`01_viewer_position.md`](01_viewer_position.md) |
 | `geometry.homography` | feature-matched homography between two images, plus `perspective_transform` |
 | `video.load` / `video.frame` | camera and file capture |
 | `landmark.model_manager.ModelManager` | resolves `.task` model files |
