@@ -19,8 +19,8 @@ pose-tools had already moved to `mediapipe.tasks.python.vision`, and kept workin
 
 | Concern                                  | Module                                             |
 | ---------------------------------------- | -------------------------------------------------- |
-| Pose and hand landmarkers                | `pose_tools.landmark.pose`, `.hand`, `.base`       |
-| MediaPipe `.task` model resolution       | `pose_tools.landmark.model_manager.ModelManager`   |
+| Pose, hand and face landmarkers          | `pose_tools.landmark.pose`, `.hand`, `.face`, `.base` |
+| MediaPipe `.task` resolution and download | `pose_tools.landmark.model_manager.ModelManager`  |
 | Drawing landmarks onto a frame           | `pose_tools.landmark.drawing`                      |
 | Landmark arrays and visibility masking   | `pose_tools.landmark.landmark_array`               |
 | Landmark distances                       | `pose_tools.landmark.distance`                     |

@@ -37,11 +37,12 @@ window onto a scene rather than a flat picture. Analysis and open questions in
 ## Phases
 
 Q1-Q14 are answered and the scope is settled. No sub-plan files exist yet - the sketches below are
-all there is until each phase is written up. Phase 1 waits on the upstream face landmarker tag.
+all there is until each phase is written up. Phase 0 shipped as pose-tools v0.4.0 and is pinned
+here, so phase 1 is unblocked.
 
 | #  | Phase                          | Plan | Status |
 | -- | ------------------------------ | ---- | ------ |
-| 0  | face landmarker in pose-tools  | tracked in pose-tools | planned, upstream |
+| 0  | face landmarker in pose-tools  | tracked in pose-tools | done, shipped as v0.4.0 |
 | 1  | viewer position from a clip    | -    | planned |
 | 2  | camera and screen model        | -    | planned |
 | 3  | off-axis projection            | -    | planned |
@@ -54,9 +55,9 @@ Sketch of each, to be replaced by real sub-plans as they are picked up:
 
 - **0 - face landmarker in pose-tools.** `landmark/face.py` over `BaseLandmarkerFrame`, plus a
   `face_landmarker` entry in `ModelManager.MODEL_FILENAMES`, released as a tag and pinned here.
-  Confirmed by Q1. Whether pose runs alongside it is decided by how cleanly the two compose. Lives
-  in the other repo and gets its own plan folder there; abyss's share is the pin bump. Phase 1
-  cannot start until the tag exists, so it stays listed here.
+  Confirmed by Q1. Done: tracked in `pose-tools/scratch_space/04_face_landmarker/`, shipped as
+  `v0.4.0` and pinned here. Face runs alone - the two landmarkers were never wired together, since
+  face alone answers the question. It stays listed as the cross-repo prerequisite it was.
 - **1 - viewer position from a clip.** Recorded video in, a per-frame 3D eye position out, smoothed
   with `SignalTracker`. Output is a plot and a CSV, both checkable headless. This is where the
   scale problem gets solved or explicitly deferred.
@@ -120,3 +121,10 @@ Append-only. Newest at the bottom.
   the real renderer out to `02_scene_rendering`; the webapp becomes `03_phone_webapp`; phase 0 stays
   listed as an upstream prerequisite because it is a different repo but phase 1 blocks on its tag.
   Both spin-off folders created at draft with their own local questions.
+- 2026-08-14 : repinned pose-tools to `v0.4.0`, which delivers phase 0. Upstream now has
+  `FaceLandmarkerFrame`, `draw_face_landmarks`, the face result helpers including
+  `get_facial_transformation_matrix()` and the named iris indices, and
+  `ModelManager.ensure_model()` so a machine with no `.task` files can fetch them. Verified from
+  here: every new symbol imports, the face model resolves, and `make check` is green. Also fetched
+  `~/data/pose/face01.mp4` while working upstream - `yoga01.mp4` contains no face MediaPipe can
+  detect, so it was useless for this half of the work. Phase 1 has a clip, a model and a landmarker.

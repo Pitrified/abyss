@@ -15,8 +15,8 @@ The package name is `abyss` throughout the source.
 
 | Need                                    | Where it lives                                              |
 | --------------------------------------- | ----------------------------------------------------------- |
-| MediaPipe landmarkers (pose, hand)      | `pose_tools.landmark.pose` / `.hand`                        |
-| Resolving `.task` model files           | `pose_tools.landmark.model_manager.ModelManager`            |
+| MediaPipe landmarkers (pose, hand, face) | `pose_tools.landmark.pose` / `.hand` / `.face`             |
+| Resolving and downloading `.task` models | `pose_tools.landmark.model_manager.ModelManager`            |
 | Drawing landmarks on a frame            | `pose_tools.landmark.drawing`                               |
 | Landmark arrays, visibility, distances  | `pose_tools.landmark.landmark_array` / `.distance`          |
 | Video frames and iteration              | `pose_tools.video.frame` / `.load`                          |
@@ -71,8 +71,10 @@ Reach the paths through `get_abyss_paths()`, never by constructing `AbyssPaths()
 - **Headless.** No display: `cv.imshow` and `cv.waitKey` cannot run. `scripts/camera.py` needs a
   camera and a screen and is manual-only. Prefer matplotlib output or writing frames to a file.
 - **Data lives outside the repo.** Sample videos in `~/data/pose/` (`AbyssPaths.pose_fol`),
-  MediaPipe models in `~/.mediapipe/models/` (via pose-tools' `ModelManager`). Neither is in git,
-  and neither is present on every machine.
+  MediaPipe models in `~/.mediapipe/models/`. Neither is in git, and neither is present on every
+  machine. Models are no longer a manual step: `ModelManager().ensure_model("face_landmarker")`
+  downloads what is missing. `~/data/pose/face01.mp4` is the clip with a face in it;
+  `yoga01.mp4` has none that MediaPipe can find.
 
 ## Style rules
 
