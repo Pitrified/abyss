@@ -288,8 +288,8 @@ Resulting layout:
 - `01_abyss_expansion` (this) - phases 1-5, with phase 4 cut down to the minimal scene.
 - `02_scene_rendering` - a real renderer behind the scene seam.
 - `03_phone_webapp` - serving frames to a phone, and capture from it.
-- `pose-tools/scratch_space/NN_face_landmarker` - the upstream prerequisite, tracked in that repo.
-  Not created yet; it is the next thing to pick up, and phase 1 waits on the tag.
+- `pose-tools/scratch_space/04_face_landmarker` - the upstream prerequisite, tracked in that repo
+  and planned there in five phases. Phase 1 here waits on the tag it produces.
 
 The originating rule holds in each case: the spin-offs can be executed on their own later, and
 nothing here is blocked on them. The face landmarker is the one genuine cross-repo dependency, so it
