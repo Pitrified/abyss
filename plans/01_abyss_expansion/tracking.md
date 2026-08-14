@@ -19,22 +19,34 @@ window onto a scene rather than a flat picture. Analysis and open questions in
 - **Face landmarker, single eye.** Q1 confirms phase 0 in pose-tools; both landmarkers if they wire
   together easily, face alone if not. Q6 rules out stereo and accepts interpupillary distance as the
   scale reference, configured like every other device number.
-- **Config is now load-bearing.** Per-machine camera and screen numbers (g4, g7, Pixel 7 Pro) reopen
-  the params layer the reboot deliberately kept minimal. Q7-Q9 decide how, and gate phase 2.
+- **Config travels with the data, not the process.** Not per-machine: the Pixel records frames that
+  a different machine processes, so the host says nothing about the camera. Four objects are passed
+  to the components instead - camera (intrinsics), stream (clip or live capture, since one camera
+  feeds both), screen (geometry the frustum is built from) and sink (what happens to a finished
+  frame). No env var, no hostname lookup. The screen/sink line is a stage boundary: geometry is an
+  input to rendering, the sink acts after it.
+- **Spun off, not phased.** A real renderer ([`../02_scene_rendering/`](../02_scene_rendering/)) and
+  the phone webapp ([`../03_phone_webapp/`](../03_phone_webapp/)) are separate initiatives: own
+  dependencies, own questions, nothing here waits on them. The face landmarker is a genuine
+  cross-repo prerequisite and stays in the table.
+- **Pydantic for config.** Models fix the shape, params supply the values, pydantic validates. abyss
+  takes the dependency back although pose-tools just dropped it: pose-tools has no config surface,
+  abyss does. Values stay plain Python literals in params (Q10); a loader arrives only when
+  something outside the repo needs to write config.
 
 ## Phases
 
-Q1-Q6 are answered, so the sequence is settled and phase 0 is confirmed. No sub-plan files exist
-yet - the sketches below are all there is until each phase is written up.
+Q1-Q14 are answered and the scope is settled. No sub-plan files exist yet - the sketches below are
+all there is until each phase is written up. Phase 1 waits on the upstream face landmarker tag.
 
 | #  | Phase                          | Plan | Status |
 | -- | ------------------------------ | ---- | ------ |
-| 0  | face landmarker in pose-tools  | -    | planned |
+| 0  | face landmarker in pose-tools  | tracked in pose-tools | planned, upstream |
 | 1  | viewer position from a clip    | -    | planned |
-| 2  | camera and screen model        | -    | draft, gated on Q7-Q9 |
+| 2  | camera and screen model        | -    | planned |
 | 3  | off-axis projection            | -    | planned |
-| 4  | render a scene through it      | -    | planned |
-| 5  | close the loop, live           | -    | draft, needs g7 |
+| 4  | minimal scene through it       | -    | planned, real renderer spun off |
+| 5  | close the loop, live           | -    | planned, runs on g7 not here |
 
 Status values: draft / planned / in progress / done / superseded / discarded.
 
@@ -42,20 +54,25 @@ Sketch of each, to be replaced by real sub-plans as they are picked up:
 
 - **0 - face landmarker in pose-tools.** `landmark/face.py` over `BaseLandmarkerFrame`, plus a
   `face_landmarker` entry in `ModelManager.MODEL_FILENAMES`, released as a tag and pinned here.
-  Confirmed by Q1. Whether pose runs alongside it is decided by how cleanly the two compose.
+  Confirmed by Q1. Whether pose runs alongside it is decided by how cleanly the two compose. Lives
+  in the other repo and gets its own plan folder there; abyss's share is the pin bump. Phase 1
+  cannot start until the tag exists, so it stays listed here.
 - **1 - viewer position from a clip.** Recorded video in, a per-frame 3D eye position out, smoothed
   with `SignalTracker`. Output is a plot and a CSV, both checkable headless. This is where the
   scale problem gets solved or explicitly deferred.
-- **2 - camera and screen model.** Nominal per-machine numbers, not a calibration step: focal
-  length or FOV, screen width and height in metres, screen origin relative to the camera, one entry
-  each for g4, g7 and the Pixel 7 Pro. Q7-Q9 decide where those live and how a machine is selected.
+- **2 - camera and screen model.** Nominal published numbers, not a calibration step: focal length
+  or FOV for a capture device, width and height in metres plus origin relative to the camera for a
+  display device. Four pydantic models - camera, stream, screen, sink - constructed from literals in
+  params and passed in rather than looked up.
 - **3 - off-axis projection.** Eye position plus screen rectangle to a projection matrix. Pure
   maths, so it gets real unit tests: centred eye reduces to a symmetric frustum, moving the eye
   shifts the frustum the right way, corners map where they should.
-- **4 - render a scene through it.** The first phase that produces something worth looking at. The
-  simplest scene that shows the effect, written to files, both behind swappable interfaces.
+- **4 - minimal scene through it.** The first phase that produces something worth looking at, and
+  deliberately no more than that: the cheapest thing to draw that makes the effect visible, written
+  to files, behind the scene and sink seams. A real renderer is `02_scene_rendering`.
 - **5 - close the loop, live.** Camera to tracker to renderer at interactive rate, on a machine
-  with a display. The only phase that cannot be finished on this box: g7 is the target.
+  with a display. The only phase that cannot be finished on this box: g7 with a local window is the
+  target. The phone, served over a webapp, comes after and is not part of this initiative.
 
 ## Log
 
@@ -80,3 +97,26 @@ Append-only. Newest at the bottom.
   and Gaussian splatting / NeRF as suggested tools, neither evaluated - OpenGL needs a GPU context
   so it is a g7 target unless offscreen EGL works. Raised Q7-Q9: the per-machine config the answers
   now require reopens the params layer the reboot stripped down, and phase 2 waits on them.
+- 2026-08-14 : folded Q7-Q9. Q7 corrected the axis the Q2 answer had been written on: config is not
+  per-machine but per capture device and per display device, passed in as an ingestion config and a
+  render config, because the Pixel will record frames that another machine processes. Env var and
+  hostname selection both rejected. Q8 picks pydantic, so abyss takes back the dependency
+  pose-tools dropped in v0.3.0 - deliberate, not drift. Q9 confirms the phone is config on both
+  ends, reached over a webapp later, which is what forces the capture / compute / display split.
+  Raised Q10-Q12: values as params literals or a loaded file, whether the ingestion config carries
+  the input path, and whether phase 5 is a g7 window or a webapp served to the phone.
+- 2026-08-14 : folded Q10-Q12, which unblocks every phase. Config values stay Python literals in
+  params, no loader until something outside the repo writes config. The ingestion side splits into a
+  camera config and a stream config, since one webcam serves both a recorded clip and a live capture
+  and its intrinsics must not move when the source does. Phase 5 stays a local window on g7; the
+  phone webapp is later and outside this initiative. Phases 2 and 5 moved to planned. Raised
+  Q13-Q14: whether the output side splits display geometry from output sink the way the input side
+  split, and whether the webapp is a phase here or a sibling plan folder.
+- 2026-08-14 : folded Q13-Q14. The output side splits into a screen config and a sink config, on the
+  argument that screen geometry is an input to rendering while the sink acts after it - a stage
+  boundary, not symmetry with the input side. Four config models total. Reassessed every sketched
+  phase against "own dependencies, own questions, executable cold": phase 4 splits, keeping the
+  minimal scene here (phases 3 and 5 cannot be seen to work without something drawn) and spinning
+  the real renderer out to `02_scene_rendering`; the webapp becomes `03_phone_webapp`; phase 0 stays
+  listed as an upstream prerequisite because it is a different repo but phase 1 blocks on its tag.
+  Both spin-off folders created at draft with their own local questions.

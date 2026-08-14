@@ -135,16 +135,74 @@ Second batch, raised by folding the first in:
   detection, or an explicit argument passed by the caller with a default. This is the first thing to
   reopen the params layer that the reboot deliberately kept minimal, so it is worth deciding rather
   than drifting into.
-  ANS: ...
+  ANS: **Wrong axis - config is not per-machine.** An env var pattern is rejected outright: the
+  Pixel will record on the phone while the code processing those frames runs on a different machine
+  entirely, so "which host am I" says nothing about which camera produced the pixels. Config
+  attaches to **which camera captured the input** and **which display shows the output**, and is
+  passed to the components at construction as two objects: an **ingestion config** and a **render
+  config**. Only g7 has a real camera for now, so everything else is speculative by design - which
+  is fine, that is the mode we are in. The practical consequence is that the two configs travel
+  with the data, not with the process.
 - Q8: **Where do the device numbers live in code?** A plain dataclass per device in `abyss`, or
   pydantic models (which would bring the dependency back - it was just removed from pose-tools), or
   a data file (TOML/JSON) read at startup. Bound up with Q7.
-  ANS: ...
+  ANS: **Pydantic models**, so abyss takes the dependency back even though pose-tools just dropped
+  it. Division of labour: **config models define the shape, params supply the values, pydantic does
+  the validation.** A malformed device entry fails at construction with a readable error rather
+  than producing a silently wrong frustum ten frames later.
 - Q9: **Is the Pixel 7 Pro a config entry or a deployment target?** Recording clips on the phone and
   processing them on g4/g7 needs only its camera and screen numbers. Actually *running* abyss on the
   phone is a different project (Python does not deploy there without effort). Assumed to be the
   former; say if the phone is meant to run the loop itself.
-  ANS: ...
+  ANS: **A config entry, on both sides**: the phone records and the phone displays, but the code
+  runs elsewhere and reaches it over a webapp. Future work, not scoped now. It is the reason Q7 came
+  out the way it did - capture device, compute host and display device are three separate things.
+
+Third batch, raised by folding the second in:
+
+- Q10: **Where do the config values physically come from?** Q8 puts the shape in pydantic models and
+  the values in params, but params is a Python singleton with literals today. Either the device
+  entries are literals in `abyss.params` (simplest, no file IO, but editing config means editing
+  code), or params loads a TOML/JSON of device entries and validates it through the models (a real
+  file, which a webapp or a phone recording could also write later).
+  ANS: **Python literals in params.** Keep the known, easy path: the values are code, reached the
+  way every other path in `AbyssParams` already is. A custom loader gets introduced when something
+  actually needs to write config from outside the repo (the webapp, most likely), not before.
+- Q11: **Does the ingestion config describe the camera, or the input?** Camera-only means
+  intrinsics and lens, with the clip path or camera index passed separately as a runtime argument.
+  Input means one object carrying both. The first keeps "which camera" reusable across many clips
+  shot on it; the second is one thing to pass around.
+  ANS: **Split.** A camera config (intrinsics, the physical device) and a stream config (where the
+  frames come from) are separate models, because the same camera feeds both a recorded file and a
+  live capture. g7's webcam is exactly this case: one set of intrinsics, a clip today and a live
+  stream later, and nothing about the camera should change when the source does.
+- Q12: **Does phase 5 become the webapp?** Q3 declined FastAPI and picked files on disk, but Q9 says
+  the phone is reached over a webapp. If the phone is the real demo target then "close the loop
+  live" is a browser view served to it, not an OpenCV window on g7 - which is a different phase and
+  reopens the scaffold question. Or g7 with a local window stays phase 5 and the webapp is a phase 6
+  after it.
+  ANS: **g7 with a local window is phase 5.** The phone is a future demo target, so the webapp comes
+  after and does not reshape the phases now. FastAPI stays declined for the time being.
+
+Fourth batch, raised by folding the third in:
+
+- Q13: **Does the output side split the same way the input side does?** Q11 separates the camera
+  (the physical device) from the stream (where frames come from). The mirror image would be a
+  display config (screen size and position, the geometry the frustum needs) separate from a sink
+  config (write PNGs here / open a window / serve it), and only the display config affects the
+  maths. Symmetry is suggestive but not an argument on its own - the input split had a concrete case
+  behind it (one webcam, clip today and live later).
+  ANS: **Split**, and not for symmetry: the two belong to different stages. Screen geometry is an
+  **input to the rendering** - it is what the off-axis frustum is built from, consumed before a
+  pixel exists. The sink is what happens to the frame **after** rendering. A single object would
+  hand the renderer information about PNG paths it has no business seeing.
+- Q14: **Is the webapp a later phase here, or its own initiative?** Q12 puts it after phase 5.
+  Serving frames to a phone, plus the phone's own capture, is a fairly self-contained body of work
+  with its own dependency (FastAPI) and its own questions. The tracked-development convention says
+  work that does not belong to the current scope becomes a sibling `02_...` folder rather than an
+  extra phase.
+  ANS: **Its own folder**, definitely. And the same question applies to phases already sketched
+  here, so the whole list was reassessed - see below.
 
 ## What the answers add up to
 
@@ -155,16 +213,87 @@ seams follow from that, and they are what the phases have to respect:
 | Seam | Cheap version now | What replaces it |
 | ---- | ----------------- | ---------------- |
 | frame source | recorded clip | live webcam (g7), phone camera |
-| device config | published nominal specs per machine | measured or calibrated values |
+| device config | published nominal specs per device | measured or calibrated values |
 | scene | the simplest thing that shows parallax | a real 3D scene, a captured one |
 | output sink | frames written to disk | live window, browser, phone screen |
 
 The risk to watch is over-abstracting: a seam is an interface with one implementation plus a second
 one we can name. If the second cannot be named, it is not a seam yet.
 
-Config is now load-bearing, which reopens something the reboot deliberately closed. abyss's params
-layer is minimal on purpose ("add them when something needs them"). Per-machine camera and screen
-numbers are that something - see Q7.
+## Config travels with the data, not the process
+
+Q7 corrected the axis the Q2 answer was written on. That table of machines reads naturally as "look
+up the host you are on", and that is wrong: the Pixel records frames while a different machine
+processes them, so the host running the code knows nothing useful about the camera that produced the
+pixels. Three roles that happen to coincide on g7 and nowhere else:
+
+| Role | Described by | g4 | g7 | Pixel 7 Pro |
+| ---- | ------------ | -- | -- | ----------- |
+| capture device | camera config | none | webcam | front camera, later |
+| compute host | nothing - it just runs | yes | yes | no |
+| display device | screen config | none | screen | phone screen, later |
+
+Q11 then split the ingestion side in two, because a camera and a source of frames are not the same
+thing: g7's webcam has one set of intrinsics whether the frames arrive from a recorded clip today or
+a live capture later, and nothing about the camera should change when the source does. Q13 split the
+output side too, on a different argument: the screen geometry is an *input* to the rendering, since
+the frustum is built from it, while the sink only acts on a frame that already exists. Four models,
+each with its own reason to change:
+
+| Model | Holds | Changes when |
+| ----- | ----- | ------------ |
+| camera config | intrinsics, FOV, resolution | you point a different physical camera at the problem |
+| stream config | clip path or capture index, fps | you swap recorded for live, or pick another clip |
+| screen config | size in metres, origin relative to the camera | you show it on a different screen |
+| sink config | write PNGs here, open a window, serve it | you change what happens to a finished frame |
+
+All four are constructed and handed to the components, never looked up from the environment. A clip
+shot on the Pixel and processed on g4 carries the Pixel's camera config, a stream config pointing at
+the file, a screen config for whichever screen the result is *meant* for, and a sink config that
+writes PNGs. That last pair is the point of Q13: g4 renders for a screen it does not have.
+
+They are pydantic models (Q8): the models fix the shape, params supply the values, validation is
+pydantic's job. This brings `pydantic` back as an abyss dependency, days after pose-tools dropped
+it. That is not an inconsistency to fix - pose-tools has no config surface, abyss now does.
+
+It also reopens what the reboot deliberately closed: the params layer is minimal on purpose ("add
+them when something needs them"). Device config is the first real something, and Q10 keeps it as
+plain Python literals there - the known path, with a loader added only when something outside the
+repo needs to write config.
+
+## Scope reassessment (Q14)
+
+Every sketched phase was checked against the same test: does it carry its own dependencies and its
+own open questions, and could someone execute it without this initiative in their head? Three came
+out as separate work, and the reason differs in each case.
+
+| Sketched as | Verdict | Why |
+| ----------- | ------- | --- |
+| 0 - face landmarker | upstream prerequisite | it is code in another repo, with its own tracking there; abyss's share of it is a version pin |
+| 1 - viewer position | stays | the core question of this initiative |
+| 2 - camera and screen model | stays | the four config models, needed by 1 and 3 |
+| 3 - off-axis projection | stays | the payoff; pure maths, unit-testable |
+| 4 - render a scene | splits in two | see below |
+| 5 - close the loop live | stays | the exit criterion, even though it runs on g7 |
+| webapp / phone | own folder | own dependency (FastAPI), own questions, no other phase waits on it |
+
+Phase 4 is the interesting one. Q4 asked for "the simplest scene that shows the effect", and that
+minimal scene has to stay here: without something drawn, phases 3 and 5 cannot be seen to work at
+all. A real renderer is different work - an OpenGL context, a GPU, model loading, possibly Gaussian
+splatting - with nothing in this initiative waiting on it. So the minimal scene stays as phase 4,
+and the renderer becomes its own folder.
+
+Resulting layout:
+
+- `01_abyss_expansion` (this) - phases 1-5, with phase 4 cut down to the minimal scene.
+- `02_scene_rendering` - a real renderer behind the scene seam.
+- `03_phone_webapp` - serving frames to a phone, and capture from it.
+- `pose-tools/scratch_space/NN_face_landmarker` - the upstream prerequisite, tracked in that repo.
+  Not created yet; it is the next thing to pick up, and phase 1 waits on the tag.
+
+The originating rule holds in each case: the spin-offs can be executed on their own later, and
+nothing here is blocked on them. The face landmarker is the one genuine cross-repo dependency, so it
+stays visible in the phases table rather than being filed away.
 
 ## Tools suggested, not evaluated
 
