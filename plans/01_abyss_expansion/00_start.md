@@ -84,30 +84,102 @@ they do not hand us this for free.
   eye landmarks directly, at the cost of adding `face.py` to pose-tools first. Pose is already
   wrapped but its head landmarks are coarse for this purpose. A third option is both: pose to find
   the person, face for the eye.
-  ANS: ...
+  ANS: **Face**, added to pose-tools as `landmark/face.py` if it lands cleanly on
+  `BaseLandmarkerFrame`. Run both pose and face if wiring them together is easy; if the integration
+  turns out to be awkward, drop to face alone rather than forcing it. So phase 0 exists.
 - Q2: **How do we learn the camera intrinsics and the screen geometry?** Options: measure by hand
   and store in `AbyssParams` (simple, per-machine, no code); a one-off checkerboard calibration
   with OpenCV (accurate, more machinery); or assume a nominal FOV and screen size and accept the
   error. This decides whether a calibration phase exists at all.
-  ANS: ...
+  ANS: **Deferred, but pre-wired.** Start from config with nominal defaults, structured so real
+  measured values replace them with no code change. Calibration itself is not a phase now. The
+  machines are known, so their entries stay separate rather than collapsing into one global set of
+  numbers:
+
+  | Machine | Role here |
+  | ------- | --------- |
+  | `g4` | the headless CPU-only box: no camera, no display, development and tests only |
+  | `g7` | 4 GB VRAM, webcam - the first machine that can actually run the loop live |
+  | Pixel 7 Pro | phone: front camera plus screen, the eventual demo target |
+
+  Published specs for these (sensor FOV, screen size in mm) can be looked up online and used as the
+  defaults; nothing here needs a physical measurement to get moving.
 - Q3: **What renders, and where?** Offline frames to a file, a live OpenCV window, or a browser
   view. This box is headless and CPU-only, so a live window cannot be developed or demoed here -
   whatever we pick, the loop has to be verifiable without a display. A browser target would reopen
   the FastAPI scaffold question (#15 in the reboot inventory), currently declined.
-  ANS: ...
+  ANS: **Static files.** Write frames out, enough to confirm each component works. Keep the output
+  sink a swappable component so a live window or a browser view can replace it later without
+  touching the pipeline. FastAPI stays declined.
 - Q4: **What is "the scene"?** A 3D model rendered per viewpoint (needs a real renderer - moderngl,
   pyrender, or three.js in a browser), or layered 2D parallax (much cheaper, and enough to prove the
   effect), or a reprojection of captured content. The deleted `utils/data.py` knew a
   `~/data/3d_models` folder, which hints at the first - but nothing reads it now.
-  ANS: ...
+  ANS: **The simplest scene that shows the effect**, behind an interface with more than one
+  implementation in mind, so experiments are cheap to swap in. No commitment to a renderer yet.
 - Q5: **Real-time, or offline-first?** Offline - process a recorded clip, write annotated frames -
   is far easier to test and works headless. Real-time is the actual goal and imposes a latency
   budget on CPU-only inference. The phases below assume offline first; say if that is wrong.
-  ANS: ...
+  ANS: **Offline**, with the same modularity requirement: the frame source is a component, so a
+  live camera replaces a recorded clip without rewriting the pipeline around it.
 - Q6: **One eye or two?** A single cyclopean eye is the standard simplification and is what the
   README implies. Stereo would need a display capable of it, so this is likely a no - worth
   recording as a decision rather than an omission.
+  ANS: **Single eye.** No stereo. Interpupillary distance is accepted as the scale reference, with
+  the value living in config like the rest of Q2 - a per-person override costs nothing later.
+
+Second batch, raised by folding the first in:
+
+- Q7: **How does per-machine config get selected?** Q2 wants g4 / g7 / Pixel entries kept separate,
+  which needs a way to say which machine is running. Options: an env var read at startup, hostname
+  detection, or an explicit argument passed by the caller with a default. This is the first thing to
+  reopen the params layer that the reboot deliberately kept minimal, so it is worth deciding rather
+  than drifting into.
   ANS: ...
+- Q8: **Where do the device numbers live in code?** A plain dataclass per device in `abyss`, or
+  pydantic models (which would bring the dependency back - it was just removed from pose-tools), or
+  a data file (TOML/JSON) read at startup. Bound up with Q7.
+  ANS: ...
+- Q9: **Is the Pixel 7 Pro a config entry or a deployment target?** Recording clips on the phone and
+  processing them on g4/g7 needs only its camera and screen numbers. Actually *running* abyss on the
+  phone is a different project (Python does not deploy there without effort). Assumed to be the
+  former; say if the phone is meant to run the loop itself.
+  ANS: ...
+
+## What the answers add up to
+
+Q2-Q5 all gave the same shape of answer, so it is a single principle rather than four coincidences:
+**pick the cheapest implementation now, behind a seam that lets a better one drop in later.** Four
+seams follow from that, and they are what the phases have to respect:
+
+| Seam | Cheap version now | What replaces it |
+| ---- | ----------------- | ---------------- |
+| frame source | recorded clip | live webcam (g7), phone camera |
+| device config | published nominal specs per machine | measured or calibrated values |
+| scene | the simplest thing that shows parallax | a real 3D scene, a captured one |
+| output sink | frames written to disk | live window, browser, phone screen |
+
+The risk to watch is over-abstracting: a seam is an interface with one implementation plus a second
+one we can name. If the second cannot be named, it is not a seam yet.
+
+Config is now load-bearing, which reopens something the reboot deliberately closed. abyss's params
+layer is minimal on purpose ("add them when something needs them"). Per-machine camera and screen
+numbers are that something - see Q7.
+
+## Tools suggested, not evaluated
+
+Parked here so they are not lost, neither is committed:
+
+- **OpenGL** (via `moderngl` or `pyglet` in Python) for the render side. This is the mainstream way
+  to get an off-axis frustum: the projection matrix from phase 3 is exactly what a GL pipeline
+  wants, so it fits the maths cleanly. Caveat for this box: it needs a GPU context, which makes it a
+  g7 target, not a g4 one - though EGL/OSMesa offscreen rendering is worth checking before ruling
+  headless out.
+- **NeRF** (and by extension Gaussian splatting, which has largely displaced it for real-time work)
+  for the scene side: capture a real place, then render novel views of it from the viewer's eye
+  position. That is a genuine fit for Q4's "reprojection of captured content", and much heavier than
+  anything above - training needs the GPU, and only splatting renders fast enough to matter. A
+  candidate for the scene seam much later, not a starting point.
 
 ## The boundary with pose-tools
 
