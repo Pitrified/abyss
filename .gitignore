@@ -10,6 +10,13 @@ data/
 *.csv
 *.json
 
+# test fixtures are committed on purpose: the suite has to pass on a fresh
+# clone, with no clip, no model and no data folder. The directory has to be
+# un-ignored before the files in it can be, since git does not descend into an
+# ignored directory.
+!tests/**/data/
+!tests/**/data/**
+
 # ide
 .vscode/
 
