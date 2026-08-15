@@ -209,3 +209,15 @@ Append-only. Newest at the bottom.
   Raised Q15-Q17: where the viewer's interpupillary distance lives now that it is clearly not a
   camera property, whether device entries carry published or measured values, and whether to fix the
   `video` group on g4 so phases 2-4 can be developed against a live camera.
+- 2026-08-15 : folded Q15-Q17. The viewer's interpupillary distance gets its own `ViewerConfig`, so
+  five models rather than four - a viewer is not a device, and phase 1 had it on the camera only
+  because nothing else existed. Matching a config to a particular person is deferred: one viewer
+  today, and the session estimator already derives their scale.
+  Device values get measured rather than looked up, but not by calibration: one object of known size
+  at a known distance gives `f_px = size_px * distance / real_size`, which is the single number the
+  config consumes. A tape measure is good to a percent or two, well inside the 13% per-identity
+  error phase 1 already corrects.
+  On the webcam finding, the correction is mine to take: g4 is an ssh box, so nobody sits in front
+  of it and a live frame shows an empty room. The hardware discovery stands and the repo docs are
+  still wrong, but it unblocks nothing - live capture belongs on g7, which has a camera *and* a
+  person. Left in the plan as a documentation fix rather than an opportunity.

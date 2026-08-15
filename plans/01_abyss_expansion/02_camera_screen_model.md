@@ -17,20 +17,22 @@ That module is `src/abyss/viewer/camera.py`; when this phase is done it is gone.
 
 Measured while planning, and it contradicts what the repo has been claiming:
 
-- **g4 has a webcam.** `HP HD Camera` on `uvcvideo`, USB 04ca:7063, at `/dev/video0`. It cannot be
-  opened only because the user is not in the `video` group - a one-line `usermod`, not a hardware
-  limit. `.github/copilot-instructions.md` says this box has no camera and that
-  `scripts/camera.py` is manual-only; the first half is wrong.
+- **g4 has a webcam, and it is useless.** `HP HD Camera` on `uvcvideo`, USB 04ca:7063, at
+  `/dev/video0`, blocked only because the user is not in the `video` group. So
+  `.github/copilot-instructions.md` claiming this box has no camera is wrong on the hardware - but
+  g4 is reached over ssh, so there is nobody in front of it and a live frame would show an empty
+  room. Recorded because the docs are inaccurate, not because it unblocks anything (Q17). The
+  camera that matters is g7's, which has a person sitting at it.
 - **g4 has a panel, and it reports its own size.** EDID on `card1-eDP-1` gives **309 x 173 mm at
   1920x1080**, a 13.9 inch 16:9 screen at 158 ppi. So screen geometry on a Linux machine is
   machine-readable rather than a tape-measure job, and the same read works on g7.
 
-Both change what this phase should build. Screen size wants a reader, not a hand-typed constant, and
-"this box cannot test capture" is a permissions problem rather than a fact.
+So screen size wants a reader rather than a hand-typed constant, and the live-capture work belongs
+on g7 for reasons of furniture rather than software.
 
 ## The models
 
-Four, per the decision in `00_start.md`, each with its own reason to change:
+Four devices plus the viewer, each with its own reason to change:
 
 | Model | Holds | Source of values |
 | ----- | ----- | ---------------- |
@@ -38,6 +40,12 @@ Four, per the decision in `00_start.md`, each with its own reason to change:
 | `StreamConfig` | clip path or device index, fps, whether it loops | per run |
 | `ScreenConfig` | width and height in metres, pose relative to the camera | EDID where available, measured otherwise |
 | `SinkConfig` | where finished frames go: files, window, or nothing | per run |
+| `ViewerConfig` | interpupillary distance, and later any per-person overrides | Q15: measured per person, estimated per session |
+
+`ViewerConfig` is the fifth model Q15 called for. A viewer is not a device, and the interpupillary
+distance phase 1 parked on the camera placeholder was always mislabelled there. **Selecting** the
+right viewer entry is explicitly deferred: there is one person today, and the session estimator
+already derives their scale, so a registry keyed by person waits until a second person exists.
 
 Pydantic models (Q8), values as plain Python literals in `params` (Q10), passed to components at
 construction rather than looked up (Q7). `pydantic` returns as an abyss dependency - it was removed
@@ -59,6 +67,24 @@ numbers arrive.
 
 The consequence phase 1 measured stays true and belongs in the docstring: because the assumed focal
 follows frame height, letterboxing or padding a frame silently rescales depth.
+
+### Measuring a focal length
+
+Q16 chose measurement over published specs, and the cheap version is enough. A single object of
+known size at a known distance gives the focal length directly:
+
+```
+f_px = apparent_size_px * distance_m / real_size_m
+```
+
+A ruler or a sheet of paper at a metre, one frame, one measurement. It yields the one number
+`CameraConfig` consumes - no checkerboard, no lens distortion model, no OpenCV calibration run.
+Accuracy is limited by how well the distance is measured, which is a tape-measure problem good to a
+percent or two, well inside the 13% per-identity scale error phase 1 was already correcting.
+
+It is a manual step on the machine holding the camera, so it happens on g7 and the result is typed
+into that device entry with a note on how it was obtained. Published specs remain acceptable as a
+provisional entry, marked as provisional, so nothing blocks waiting for a measuring session.
 
 ### Screen pose relative to the camera
 
@@ -104,8 +130,10 @@ carry it without a rotation field.
   the cheap version behind the same seam, and calibration replaces it later without touching callers.
 - The rendering side of `SinkConfig`. The model exists so phase 4 has somewhere to put its choice;
   actually opening a window is phase 5.
-- Fixing the `video` group so g4 can capture. That is a system change needing sudo and a box-level
-  note, and it is not needed for anything here - see Q17.
+- Unblocking the `video` group. Worth doing on **g7**, where the camera has a viewer in front of
+  it, and it is a privileged system change there needing its own box-level note. On g4 it would
+  change nothing useful (Q17).
+- Choosing which `ViewerConfig` applies to whoever is in frame. One viewer today; deferred by Q15.
 - Rotation between screen and camera, as above.
 
 ## Open questions
@@ -118,23 +146,31 @@ Numbering continues from `00_start.md`.
   `viewer/` as a plain constant with the estimator; or leave it on `CameraConfig` and accept the
   mislabel. The estimator already derives it per session, so this is about where the *default* and
   any per-person override live.
-  ANS: ...
+  ANS: **A new config**, `ViewerConfig`, so five models rather than four. Matching a config to a
+  particular person is deferred: there is one viewer today, the estimator derives their scale per
+  session, and picking the right entry for whoever sits down is a problem for when a second person
+  exists.
 - Q16: **Do the device entries carry measured values or published ones?** g4's screen can be read
   from EDID exactly. g4's webcam FOV is not published anywhere reliable, and the Pixel's front
   camera FOV is a published number of uncertain accuracy. Options: accept published specs and record
   their provenance per entry; or leave FOV unset so the MediaPipe fallback applies until someone
   measures. The second is honest but leaves the depth scale wrong by whatever the FOV error is.
-  ANS: ...
+  ANS: **Measure what is needed.** Not full calibration - one known object at one known distance is
+  enough for a focal length, and that is all any of this consumes. Procedure in "Measuring a focal
+  length" below. Published specs stay acceptable as a starting entry, marked as such.
 - Q17: **Should the `video` group be fixed on g4?** One `usermod -aG video pmn` plus a re-login makes
   this box able to capture, which would let phases 2-4 be developed against a live camera instead of
   clips, and would make the `f_real` question measurable here rather than on g7. It needs sudo, so
   it needs a box-level plan note first.
-  ANS: ...
+  ANS: **Worth doing, but it does not unblock anything here.** g4 is reached over ssh - nobody sits
+  in front of it, so its camera has no viewer to track and a live frame from it would show an empty
+  room. The finding stands technically and is operationally useless. The group fix matters on **g7**,
+  which has both a camera and a person, and that is where live capture gets developed.
 
 ## Done when
 
 - `viewer/camera.py` is deleted and nothing imports it.
-- The four models exist, validate, and are constructed from literals in `params` for at least
+- The five models exist, validate, and are constructed from literals in `params` for at least
   `g4_internal` and one clip-based stream.
 - `ScreenConfig.from_edid` returns 309x173 mm on this box, and the same numbers come back from the
   committed fixture without touching `/sys`.
