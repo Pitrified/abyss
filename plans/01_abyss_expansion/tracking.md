@@ -144,3 +144,35 @@ Append-only. Newest at the bottom.
   reference scales all three axes. Verified numerically. It matters because a wrong FOV stretches
   depth against lateral rather than scaling the trajectory uniformly - a distortion of the frustum,
   not a change of units.
+- 2026-08-15 : had the phase 1 plan reviewed by a second agent with fresh context, read-only. It
+  found real errors and I re-derived its three biggest claims before accepting any of them.
+  **My 984 px focal was circular** - it is `ipd_px * tz / 63 mm`, the camera assumption multiplied
+  by a head-size assumption, so it measures neither. Fitting by reprojection gives ~900 px on
+  `face01`, and the law is `f = (H/2)/tan(31.5 deg)`: fitted/predicted is **1.021 on both a 1080-
+  and a 1920-tall clip**, so MediaPipe assumes a 63 degree vertical FOV and the focal follows frame
+  height. Reprojection rms is 2.5 px at the fitted focal against 24 px at 984. Padding a frame to
+  1920x1920 with identical content moves depth from -50.7 to -88.1 cm.
+  **`tz` is the head origin, not the eye** - offset -2.69 cm, swinging 0.92 cm with `corr(yaw)
+  -0.66`, which is the same yaw coupling I had rejected the IPD cue for. **The matrix is y-up**
+  against the pixel convention's y-down, `corr(pinhole Y, ty) = -0.967`, a sign trap the draft never
+  mentioned. Its claim that `tx`/`ty` are not camera-frame metric was itself wrong (`corr = 0.991`),
+  but the conclusion not to use them stands for better reasons.
+  Chasing a depth-varying clip took three dead ends worth recording: a "grizzly bear GoPro selfie"
+  that contains a bear and no human face; a selfie clip that read 45-80 cm only because I had not
+  passed `num_faces=1` and was tracking two different people - it is really 45-50 cm; and two
+  minutes of a speech where the camera is too wide for any detection at all. Concluded that **no
+  real clip can validate depth anyway**, since none carries a measured distance. Built
+  `face03_zoom.mp4` instead: a known 1.00x-1.60x ffmpeg zoom ramp over `face01`, where ground truth
+  is exact. MediaPipe tracks it to +1.97% mean, 5.83% worst, over a 1.56x depth range. That is now
+  the phase's acceptance criterion, replacing "depth stable to a few percent", which a constant
+  would have passed.
+  **The scale problem is per-identity**, which neither the plan nor the review had right: with the
+  focal law fixed, the implied interpupillary distance is 70.4 mm on `face01`, 71.7 mm on its zoomed
+  copy, and 62.2 mm on a different subject - 13% apart. So the fix is a per-session identity factor
+  estimated from front-facing frames, not a single constant.
+  Answers folded in: metres everywhere with cm confined to the function that reads the matrix;
+  mirroring becomes a camera config field; `smoothing.py` stays its own module against the review's
+  advice. Dropped the synthetic invariant test (it tests its own generator) and `yaw_deg` from the
+  CSV (the Euler conversion is a pose-tools utility by our own boundary rule). Kept: a committed
+  fixture so the conversion is testable with no clip and no model, filter warm-up from the first
+  sample, an explicit no-face policy, and the principal point named among the assumptions.
