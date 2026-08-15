@@ -23,7 +23,9 @@ window onto a scene rather than a flat picture. Analysis and open questions in
   a different machine processes, so the host says nothing about the camera. Four objects are passed
   to the components instead - camera (intrinsics), stream (clip or live capture, since one camera
   feeds both), screen (geometry the frustum is built from) and sink (what happens to a finished
-  frame). No env var, no hostname lookup. The screen/sink line is a stage boundary: geometry is an
+  frame). Phase 2 builds three of them plus a `ViewerConfig`; the sink model waits for phase 4, where
+  its first caller is.
+  No env var, no hostname lookup. The screen/sink line is a stage boundary: geometry is an
   input to rendering, the sink acts after it.
 - **Spun off, not phased.** A real renderer ([`../02_scene_rendering/`](../02_scene_rendering/)) and
   the phone webapp ([`../03_phone_webapp/`](../03_phone_webapp/)) are separate initiatives: own
@@ -36,9 +38,9 @@ window onto a scene rather than a flat picture. Analysis and open questions in
 
 ## Phases
 
-Q1-Q14 are answered and the scope is settled. No sub-plan files exist yet - the sketches below are
-all there is until each phase is written up. Phase 0 shipped as pose-tools v0.4.0 and is pinned
-here, so phase 1 is unblocked.
+Q1-Q17 are answered and the scope is settled. Phases 1 and 2 have sub-plans; for 3 to 5 the
+sketches below are all there is until each is written up. Phase 0 shipped as pose-tools v0.4.0 and
+is pinned here.
 
 | #  | Phase                          | Plan | Status |
 | -- | ------------------------------ | ---- | ------ |
@@ -63,8 +65,8 @@ Sketch of each, to be replaced by real sub-plans as they are picked up:
   CSV, both checkable headless. This is where the scale problem gets solved or explicitly deferred.
 - **2 - camera and screen model.** Nominal published numbers, not a calibration step: focal length
   or FOV for a capture device, width and height in metres plus origin relative to the camera for a
-  display device. Four pydantic models - camera, stream, screen, sink - constructed from literals in
-  params and passed in rather than looked up.
+  display device. Pydantic models constructed from literals in params and passed in rather than
+  looked up: camera, stream, screen and viewer here, sink in phase 4 with its first caller.
 - **3 - off-axis projection.** Eye position plus screen rectangle to a projection matrix. Pure
   maths, so it gets real unit tests: centred eye reduces to a symmetric frustum, moving the eye
   shifts the frustum the right way, corners map where they should.
@@ -221,3 +223,41 @@ Append-only. Newest at the bottom.
   of it and a live frame shows an empty room. The hardware discovery stands and the repo docs are
   still wrong, but it unblocks nothing - live capture belongs on g7, which has a camera *and* a
   person. Left in the plan as a documentation fix rather than an opportunity.
+- 2026-08-15 : review pass on the phase 2 plan by a second agent with fresh context, as was done for
+  phase 1. Every factual claim it checked reproduced this time - EDID 309x173 from the detailed
+  timing descriptor, the 1.021 focal ratio, pydantic present at pose-tools v0.2.1 and gone at v0.3.0
+  and absent from abyss's lock - so no repeat of phase 1's circular number. What it found instead
+  were gaps.
+  Folded in: the focal length is resolution-dependent, so FOV is the canonical stored value and
+  `f_px` is derived from the actual frame height at runtime. This was going to bite immediately -
+  `face02_portrait` is 1080x1920 against the other two clips at 1920x1080, so no single literal
+  `f_px` could serve one camera across both orientations. Related, published FOV specs are diagonal
+  almost without exception, and pasting one into `(H/2)/tan(fov/2)` is about 20% wrong on 16:9, so
+  the field is named `fov_vertical_deg` and specs get converted before entry.
+  Also folded: an `unknown_clip` camera entry, since the registry named devices and none of them
+  shot the three clips; the bezel offset measured rather than left to phase 3, which consumes it;
+  the `estimate_head_scale` call sites named explicitly, since `ipd_m` moving to `ViewerConfig`
+  changes its signature; `principal_point` stays derived rather than configured.
+  `SinkConfig` deferred to phase 4. Nothing constructs or reads it, and configs are passed
+  individually rather than bundled, so adding it later widens no existing signature - assessed
+  before deciding. The reason to wait is that its fields are a guess until phase 4 knows what it
+  draws, and a model pinned to an invented shape is worse than an absent one because it looks
+  authoritative. The four-way split and the Q13 argument stand; only the code waits.
+  EDID demoted from library code to `scripts/read_edid.py`, run once per machine with the answer
+  typed into the params literal, per Q10. The package never reads `/sys`. Two traps recorded in the
+  plan for when it runs on g7: sysfs reports `st_size` 0 for every `edid` node including the live
+  one, so filtering on size discards the panel, and the `status` file names the connected connector
+  outright.
+  Corrected in `00_start.md`: the boundary paragraph assigned both landmark smoothing and a
+  camera-intrinsics model upstream, and both came back downstream once built. Smoothing because the
+  general part (`np_signal`) was already upstream and what abyss added was policy; intrinsics
+  because climbing-wire would want the FOV-to-focal relation, three lines of trigonometry, not a
+  pydantic registry of abyss's own devices. The rule holds, it just answers per piece of code rather
+  than per topic.
+  Exit criterion 4 was overstated and is now conditional. "The fallback reproduces phase 1" is
+  achievable but not automatic: it needs FOV unset, resolution taken from the frames, and
+  `ViewerConfig.ipd_m` defaulting to the same 0.063. Verified by CSV diff against the existing
+  phase 1 outputs rather than by eye. Worth keeping: with the head-scale estimator active the focal
+  cancels exactly out of the lateral position, so a wrong focal is a pure depth error.
+  Per-identity spread corrected throughout from the 13% planning estimate to the 16% actually
+  measured (66.9 mm against 57.7 mm).

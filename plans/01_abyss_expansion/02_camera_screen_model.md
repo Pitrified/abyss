@@ -27,25 +27,36 @@ Measured while planning, and it contradicts what the repo has been claiming:
   1920x1080**, a 13.9 inch 16:9 screen at 158 ppi. So screen geometry on a Linux machine is
   machine-readable rather than a tape-measure job, and the same read works on g7.
 
-So screen size wants a reader rather than a hand-typed constant, and the live-capture work belongs
-on g7 for reasons of furniture rather than software.
+So screen size is measured once by asking the panel rather than by holding a ruler to it, and the
+live-capture work belongs on g7 for reasons of furniture rather than software.
 
 ## The models
 
-Four devices plus the viewer, each with its own reason to change:
+Three devices plus the viewer, each with its own reason to change:
 
 | Model | Holds | Source of values |
 | ----- | ----- | ---------------- |
 | `CameraConfig` | resolution, focal length or FOV, principal point, `mirrored` | published spec, or the phase 1 fallback law |
-| `StreamConfig` | clip path or device index, fps, whether it loops | per run |
+| `StreamConfig` | clip path or device index | per run |
 | `ScreenConfig` | width and height in metres, pose relative to the camera | EDID where available, measured otherwise |
-| `SinkConfig` | where finished frames go: files, window, or nothing | per run |
 | `ViewerConfig` | interpupillary distance, and later any per-person overrides | Q15: measured per person, estimated per session |
 
-`ViewerConfig` is the fifth model Q15 called for. A viewer is not a device, and the interpupillary
+`ViewerConfig` is the extra model Q15 called for. Q15's answer said five, counting `SinkConfig`;
+this phase builds four, because the sink went to phase 4 for reasons that have nothing to do with
+Q15. A viewer is not a device, and the interpupillary
 distance phase 1 parked on the camera placeholder was always mislabelled there. **Selecting** the
 right viewer entry is explicitly deferred: there is one person today, and the session estimator
 already derives their scale, so a registry keyed by person waits until a second person exists.
+
+`SinkConfig` is **deferred to phase 4**, where its first caller appears. The four-way split stays
+the architecture and the Q13 stage-boundary argument stands; what is deferred is the model, not the
+decision. Nothing constructs or reads a sink here, configs are passed to components individually
+rather than bundled, so adding it later widens no signature that exists. The reason to wait is that
+its fields are a guess until phase 4 knows what it draws - inventing kind, output directory and
+filename pattern now means params literals, validation rules and tests pinned to a shape that gets
+rewritten, which is worse than absent because it looks authoritative. Same reason `StreamConfig`
+loses `loops` (nothing loops) and `fps` (read from the capture today, so a config value would only
+contradict it).
 
 Pydantic models (Q8), values as plain Python literals in `params` (Q10), passed to components at
 construction rather than looked up (Q7). `pydantic` returns as an abyss dependency - it was removed
@@ -68,6 +79,23 @@ numbers arrive.
 The consequence phase 1 measured stays true and belongs in the docstring: because the assumed focal
 follows frame height, letterboxing or padding a frame silently rescales depth.
 
+Two rules follow from that, and the plan needs both stated or the implementation gets them wrong:
+
+- **FOV is the canonical stored value, `f_px` is derived from the actual frame height at runtime**,
+  exactly as phase 1 does. A focal length in pixels is only valid at the resolution it was measured
+  at: 1100 px at 1280x720 is 1650 px at 1920x1080 on the same lens. This is not hypothetical here -
+  `face02_portrait.mp4` is 1080x1920 while the other two clips are 1920x1080, so no single literal
+  `f_px` can serve one camera across both orientations. When a measured focal is stored, it carries
+  the resolution it was measured at and is rescaled by the height ratio.
+- **The FOV field is `fov_vertical_deg`, and published specs are diagonal.** Phone and webcam
+  datasheets quote the diagonal figure almost without exception. Feeding one straight into
+  `(H/2)/tan(fov/2)` is wrong by roughly the aspect factor, about 20% on 16:9 - an order worse than
+  the per-identity scale error this phase exists to beat. A spec number is converted before entry,
+  never pasted in raw, and the field name says which axis it wants.
+
+`principal_point` stays a derived property at the frame centre rather than a config value. Nothing
+has measured a real one, and Q2 deferred the calibration that would.
+
 ### Measuring a focal length
 
 Q16 chose measurement over published specs, and the cheap version is enough. A single object of
@@ -80,11 +108,19 @@ f_px = apparent_size_px * distance_m / real_size_m
 A ruler or a sheet of paper at a metre, one frame, one measurement. It yields the one number
 `CameraConfig` consumes - no checkerboard, no lens distortion model, no OpenCV calibration run.
 Accuracy is limited by how well the distance is measured, which is a tape-measure problem good to a
-percent or two, well inside the 13% per-identity scale error phase 1 was already correcting.
+percent or two, well inside the 16% per-identity scale error phase 1 measured and corrects (66.9 mm
+against 57.7 mm of implied interpupillary distance between the two subjects; the 13% in the phase 1
+plan was the pre-implementation estimate).
 
 It is a manual step on the machine holding the camera, so it happens on g7 and the result is typed
 into that device entry with a note on how it was obtained. Published specs remain acceptable as a
 provisional entry, marked as provisional, so nothing blocks waiting for a measuring session.
+
+Which means, said plainly rather than left to be discovered: **this phase ships the seam and the
+procedure, not the numbers.** Nobody can execute the measurement from here - Q17 established that
+g4's camera has no viewer in front of it - so every camera entry starts with its FOV unset and the
+MediaPipe fallback applies everywhere, which is exactly what phase 1 does today. The first real
+focal length arrives when someone sits at g7.
 
 ### Screen pose relative to the camera
 
@@ -106,30 +142,46 @@ carry it without a rotation field.
 - `src/abyss/config/` with one module per model, plus the device registry in `params`. Registry
   entries are named by **device**, not by machine - `g4_internal`, `g7_webcam`, `pixel7pro_front` -
   because Q7 established that config travels with the data, not the process.
-- `ScreenConfig.from_edid()` scanning `/sys/class/drm/*/edid`. On this box that is five nodes of
-  which **four are zero bytes** - the disconnected HDMI and DisplayPort outputs - so the job is
-  finding the connected panel, not reading a known path: skip empty files, check the
-  `00 FF FF FF FF FF FF 00` header, then read the **detailed timing descriptor** rather than the
-  centimetre-rounded basic block, which gives 309x173 mm instead of 31x17 cm. A named error when
-  nothing is readable, which is every non-Linux target and the Pixel.
-  The committed fixture is those 128 bytes: manufacturer `CMN`, product `0x14d7`, serial field zero.
-  Checked before proposing it, since committing hardware identifiers is worth a glance - there is no
-  personal data in the block.
-- Delete `viewer/camera.py` and move its consumers onto `CameraConfig`. The five values map across
-  directly; `ipd_m` does not - see Q15.
+- **EDID is a one-off measurement, not a runtime dependency.** `scripts/read_edid.py` prints the
+  connected panel's size; it is run once per machine and the answer is typed into that machine's
+  `ScreenConfig` literal with a note on where it came from, exactly as Q10 says config values live.
+  No `from_edid()` in the package, no committed byte fixture, no parser tests, and abyss never reads
+  `/sys` at runtime. The script is small: EDID blocks are exposed one per **connector**, five on this
+  box, so it finds the connected one, checks the `00 FF FF FF FF FF FF 00` header, and reads the
+  **detailed timing descriptor** at byte 54 rather than the centimetre-rounded basic block, which is
+  the difference between 309x173 mm and 31x17 cm. Two traps worth writing down in the script, since
+  it will be run again on g7: every sysfs `edid` node reports `st_size` 0 including the live one, so
+  filtering on file size discards the panel - read the bytes, or better read the neighbouring
+  `status` file, which says `connected` for exactly one node.
+- **An entry for the clips**, without which the exit criterion below cannot hold. The registry names
+  devices, and none of them shot `face01` / `face02_portrait` / `face03_zoom` - their provenance is
+  a README in `~/data/pose/`. So there is an `unknown_clip` entry with FOV unset, which is what puts
+  those three clips on phase 1's fallback path.
+- Delete `viewer/camera.py` and move its consumers onto `CameraConfig`. Four of the five values map
+  across directly; `ipd_m` moves to `ViewerConfig` (Q15), which changes
+  `estimate_head_scale(samples, camera)` to take the viewer as a third argument. The call sites are
+  countable: `viewer/eye_position.py`, `scripts/viewer_position.py` (whose `--ipd-mm` default reads
+  `DEFAULT_IPD_M`) and `tests/viewer/test_eye_position.py`. `tests/viewer/test_camera.py` is deleted
+  rather than ported; its content becomes `tests/config/test_camera.py`.
+- **Measure the bezel offset** while a screen is in reach, since nothing else will: the camera-to-
+  screen-centre offset is the one number with no upstream source, and phase 3's frustum consumes it
+  directly. One ruler reading on g4's lid gives it, and g4's *screen* is a legitimate entry even
+  though its camera is not.
 - Validation is what pydantic is here for: positive dimensions, FOV strictly between 0 and 180,
-  resolution positive, sink path present when the sink writes files. A malformed entry fails at
-  construction with a readable error rather than producing a silently wrong frustum ten frames on.
-- Tests mirror `src/abyss/config/`: construction, the FOV/focal round trip at several heights, the
-  MediaPipe fallback matching phase 1's numbers, EDID parsing against a committed byte fixture (the
-  128 bytes from this box, which contain no personal data), and each validation error firing.
+  positive resolution, positive interpupillary distance. A malformed entry fails at construction with
+  a readable error rather than producing a silently wrong frustum ten frames on.
+- Tests mirror `src/abyss/config/`: construction, the FOV/focal round trip at several heights and at
+  both clip orientations, the MediaPipe fallback matching phase 1's numbers, `mirrored` flipping X
+  and nothing else, and each validation error firing. No test reads `/sys`, because nothing in the
+  package does.
 
 ## Out of scope
 
 - Checkerboard calibration. Q2 deferred it and nothing here reopens it. The FOV-from-spec route is
   the cheap version behind the same seam, and calibration replaces it later without touching callers.
-- The rendering side of `SinkConfig`. The model exists so phase 4 has somewhere to put its choice;
-  actually opening a window is phase 5.
+- `SinkConfig` entirely, model included, until phase 4 has a caller for it. The four-way split and
+  the Q13 argument behind it stand; only the code waits.
+- An EDID parser in the package. The read is a one-off script whose output becomes a literal.
 - Unblocking the `video` group. Worth doing on **g7**, where the camera has a viewer in front of
   it, and it is a privileged system change there needing its own box-level note. On g4 it would
   change nothing useful (Q17).
@@ -169,11 +221,19 @@ Numbering continues from `00_start.md`.
 
 ## Done when
 
-- `viewer/camera.py` is deleted and nothing imports it.
-- The five models exist, validate, and are constructed from literals in `params` for at least
-  `g4_internal` and one clip-based stream.
-- `ScreenConfig.from_edid` returns 309x173 mm on this box, and the same numbers come back from the
-  committed fixture without touching `/sys`.
-- `scripts/viewer_position.py` runs unchanged in behaviour: the same three clips produce the same
-  eye positions to within floating point, since the fallback reproduces phase 1's assumption.
-- `make check` is green, and the suite still passes with no clip, no model, and no `/sys/class/drm`.
+- `viewer/camera.py` is deleted and nothing imports it. Today `grep -rn "viewer.camera"` finds four
+  files; afterwards it finds none.
+- The four models exist, validate, and are constructed from literals in `params` for `g4_screen`,
+  `unknown_clip`, and one clip-based stream.
+- `g4_screen` carries 0.309 x 0.173 m - metres, since phase 1's unit decision applies here too and
+  the millimetres stay inside the script - plus a camera offset that was measured rather than
+  guessed, with its provenance in a comment.
+- `scripts/viewer_position.py` reproduces phase 1 **exactly**, checked by diffing the new CSVs
+  against the ones already under `cache_fol/viewer/` rather than by eye. This holds only because
+  `unknown_clip` leaves FOV unset, resolution comes from the frames rather than from the config, and
+  `ViewerConfig.ipd_m` defaults to the same 0.063 that `DEFAULT_IPD_M` did. Worth recording why the
+  first of those matters less than it looks: with the head-scale estimator active, `head_scale` is
+  proportional to the focal and `depth = depth_m * head_scale` with it, so the focal cancels out of
+  `x = (u - cx) * depth / focal` exactly. A wrong focal is a pure depth error, which is both why the
+  Q16 measurement is worth doing and why an unset entry reproduces phase 1 bit for bit.
+- `make check` is green, and the suite still passes with no clip and no model present.

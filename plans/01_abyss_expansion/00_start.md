@@ -312,9 +312,25 @@ Parked here so they are not lost, neither is committed:
 
 ## The boundary with pose-tools
 
-Unchanged, and it governs where new code goes: would `climbing-wire` want it? A face landmarker
-wrapper, a camera-intrinsics model, landmark smoothing - general, so upstream. A screen model, an
-off-axis frustum, a scene renderer - abyss's own.
+Unchanged as a rule, and it governs where new code goes: would `climbing-wire` want it? A face
+landmarker wrapper is the clear case, and it went upstream as pose-tools v0.4.0. A screen model, an
+off-axis frustum, a scene renderer are as clearly abyss's own.
+
+The two cases this paragraph originally assigned upstream both came back the other way once they
+were built, so the record is corrected here rather than left contradicting the code:
+
+- **Landmark smoothing** stayed in `abyss/viewer/smoothing.py`. The general part was already
+  upstream - `pose_tools.utils.np_signal` supplies the filters - and what abyss added was three
+  axes of eye position and a policy for holding state across a missing face, which is application
+  behaviour rather than a utility.
+- **The camera-intrinsics model** stays in abyss as `config/camera.py`. climbing-wire would want the
+  *relation* between FOV and focal length, which is three lines of trigonometry, not a pydantic model
+  carrying a per-device registry. pose-tools deliberately dropped pydantic in v0.3.0 and has no
+  config surface; putting one back to hold values that only abyss's devices have would reverse that
+  for no gain.
+
+The test still holds, in other words. What both cases show is that it is answered per piece of code,
+not per topic: "intrinsics" is upstream as maths and downstream as configuration.
 
 `pose-tools` must never import `abyss`.
 
