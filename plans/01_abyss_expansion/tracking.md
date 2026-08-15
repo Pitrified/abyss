@@ -44,7 +44,7 @@ here, so phase 1 is unblocked.
 | -- | ------------------------------ | ---- | ------ |
 | 0  | face landmarker in pose-tools  | tracked in pose-tools | done, shipped as v0.4.0 |
 | 1  | viewer position from a clip    | [`01_viewer_position.md`](01_viewer_position.md) | done    |
-| 2  | camera and screen model        | -    | planned |
+| 2  | camera and screen model        | [`02_camera_screen_model.md`](02_camera_screen_model.md) | planned |
 | 3  | off-axis projection            | -    | planned |
 | 4  | minimal scene through it       | -    | planned, real renderer spun off |
 | 5  | close the loop, live           | -    | planned, runs on g7 not here |
@@ -193,3 +193,19 @@ Append-only. Newest at the bottom.
   Two things the type checker caught that the plan had not: MediaPipe types landmark coordinates as
   optional, so a landmark without them now yields no sample rather than a crash, and `hold()`
   returns `None` before the first sample, which every caller has to handle.
+- 2026-08-15 : planned phase 2. Two discoveries while measuring, both of which change what it should
+  build. **g4 has a webcam**: `HP HD Camera` on uvcvideo at `/dev/video0`, which fails to open only
+  because the user is not in the `video` group - a permissions fix, not a hardware limit, so
+  `.github/copilot-instructions.md` claiming this box has no camera is wrong. **g4's panel reports
+  its own geometry**: EDID on `card1-eDP-1` gives 309x173 mm at 1920x1080, so screen size is
+  machine-readable rather than measured with a ruler, and the same read works on g7. Four of the
+  five EDID nodes are zero bytes (disconnected ports), so the reader has to find the connected panel
+  rather than read a fixed path, and the detailed timing descriptor is the source, not the
+  centimetre-rounded basic block.
+  Also worked out that a laptop's screen-to-camera transform is lid-independent, since the camera
+  rides in the bezel - one offset covers every lid angle, which is not true of a separate webcam on
+  an external monitor. Rotation is left unmodelled for now: it is the identity on a laptop and phase
+  3 only needs the corners.
+  Raised Q15-Q17: where the viewer's interpupillary distance lives now that it is clearly not a
+  camera property, whether device entries carry published or measured values, and whether to fix the
+  `video` group on g4 so phases 2-4 can be developed against a live camera.
