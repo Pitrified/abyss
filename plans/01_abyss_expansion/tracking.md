@@ -46,7 +46,7 @@ is pinned here.
 | -- | ------------------------------ | ---- | ------ |
 | 0  | face landmarker in pose-tools  | tracked in pose-tools | done, shipped as v0.4.0 |
 | 1  | viewer position from a clip    | [`01_viewer_position.md`](01_viewer_position.md) | done    |
-| 2  | camera and screen model        | [`02_camera_screen_model.md`](02_camera_screen_model.md) | planned |
+| 2  | camera and screen model        | [`02_camera_screen_model.md`](02_camera_screen_model.md) | done |
 | 3  | off-axis projection            | -    | planned |
 | 4  | minimal scene through it       | -    | planned, real renderer spun off |
 | 5  | close the loop, live           | -    | planned, runs on g7 not here |
@@ -261,3 +261,31 @@ Append-only. Newest at the bottom.
   cancels exactly out of the lateral position, so a wrong focal is a pure depth error.
   Per-identity spread corrected throughout from the 13% planning estimate to the 16% actually
   measured (66.9 mm against 57.7 mm).
+- 2026-08-15 : phase 2 implemented. `src/abyss/config/` holds `CameraConfig`, `StreamConfig`,
+  `ScreenConfig` and `ViewerConfig`, with the device registry and its literals in
+  `params/abyss_devices.py`. `viewer/camera.py` is gone and nothing imports it. 97 tests, ruff and
+  pyright clean.
+  The exit criterion held exactly: all three clips produced CSVs **byte-identical** to the phase 1
+  outputs, diffed rather than eyeballed. Head scale still 66.9 mm implied against 63.0 mm
+  configured, scale 0.942.
+  Three things came out differently from the plan, each recorded because each is a decision rather
+  than a detail.
+  First, `CameraConfig` has no resolution field. Writing it made the reason obvious: a camera feeds
+  several streams at several resolutions, so a stored resolution is a second source of truth that
+  can disagree with the frames in hand, and the plan's own rule says the focal follows the actual
+  frame height. So the device config carries only what is resolution-independent, and a small
+  frozen `FrameGeometry` binds it to a real frame at run time, supplying `focal`,
+  `principal_point` and `mirrored`. The only resolution stored anywhere is
+  `focal_measured_at_height`, which is what makes a measured focal interpretable at all.
+  Second, pydantic swallows exception types. A validator raising `AmbiguousIntrinsicsError` reaches
+  the caller as `ValidationError` with the message intact and the type gone, not even as
+  `__cause__` - found by a test asserting the type, which failed. The named classes stay because
+  they say what went wrong where it went wrong, but the docstring now says plainly that only the
+  message survives. Two tests were dropped rather than left asserting something untrue.
+  Third, the screen offset is **not measured**, contrary to the plan bullet that said to reach for a
+  ruler. g4 is reached over ssh, so there is no hand here to hold one. The entry carries half the
+  panel height plus a 10 mm bezel guess, with the word PROVISIONAL in its provenance and a test
+  asserting that word is there, so phase 3 cannot consume it believing it was measured. The panel
+  size next to it is exact, straight from EDID.
+  `scripts/read_edid.py` replaces the planned `from_edid()`; run here it reports 309x173 mm on
+  `card1-eDP-1` and disconnected on the other four connectors, matching the literal it produced.

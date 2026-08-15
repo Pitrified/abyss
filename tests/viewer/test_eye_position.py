@@ -15,7 +15,10 @@ from mediapipe.tasks.python.vision.face_landmarker import FaceLandmarkerResult
 import numpy as np
 import pytest
 
-from abyss.viewer.camera import CameraAssumptions
+from abyss.config.camera import CameraConfig
+from abyss.config.camera import FrameGeometry
+from abyss.config.viewer import DEFAULT_IPD_M
+from abyss.config.viewer import ViewerConfig
 from abyss.viewer.eye_position import EYE_IN_MODEL_CM
 from abyss.viewer.eye_position import EyeSample
 from abyss.viewer.eye_position import estimate_head_scale
@@ -83,7 +86,25 @@ def identity_matrix(depth_cm: float) -> np.ndarray:
     return matrix
 
 
-CAMERA = CameraAssumptions(width=1920, height=1080)
+def geometry(
+    width: int = 1920,
+    height: int = 1080,
+    focal_px: float | None = None,
+    *,
+    mirrored: bool = False,
+) -> FrameGeometry:
+    """Bind a camera to a frame size, the way the pipeline does at run time."""
+    camera = CameraConfig(
+        name="test",
+        focal_px=focal_px,
+        focal_measured_at_height=height if focal_px is not None else None,
+        mirrored=mirrored,
+    )
+    return FrameGeometry(camera=camera, width=width, height=height)
+
+
+CAMERA = geometry()
+VIEWER = ViewerConfig(name="test")
 
 
 class TestExtractEyeSample:
@@ -163,22 +184,22 @@ class TestEyePositionM:
         assert position[1] > 0
 
     def test_pinhole_conversion_by_hand(self) -> None:
-        camera = CameraAssumptions(width=1920, height=1080, focal_px=1000.0)
+        camera = geometry(focal_px=1000.0)
         position = eye_position_m(self.sample(u=1160.0, v=740.0), camera)
         assert position[0] == pytest.approx((1160 - 960) * 0.5 / 1000)
         assert position[1] == pytest.approx((740 - 540) * 0.5 / 1000)
 
     def test_mirrored_flips_x_only(self) -> None:
         plain = eye_position_m(self.sample(u=1160.0, v=740.0), CAMERA)
-        mirrored_camera = CameraAssumptions(width=1920, height=1080, mirrored=True)
+        mirrored_camera = geometry(mirrored=True)
         mirrored = eye_position_m(self.sample(u=1160.0, v=740.0), mirrored_camera)
         assert mirrored[0] == pytest.approx(-plain[0])
         assert mirrored[1] == pytest.approx(plain[1])
         assert mirrored[2] == pytest.approx(plain[2])
 
     def test_focal_scales_depth_only(self) -> None:
-        near = CameraAssumptions(width=1920, height=1080, focal_px=1000.0)
-        far = CameraAssumptions(width=1920, height=1080, focal_px=2000.0)
+        near = geometry(focal_px=1000.0)
+        far = geometry(focal_px=2000.0)
         sample = self.sample(u=1160.0, v=740.0)
         # Doubling the true focal doubles the depth the same sample implies,
         # which the caller supplies through head_scale in the real pipeline.
@@ -209,31 +230,32 @@ class TestEstimateHeadScale:
         )
 
     def test_matches_the_configured_ipd(self) -> None:
-        camera = CameraAssumptions(width=1920, height=1080, focal_px=1000.0)
+        camera = geometry(focal_px=1000.0)
         # An implied IPD of 0.07 m against a configured 0.063 m.
         samples = [self.make(ipd_px=140.0, depth_m=0.5, yaw=0.0) for _ in range(5)]
-        assert estimate_head_scale(samples, camera) == pytest.approx(0.063 / 0.07)
+        scale = estimate_head_scale(samples, camera, VIEWER)
+        assert scale == pytest.approx(DEFAULT_IPD_M / 0.07)
 
     def test_ignores_turned_heads(self) -> None:
-        camera = CameraAssumptions(width=1920, height=1080, focal_px=1000.0)
+        camera = geometry(focal_px=1000.0)
         front = [self.make(ipd_px=140.0, depth_m=0.5, yaw=2.0) for _ in range(3)]
         turned = [self.make(ipd_px=90.0, depth_m=0.5, yaw=40.0) for _ in range(9)]
-        assert estimate_head_scale(front + turned, camera) == pytest.approx(
-            0.063 / 0.07
+        assert estimate_head_scale(front + turned, camera, VIEWER) == pytest.approx(
+            DEFAULT_IPD_M / 0.07
         )
 
     def test_no_front_facing_frame_leaves_the_scale_alone(self) -> None:
-        camera = CameraAssumptions(width=1920, height=1080, focal_px=1000.0)
+        camera = geometry(focal_px=1000.0)
         turned = [self.make(ipd_px=90.0, depth_m=0.5, yaw=40.0) for _ in range(4)]
-        assert estimate_head_scale(turned, camera) == 1.0
+        assert estimate_head_scale(turned, camera, VIEWER) == 1.0
 
 
 class TestAgainstRealFrames:
     """The fixture: 20 real frames, no clip and no model needed."""
 
-    def load(self) -> tuple[list[EyeSample], CameraAssumptions]:
+    def load(self) -> tuple[list[EyeSample], FrameGeometry]:
         doc = json.loads(FIXTURE.read_text())
-        camera = CameraAssumptions(width=doc["width"], height=doc["height"])
+        camera = geometry(width=doc["width"], height=doc["height"])
         samples = []
         for row in doc["frames"]:
             right, left = row["right_iris"], row["left_iris"]
@@ -260,12 +282,12 @@ class TestAgainstRealFrames:
         # face01's subject implies ~70 mm of IPD against a 63 mm default, so
         # the correction is a shrink of roughly 10%.
         samples, camera = self.load()
-        scale = estimate_head_scale(samples, camera)
+        scale = estimate_head_scale(samples, camera, VIEWER)
         assert 0.85 < scale < 0.95
 
     def test_positions_stay_in_front_of_the_camera(self) -> None:
         samples, camera = self.load()
-        scale = estimate_head_scale(samples, camera)
+        scale = estimate_head_scale(samples, camera, VIEWER)
         for sample in samples:
             position = eye_position_m(sample, camera, scale)
             assert position[2] > 0

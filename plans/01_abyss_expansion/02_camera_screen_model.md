@@ -1,5 +1,5 @@
 ---
-status: planned
+status: done
 ---
 
 # Phase 2 - camera and screen model
@@ -36,7 +36,7 @@ Three devices plus the viewer, each with its own reason to change:
 
 | Model | Holds | Source of values |
 | ----- | ----- | ---------------- |
-| `CameraConfig` | resolution, focal length or FOV, principal point, `mirrored` | published spec, or the phase 1 fallback law |
+| `CameraConfig` | field of view or a measured focal length, `mirrored`, provenance | measurement, or the phase 1 fallback law |
 | `StreamConfig` | clip path or device index | per run |
 | `ScreenConfig` | width and height in metres, pose relative to the camera | EDID where available, measured otherwise |
 | `ViewerConfig` | interpupillary distance, and later any per-person overrides | Q15: measured per person, estimated per session |

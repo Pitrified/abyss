@@ -27,9 +27,11 @@ from pose_tools.landmark.face import FaceLandmarkerFrame
 from pose_tools.landmark.model_manager import ModelManager
 from pose_tools.video.frame import Frame
 
+from abyss.config.camera import FrameGeometry
+from abyss.config.viewer import DEFAULT_IPD_M
+from abyss.config.viewer import ViewerConfig
+from abyss.params.abyss_devices import get_camera
 from abyss.params.abyss_params import get_abyss_paths
-from abyss.viewer.camera import DEFAULT_IPD_M
-from abyss.viewer.camera import CameraAssumptions
 from abyss.viewer.eye_position import EyeSample
 from abyss.viewer.eye_position import estimate_head_scale
 from abyss.viewer.eye_position import extract_eye_sample
@@ -37,6 +39,9 @@ from abyss.viewer.eye_position import eye_position_m
 from abyss.viewer.smoothing import PositionSmoother
 
 mpl.use("Agg")  # headless box: no display, so figures go to files
+
+CLIP_CAMERA = "unknown_clip"
+"""The sample clips have no known camera, so the fallback intrinsics apply."""
 
 CSV_FIELDS = [
     "idx",
@@ -55,21 +60,23 @@ CSV_FIELDS = [
 ]
 
 
-def collect_samples(clip: Path) -> tuple[list[EyeSample | None], CameraAssumptions]:
+def collect_samples(clip: Path) -> tuple[list[EyeSample | None], FrameGeometry]:
     """Run the landmarker over a clip and collect the raw samples.
 
     Args:
         clip: Path to the video file.
 
     Returns:
-        The per-frame samples, ``None`` where no face was found, and the camera
-        assumptions built from the clip's geometry.
+        The per-frame samples, ``None`` where no face was found, and the frame
+        geometry the clip turned out to have.
     """
     capture = cv.VideoCapture(str(clip))
     width = int(capture.get(cv.CAP_PROP_FRAME_WIDTH))
     height = int(capture.get(cv.CAP_PROP_FRAME_HEIGHT))
     fps = capture.get(cv.CAP_PROP_FPS)
-    camera = CameraAssumptions(width=width, height=height)
+    # The frame size comes from the frames, never from the config: the focal
+    # length follows the frame height, so a stale resolution rescales depth.
+    geometry = FrameGeometry(camera=get_camera(CLIP_CAMERA), width=width, height=height)
     lg.info(f"{clip.name}: {width}x{height} @ {fps:.2f} fps")
 
     model_path = ModelManager().ensure_model("face_landmarker")
@@ -94,13 +101,13 @@ def collect_samples(clip: Path) -> tuple[list[EyeSample | None], CameraAssumptio
                 idx=idx,
             )
             result = landmarker.detect(frame)
-            samples.append(extract_eye_sample(result, camera, idx, msec))
+            samples.append(extract_eye_sample(result, geometry, idx, msec))
             idx += 1
     capture.release()
 
     found = sum(s is not None for s in samples)
     lg.info(f"{clip.name}: {found}/{len(samples)} frames with a face")
-    return samples, camera
+    return samples, geometry
 
 
 def write_csv(path: Path, rows: list[dict]) -> None:
@@ -153,18 +160,14 @@ def process(clip: Path, out_fol: Path, ipd_m: float) -> None:
         out_fol: Folder to write the CSV and the plot into.
         ipd_m: Viewer interpupillary distance in metres.
     """
-    samples, camera = collect_samples(clip)
-    camera = CameraAssumptions(
-        width=camera.width,
-        height=camera.height,
-        ipd_m=ipd_m,
-    )
+    samples, geometry = collect_samples(clip)
+    viewer = ViewerConfig(name="cli", ipd_m=ipd_m)
     found = [s for s in samples if s is not None]
     if not found:
         lg.warning(f"{clip.name}: no face anywhere, nothing to write")
         return
 
-    head_scale = estimate_head_scale(found, camera)
+    head_scale = estimate_head_scale(found, geometry, viewer)
     smoother = PositionSmoother()
 
     rows: list[dict] = []
@@ -189,7 +192,7 @@ def process(clip: Path, out_fol: Path, ipd_m: float) -> None:
                 }
             )
             continue
-        position = eye_position_m(sample, camera, head_scale)
+        position = eye_position_m(sample, geometry, head_scale)
         smoothed = smoother.update(position)
         rows.append(
             {

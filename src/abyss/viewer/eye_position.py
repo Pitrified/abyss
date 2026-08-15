@@ -29,7 +29,8 @@ from pose_tools.utils.mediapipe import FACE_RIGHT_IRIS_CENTER
 from pose_tools.utils.mediapipe import get_facial_transformation_matrix
 from pose_tools.utils.mediapipe import get_landmarks_from_result
 
-from abyss.viewer.camera import CameraAssumptions
+from abyss.config.camera import FrameGeometry
+from abyss.config.viewer import ViewerConfig
 
 CM_TO_M = 0.01
 
@@ -71,7 +72,7 @@ class EyeSample:
 
 def extract_eye_sample(
     result: FaceLandmarkerResult,
-    camera: CameraAssumptions,
+    geometry: FrameGeometry,
     idx: int,
     msec: float,
 ) -> EyeSample | None:
@@ -80,7 +81,7 @@ def extract_eye_sample(
     Args:
         result: A face landmarker result, from a landmarker built with
             ``output_facial_transformation_matrixes=True``.
-        camera: Frame geometry the landmarks are expressed in.
+        geometry: Frame geometry the landmarks are expressed in.
         idx: Frame index, carried through to the sample.
         msec: Frame timestamp in milliseconds, carried through.
 
@@ -100,8 +101,8 @@ def extract_eye_sample(
     if right.x is None or right.y is None or left.x is None or left.y is None:
         lg.warning(f"Frame {idx}: iris landmark without coordinates")
         return None
-    right_px = np.array([right.x * camera.width, right.y * camera.height])
-    left_px = np.array([left.x * camera.width, left.y * camera.height])
+    right_px = np.array([right.x * geometry.width, right.y * geometry.height])
+    left_px = np.array([left.x * geometry.width, left.y * geometry.height])
     midpoint = (right_px + left_px) / 2
 
     rotation = matrix[:3, :3]
@@ -120,7 +121,11 @@ def extract_eye_sample(
     )
 
 
-def estimate_head_scale(samples: list[EyeSample], camera: CameraAssumptions) -> float:
+def estimate_head_scale(
+    samples: list[EyeSample],
+    geometry: FrameGeometry,
+    viewer: ViewerConfig,
+) -> float:
     """Estimate the factor correcting MediaPipe's metric scale for this viewer.
 
     MediaPipe fits an identity-dependent mesh, so the head size implicit in its
@@ -135,8 +140,9 @@ def estimate_head_scale(samples: list[EyeSample], camera: CameraAssumptions) -> 
 
     Args:
         samples: Samples from the clip, in any order.
-        camera: Camera assumptions, supplying the focal length and the viewer's
-            interpupillary distance.
+        geometry: Frame geometry, supplying the focal length.
+        viewer: The person in front of the camera, supplying the real
+            interpupillary distance to correct towards.
 
     Returns:
         Multiplicative scale factor, or ``1.0`` when no frame is front-facing
@@ -147,37 +153,37 @@ def estimate_head_scale(samples: list[EyeSample], camera: CameraAssumptions) -> 
         lg.warning("No front-facing frames, leaving MediaPipe's scale untouched")
         return 1.0
 
-    implied = np.array([s.ipd_px * s.depth_m / camera.focal for s in usable])
+    implied = np.array([s.ipd_px * s.depth_m / geometry.focal for s in usable])
     implied_ipd_m = float(np.median(implied))
-    scale = camera.ipd_m / implied_ipd_m
+    scale = viewer.ipd_m / implied_ipd_m
     lg.info(
         f"Head scale from {len(usable)} frames: "
         f"implied IPD {implied_ipd_m * 1000:.1f} mm, "
-        f"viewer IPD {camera.ipd_m * 1000:.1f} mm, scale {scale:.3f}"
+        f"viewer IPD {viewer.ipd_m * 1000:.1f} mm, scale {scale:.3f}"
     )
     return scale
 
 
 def eye_position_m(
     sample: EyeSample,
-    camera: CameraAssumptions,
+    geometry: FrameGeometry,
     head_scale: float = 1.0,
 ) -> np.ndarray:
     """Convert a sample into a 3D eye position in metres.
 
     Args:
         sample: Raw measurements for one frame.
-        camera: Camera assumptions supplying focal length, principal point and
+        geometry: Frame geometry supplying focal length, principal point and
             whether the capture is mirrored.
         head_scale: Factor from :func:`estimate_head_scale`.
 
     Returns:
         Array ``[x, y, z]`` in metres, in the frame documented at module level.
     """
-    cx, cy = camera.principal_point
+    cx, cy = geometry.principal_point
     depth = sample.depth_m * head_scale
-    x = (sample.u_px - cx) * depth / camera.focal
-    y = (sample.v_px - cy) * depth / camera.focal
-    if camera.mirrored:
+    x = (sample.u_px - cx) * depth / geometry.focal
+    y = (sample.v_px - cy) * depth / geometry.focal
+    if geometry.mirrored:
         x = -x
     return np.array([x, y, depth])
