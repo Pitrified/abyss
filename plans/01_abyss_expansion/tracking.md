@@ -43,7 +43,7 @@ here, so phase 1 is unblocked.
 | #  | Phase                          | Plan | Status |
 | -- | ------------------------------ | ---- | ------ |
 | 0  | face landmarker in pose-tools  | tracked in pose-tools | done, shipped as v0.4.0 |
-| 1  | viewer position from a clip    | [`01_viewer_position.md`](01_viewer_position.md) | planned |
+| 1  | viewer position from a clip    | [`01_viewer_position.md`](01_viewer_position.md) | done    |
 | 2  | camera and screen model        | -    | planned |
 | 3  | off-axis projection            | -    | planned |
 | 4  | minimal scene through it       | -    | planned, real renderer spun off |
@@ -176,3 +176,20 @@ Append-only. Newest at the bottom.
   CSV (the Euler conversion is a pose-tools utility by our own boundary rule). Kept: a committed
   fixture so the conversion is testable with no clip and no model, filter warm-up from the first
   sample, an explicit no-face policy, and the principal point named among the assumptions.
+- 2026-08-15 : phase 1 implemented on `feat/viewer-position`. `src/abyss/viewer/` holds `camera.py`
+  (the five-number placeholder phase 2 replaces), `eye_position.py` and `smoothing.py`, driven by
+  `scripts/viewer_position.py`, with 43 new tests - 51 total, none needing a clip or a model.
+  **The acceptance test passes at +0.35% mean error** against the known zoom ramp (sd 0.45%, worst
+  2.31%) over a 1.61x depth range. Better than the +1.97% the raw matrix gave, because the
+  eye-offset correction removes part of the bias too.
+  Measured, not assumed: the head-scale estimator reports an implied interpupillary distance of
+  66.9 mm for `face01`'s subject and 57.7 mm for `face02`'s, a 16% spread, corrected to the
+  configured 63 mm by factors of 0.941 and 1.092. The per-identity problem is real and now handled.
+  Filter width is **5 taps** (0.2 s at 25 fps), recorded here rather than tuned silently. Measured
+  frame-to-frame jitter on the near-static `face01`: x 1.43 -> 1.27 mm, y 1.35 -> 1.08 mm,
+  z 2.05 -> 1.25 mm. Depth benefits most, which is where the jitter was worst.
+  `face02_portrait` turned out to have one frame with no face out of 240, so the gap path ran for
+  real rather than only in tests: the smoother held 0.4815 m across it and the CSV records the gap.
+  Two things the type checker caught that the plan had not: MediaPipe types landmark coordinates as
+  optional, so a landmark without them now yields no sample rather than a crash, and `hold()`
+  returns `None` before the first sample, which every caller has to handle.
