@@ -21,13 +21,33 @@ def test_every_entry_is_keyed_by_its_own_name() -> None:
 
 
 def test_the_clip_camera_is_unmeasured() -> None:
-    """The sample clips have to stay on phase 1's fallback path."""
+    """The sample clips have to stay on phase 1's fallback path.
+
+    This matters more now that a real camera is measured: the regression
+    baseline is only comparable while the clips keep using MediaPipe's assumed
+    field of view, so a measurement must never leak into them.
+    """
     assert get_camera("unknown_clip").is_measured is False
 
 
-def test_no_camera_is_measured_yet() -> None:
-    """Measuring needs someone in front of the camera, which needs g7."""
-    assert not any(camera.is_measured for camera in CAMERAS.values())
+def test_the_g7_webcam_is_measured() -> None:
+    """Measured on g7 by ChArUco calibration, two runs agreeing to 0.5%."""
+    camera = get_camera("g7_webcam")
+    assert camera.is_measured is True
+    assert camera.focal_px == pytest.approx(945.0)
+    assert camera.focal_measured_at_height == 720
+
+
+def test_the_g7_webcam_focal_rescales_with_height() -> None:
+    """A focal in pixels is only valid at its own resolution.
+
+    The camera also offers 640x480, and the two modes were never shown to
+    share a vertical field of view, so this pins the arithmetic rather than
+    the claim that rescaling to 480 is meaningful here.
+    """
+    camera = get_camera("g7_webcam")
+    assert camera.focal_px_for_height(1440) == pytest.approx(1890.0)
+    assert camera.focal_px_for_height(360) == pytest.approx(472.5)
 
 
 def test_the_phone_camera_is_mirrored() -> None:

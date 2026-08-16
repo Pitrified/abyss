@@ -377,3 +377,44 @@ Append-only. Newest at the bottom.
   ChArUco over a plain checkerboard. 103 tests now, ruff and pyright clean.
   Still unmeasured: the focal itself, the mode comparison, and the bezel gap. The tooling is ready
   for all three and none has been run against a real board yet.
+- 2026-08-16 : **g7's webcam is measured.** `focal_px=945.0` at height 720, from ChArUco
+  calibration off a Kindle Paperwhite 11. Two runs agree to 0.49%, 944.98 from 15 views at 0.26 to
+  0.33 m and 940.40 from 8 views at 0.38 to 0.47 m, so they converge from genuinely different
+  geometries rather than repeating one setup. Reprojection rms 0.263 and 0.251 px.
+  **The vertical field of view is 41.7 degrees, not the 63 that MediaPipe assumes.** That implies a
+  587.5 px focal where the real one is 945, a factor of 1.60, so any depth taken on this camera
+  through the fallback is 0.625x the truth, 38% too small. That dwarfs the 16% per-identity head
+  scale phase 1 corrects, and it is the first hard evidence that the fallback is not merely
+  imprecise but wrong on real hardware. The sample clips are untouched: they use `unknown_clip`,
+  and the regression CSVs stayed byte-identical through this change, checked by sha256.
+  Getting there took six attempts, and none of the failures were what the guidance predicted.
+  First the board was backlit against a window, so the camera metered for the window and the board
+  went black. Then, with the light moved behind the camera, the opposite: the reader's front light
+  and the room together blew the white squares out, and the glare bled over the marker bits. That
+  is the failure that misleads, because the board looks perfect to the eye. It showed up as 64 to
+  74 candidate quads per frame with zero decoded and 44% to 66% of the pixels inside those quads at
+  or above 250. The board was never blurred; it measured 258 Laplacian variance against 60 to 98
+  for the background, the sharpest thing in frame.
+  The lesson was that the operator cannot be asked to guess an exposure, and the advice to turn the
+  front light up or down was reversed twice before that was accepted. `find_exposure` now sweeps a
+  ladder at preflight and keeps whatever decodes the most markers. The reader's light being set to
+  a mid-sepia warm tone was also a contributor and explains the brown squares in the debug frames,
+  which had been misread as camera white balance.
+  A real capture bug surfaced only because the user noticed four saved views looked identical. V4L2
+  keeps filling its queue while nobody reads, so a read after a four second wait returns four
+  second old content. Measured: frame to frame difference of 2.3 to 3.2 across the duplicates
+  against 10.7 to 18.4 for every later pair, and probing by idling then reading rapidly put the
+  content jump between the fourth and fifth read, confirming queue depth 4. Fixed with
+  `CAP_PROP_BUFFERSIZE=1` plus an explicit flush before each kept frame. The next run had 15 of 15
+  views distinct, minimum consecutive difference 16.8.
+  Coverage stayed near the frame centre, because holding a board at the edge of frame without live
+  feedback is guesswork. That is fine and no live preview is needed: the two things centre-only
+  coverage degrades are exactly the two the model does not consume. The principal point moved 11 px
+  between runs, 635 to 646 against a 640 centre, and `k1` flipped sign between -0.007 and +0.006.
+  Both are loosely constrained and both are unused, while the focal, which is consumed, is stable
+  to 0.49%. Note this also corrects an earlier guess: the barrel distortion that looked obvious in
+  a wide room shot measures near zero.
+  `test_no_camera_is_measured_yet` was replaced rather than deleted. It pinned a fact about the
+  world that has now changed, so it became tests for the measured focal and its rescaling, and the
+  existing clip-camera test gained the reason it now matters more.
+  Still unmeasured: the mode comparison at 640x480, and the bezel gap for a `g7_internal` screen.

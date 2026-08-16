@@ -53,7 +53,17 @@ CAMERAS: dict[str, CameraConfig] = {
     ),
     "g7_webcam": CameraConfig(
         name="g7_webcam",
-        provenance="unmeasured; the machine where measuring is actually possible",
+        focal_px=945.0,
+        focal_measured_at_height=720,
+        provenance=(
+            "Chicony 04f2:b6c8, measured 2026-08-16 by ChArUco calibration off a "
+            "Kindle Paperwhite 11 at 300 ppi, 15 views at 1280x720, rms 0.263 px. "
+            "A second run of 8 views at a different distance gave 940.4, agreeing "
+            "to 0.5%. Vertical field of view 41.7 deg, not the 63 deg MediaPipe "
+            "assumes, so the fallback underestimates depth here by 38%. "
+            "Principal point 646x374 and k1 near zero were also recovered but are "
+            "loosely constrained, the board having stayed near the frame centre"
+        ),
     ),
     "pixel7pro_front": CameraConfig(
         name="pixel7pro_front",
