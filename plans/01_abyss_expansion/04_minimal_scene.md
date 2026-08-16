@@ -46,7 +46,7 @@ The sink is a genuine second seam, on Q13's argument: it acts on a frame that al
 | Seam | Now | Named second |
 | ---- | --- | ------------ |
 | renderer | `WireframeRenderer`, numpy and `cv.line` | GL, `02_scene_rendering` |
-| sink | `PngSink`, frames to `cache/render/<run>/` | `WindowSink`, phase 5 |
+| sink | `PngSink` to `cache/render/<run>/`, and `VideoSink` | `WindowSink`, phase 5 |
 | eye source | a phase 1 CSV, or a synthetic sweep | a live tracker, phase 5 |
 
 ## What the scene is
@@ -63,13 +63,28 @@ Contents, each earning its place:
 
 | Piece | Why |
 | ----- | --- |
-| 12 box edges | the room, and the border self-check |
+| 12 box edges | the room |
+| a **frame marker** at 98% of the panel rect, `z = 0` | the border self-check, see below |
 | a grid on the back wall | parallax needs a reference to slide against |
 | one mid-line per side wall | tells the eye the walls recede, cheaply |
 | a small cube floating mid-depth, ~0.06 m at `z = -0.25 m`, off-centre | parallax is most legible as relative motion between two things at different depths, so the cube moving against the back grid *is* the effect |
 
-Around 40 segments. Depth-faded colour: near edges bright, far edges dim, the cheapest depth cue
+Around 45 segments. Depth-faded colour: near edges bright, far edges dim, the cheapest depth cue
 there is. No filled surfaces, so the scene stays one primitive and a wireframe throughout (Q21).
+
+**The mouth itself cannot be drawn, which is why the frame marker exists.** Phase 3's viewport
+transform is `(ndc + 1) / 2 * width_px`, so the panel corners land on 1280 and 720 exactly, not on
+1279 and 719 - `test_screen_corners_map_to_viewport_corners` asserts precisely that. Those are the
+outer edges of the last pixels, so the right and bottom edges of the mouth fall outside
+`[0, 1279]` and `[0, 719]`, and `cv.line` clips them away silently. Drawn naively, the mouth renders
+as two edges out of four and the headline visual check would not exist.
+
+The fix is a marker **in the scene, not in the drawing**: a rectangle at `z = 0` scaled to 98% of the
+panel, so it goes through the identical projection path and is not a 2D special case. It then sits a
+uniform gap inside the image border, and a *uniform* gap is what says the projection is right. The
+gap opening up on one side is easier to see than a line sitting exactly on the edge would have been,
+so this is better than what it replaces rather than a workaround for it. The invariant proper stays
+where it is tested numerically, in phase 3.
 
 **The scene lives entirely behind the window**, `z <= 0`, and that is load-bearing rather than
 incidental. It means no point is ever at or behind the eye, so `project_points` cannot raise and
@@ -77,22 +92,35 @@ phase 4 needs no clipper at all. The named upgrade is homogeneous-space segment 
 near plane, needed the first time something is meant to poke out through the window. Recorded so that
 the absence of a clipper reads as a decision rather than an oversight.
 
-Painter ordering: sort segments back to front by midpoint depth and draw in that order, so nearer
-lines land on top. One argsort, no z-buffer. Wireframe has no occlusion, so this is cosmetic, and
-saying so keeps anyone from mistaking it for hidden-line removal.
+**No painter ordering**, dropped in review. Wireframe has no occlusion, so sorting by depth only
+decides which of two crossing lines is drawn on top: nothing can assert it and nobody will see it.
+Depth-faded colour already carries the cue that the sort was there to reinforce. Segments draw in
+scene order.
 
 ## What gets built
 
 | Piece | Where | Role |
 | ----- | ----- | ---- |
 | `SinkConfig` | `src/abyss/config/sink.py` | the fourth config model, finally with a caller |
-| `Sink`, `PngSink` | `src/abyss/sink.py` | Protocol carrying `size`, plus today's implementation |
+| `Sink`, `PngSink`, `VideoSink` | `src/abyss/sink.py` | Protocol carrying `size`, plus two implementations |
 | `Scene`, `window_box(...)` | `src/abyss/render/scene.py` | segments and the builder |
 | `Renderer`, `WireframeRenderer` | `src/abyss/render/renderer.py` | the seam and the numpy implementation |
 | `render_scene.py` | `scripts/` | the offline loop, CSV or synthetic sweep |
 
-A module `src/abyss/sink.py`, not a package: there is one implementation. It becomes a package in
-phase 5 when the window sink arrives, which is a rename, not a redesign.
+A module `src/abyss/sink.py`, not a package: two small implementations fit in one file. It becomes a
+package in phase 5 when the window sink arrives, which is a rename, not a redesign.
+
+`VideoSink` was added in review for a reason that is about the Protocol rather than about video: **a
+Protocol with one implementation is unvalidated.** Q22 committed to the interface before its second
+implementer exists, and phase 5 is a bad place to discover the signature was shaped around PNGs. A
+`cv.VideoWriter` wrapper is around fifteen lines and settles that now. It also happens to be the only
+artefact where parallax is legible as motion: a contact sheet shows that the view changed, a video
+shows how.
+
+Its scope is fenced deliberately, since this is the one place the phase could grow: a path, an fps,
+`write` and `close`, and the same codec the repo already uses. No codec selection, no quality
+options, no audio, no per-frame timing. If it wants a second argument beyond fps, that is the signal
+it has become a feature rather than a second implementation.
 
 Nothing new in `AbyssPaths`. Output goes under the existing `cache_fol`, per the phase 2 rule that
 path entries get added when something needs them.
@@ -115,6 +143,21 @@ mix-up.
   and it needs no model download or clip present, so the phase stays testable on g4. The per-frame
   work goes in a function taking one eye position, and the script is a thin loop over it, so phase 5
   swaps the source without touching the render path.
+- **The smoothed columns feed the render**, `x_smooth_m` / `y_smooth_m` / `z_smooth_m`. Raw is
+  available behind a `--raw` flag, which costs one line and is the first artefact that shows what the
+  smoother is actually buying, since jitter in a position is jitter in a projection matrix.
+- **A frame with no face holds the previous position, and that is already done upstream.** Worth
+  stating, because it looks like new code and is not: `scripts/viewer_position.py` calls
+  `PositionSmoother.hold()` on every faceless frame and writes the held value into the smoothed
+  columns. `hold()` returns the last smoothed position without feeding the filter, on the argument
+  that a gap is not a new measurement. So reading the smoothed columns *is* holding.
+  The one case left is the leading frames before any face has been seen, where `hold()` returns
+  `None` and the columns are empty. Those are **skipped**: there is nothing to hold, and rendering
+  from an invented position would be worse than rendering nothing.
+  The frame is annotated with the eye position it was drawn from, and marked when that position is
+  held rather than measured. Ninety frames are unreviewable otherwise, and it pays down the
+  silent-failure risk already logged for phase 5, where a dead capture reads as "no face" rather than
+  as an error.
 - **A synthetic sweep is a first-class mode, not a test fixture.** A left-to-right, near-to-far eye
   path with no clip involved is the only artefact that can be produced on a box with no camera and no
   data, and it is what a reviewer looks at. It doubles as the regression input.
@@ -134,12 +177,16 @@ The phase 3 lesson applies directly and is the reason this list is split. A test
 system's own outputs cannot catch an error upstream of both sides of the comparison, so each test
 below is labelled with which kind it is.
 
-Self-consistency, which is cheap and worth having anyway:
+Three candidates were dropped in review rather than written, and the reasons are the useful part:
 
-- the box mouth lands on the image border for a swept grid of eye positions, now through the renderer
-  rather than through `project_points` directly
-- the same eye position renders byte-identical images twice
-- an empty scene renders the background and does not crash
+- **the corner invariant re-tested through the renderer.** Phase 3 already sweeps 45 cases of it on
+  `project_points`, and the renderer adds only line drawing on top. It is also the family the
+  mutation pass proved blind, and per the frame-marker finding above it cannot be measured off drawn
+  pixels anyway.
+- **the same eye rendering byte-identical twice.** Nothing in the path is stochastic, so this asserts
+  a property of numpy and OpenCV rather than of this code.
+- **an empty scene rendering the background.** Nothing constructs an empty scene, which is the
+  project's own bar for not building something.
 
 Physics, which is what would actually catch a regression in the chain:
 
@@ -156,6 +203,13 @@ Plus the boundaries:
 - `AspectMismatchError` above tolerance, and no error at g7's real 0.26%
 - `PngSink` writes the filenames it claims, zero-padded so a glob sorts correctly
 - `SinkConfig` rejects a non-positive size, as the other three models reject theirs
+- a CSV whose leading rows have no face starts rendering at the first face, rather than skipping the
+  clip or rendering from nothing
+
+And one regression baseline, following the pattern phase 1 established rather than inventing a
+second one. The sweep writes the projected frame marker, back wall and cube coordinates to a CSV,
+committed and checked with `sha256sum -c`. Numbers diff readably where images do not, and the
+existing `scripts/viewer_position.py` baselines are already verified this way.
 
 ## Out of scope
 
@@ -210,9 +264,11 @@ Plus the boundaries:
 
 ## Done when
 
-- The sweep produces frames and a contact sheet in which the parallax is visible to the eye, and the
-  box mouth stays welded to the image border throughout.
-- A phase 1 CSV drives the same path and produces frames for a real clip.
+- The sweep produces frames, a video and a contact sheet in which the parallax is visible to the eye,
+  and the frame marker keeps a uniform gap to the image border throughout.
+- A phase 1 CSV drives the same path and produces frames for a real clip, holding position through
+  faceless frames and saying on the frame when it is doing so.
+- The sweep's coordinate baseline is committed and verifies with `sha256sum -c`.
 - `SinkConfig` exists and is passed in, never looked up, per the phase 2 rule.
 - `make check` is green, and the suite still passes with no clip, no camera and no model present.
 - The regression CSVs are untouched: this phase adds a consumer and changes nothing upstream, so

@@ -529,3 +529,30 @@ Append-only. Newest at the bottom.
   the second and third implementations are in scope and merely arrive tomorrow. Recorded in the key
   decisions as well, since the strict reading had already come up more than once. Scheduled is not
   speculative.
+- 2026-08-16 : reviewed the phase 4 plan with the add/remove pass, five in and three out, and folded
+  the accepted eight back into it. The review found one defect rather than only preferences.
+  **The box mouth cannot be drawn.** Phase 3's viewport transform puts the panel corners on 1280 and
+  720 exactly, not 1279 and 719, which is the correct GL convention and is what
+  `test_screen_corners_map_to_viewport_corners` asserts. Those are the outer edges of the last
+  pixels, so the right and bottom edges of the mouth fall outside the image and `cv.line` clips them
+  silently: the plan's headline visual check would have rendered as two edges out of four. Fixed with
+  a frame marker at 98% of the panel rect **in the scene**, not in the drawing, so it goes through
+  the identical projection path. A uniform gap to the border is what says the projection is right,
+  and a gap opening on one side is easier to see than a line sitting exactly on the edge, so the
+  replacement is better than what it replaces.
+  The no-face policy turned out to need no code: `viewer_position.py` already calls
+  `PositionSmoother.hold()` on faceless frames and writes the held value into the smoothed columns,
+  so consuming `*_smooth_m` *is* holding the previous position. Only the leading frames before any
+  face are left, where `hold()` returns `None`, and those are skipped. Recorded because it looked
+  like new work in the plan and was not.
+  `VideoSink` added for a reason about the Protocol rather than about video: **a Protocol with one
+  implementation is unvalidated**, and Q22 committed to the interface before its second implementer
+  exists. Fifteen lines settle the shape now rather than in phase 5. Its scope is fenced in the plan,
+  with a stated tripwire: if it wants an argument beyond fps it has become a feature.
+  Removed: painter ordering, since wireframe has no occlusion and depth fading already carries the
+  cue; the corner invariant re-tested through the renderer, since phase 3 sweeps it already and it is
+  the family the mutation pass proved blind; the determinism and empty-scene tests, one asserting a
+  property of numpy rather than of this code and the other having no caller.
+  Process note: the add/remove pass is this skill's named convention and it was run from a bare "+5
+  -3" without checking what it meant, so it came out one-sided - no pro, con and recommendation per
+  item. Asking would have cost one turn.
