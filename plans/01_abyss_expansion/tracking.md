@@ -36,6 +36,18 @@ window onto a scene rather than a flat picture. Analysis and open questions in
   the phone webapp ([`../03_phone_webapp/`](../03_phone_webapp/)) are separate initiatives: own
   dependencies, own questions, nothing here waits on them. The face landmarker is a genuine
   cross-repo prerequisite and stays in the table.
+- **Open questions live where they apply, which diverges from the skill on purpose.** The
+  tracked-development skill puts every `Qn` in `00_start.md`. Here, questions that shape the whole
+  initiative stay there (Q1-Q14) and questions scoped to one phase live in that phase's sub-plan
+  (Q15-Q17 in phase 2, Q18-Q19 in phase 3, Q20-Q22 in phase 4). Numbering is still global and never
+  resets, so a question is unambiguous wherever it sits, and `grep -rn "Q20"` finds it.
+  The reason is reading order: whoever picks up a phase reads its sub-plan, and a decision that only
+  constrains that phase is evidence they need in front of them, not a cross-reference. `00_start.md`
+  stays what it is, the record of why the initiative has its shape.
+  The `NEW_ANS:` slot is not used either. Questions are asked in chat and folded in as `ANS:` in the
+  same pass, which is the same loop with the file skipped, and it works because the answers arrive in
+  conversation rather than as file edits. If answers ever start coming back as edits to the plans,
+  the slot earns itself and should come back.
 - **Pydantic for config.** Models fix the shape, params supply the values, pydantic validates. abyss
   takes the dependency back although pose-tools just dropped it: pose-tools has no config surface,
   abyss does. Values stay plain Python literals in params (Q10); a loader arrives only when
@@ -556,3 +568,11 @@ Append-only. Newest at the bottom.
   Process note: the add/remove pass is this skill's named convention and it was run from a bare "+5
   -3" without checking what it meant, so it came out one-sided - no pro, con and recommendation per
   item. Asking would have cost one turn.
+- 2026-08-16 : recorded where open questions live, as a decision rather than as drift. The
+  tracked-development skill puts every `Qn` in `00_start.md`; this initiative has been splitting them
+  since Q15, initiative-shaping questions in `00_start.md` and phase-scoped ones in the sub-plan.
+  Kept, because whoever picks up a phase reads its sub-plan and a constraint on that phase is
+  evidence they need in front of them. Numbering stays global so a question is unambiguous wherever
+  it sits. The `NEW_ANS:` slot stays unused for the same practical reason it always was: answers
+  arrive in conversation, so asking and folding in happen in one pass. Noted what would bring it
+  back, which is answers arriving as edits to the plan files.
