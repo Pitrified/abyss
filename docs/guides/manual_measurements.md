@@ -41,12 +41,16 @@ cp cache/viewer/*.csv ~/abyss-baselines/<host>-<commit>/
    It prints the panel's implied diagonal. If that disagrees with the device's spec sheet, stop
    and fix the preset.
 
-2. Copy the board to the device and open it full screen. Turn the reader's front light **up**:
-   e-ink is reflective, so it only shows up as well as the light falling on it.
+2. Copy the board to the device and open it full screen.
 
    Arrange the light so it comes from **behind the camera** and falls on the board. A window or
    lamp behind the board backlights it, the camera meters for the bright background, and the board
-   goes black. That is the most likely reason a run finds nothing.
+   goes black.
+
+   Then set the reader's front light so the white squares look white, not glaring. Too dim and
+   there is no contrast; too bright and the white squares saturate and bleed over the marker
+   patterns, which is the more common failure once the room light is right. The script measures
+   this and will tell you which way it went wrong.
 
    - **Kindle**: use `cache/calib/board_<preset>.pdf`. A Paperwhite will not open a raw PNG. Copy
      it into `documents/` over USB. If the reader offers "fit to page" or "actual size", either is
@@ -63,8 +67,10 @@ cp cache/viewer/*.csv ~/abyss-baselines/<host>-<commit>/
    ```
 
    Hold the board up **before** you start and keep it up for the whole run. The script says
-   `HOLD THE BOARD UP NOW`, waits, then checks one frame and refuses to continue if it cannot see
-   the board, so a lighting problem costs you one shot rather than fifteen.
+   `HOLD THE BOARD UP NOW`, waits, then sweeps the camera's exposure to find the one that decodes
+   the most markers, and refuses to continue if it still cannot see the board. So a lighting
+   problem costs you one shot rather than fifteen, and you never have to guess an exposure. Pass
+   `--exposure` yourself to skip the sweep.
 
    Then, for each view: fill a third to a half of the frame, tilt hard, 20 to 40 degrees, and vary
    roll, pitch and yaw. Move around the frame, not just the centre. Change the tilt during the

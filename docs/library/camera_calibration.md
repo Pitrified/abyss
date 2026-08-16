@@ -44,11 +44,25 @@ marker-shaped quads and could not read their bits, which is the signature of too
 rather than a wrong board or dictionary. Put the light behind the camera and turn the front light
 up.
 
-That distinction is what `describe_failure` reports, because the two cases need opposite responses:
+That distinction is what `describe_failure` reports, because the cases need different responses:
 
-- **rejected candidates, 0 decoded**: the board is there but unreadable. Fix contrast, focus or
-  framing.
 - **no candidates at all**: the board is not really in frame. Fix aim or distance.
+- **rejected candidates, 0 decoded, high clipping**: the white squares are saturated and blooming
+  over the marker bits. Reduce light or exposure.
+- **rejected candidates, 0 decoded, low clipping**: too dark, blurred or too small.
+- **markers decoded but too few corners**: the board is readable but only partly visible.
+
+The overexposed case is the one that misleads, because everything looks fine to the eye. Measured
+on the second round of real attempts, after the backlighting was fixed: three preflight frames
+with 64 to 74 candidate quads, zero decoded, and 44% to 66% of the pixels inside those quads at or
+above 250. The board region had 23.6% of its pixels at 250 or above and its 98th percentile pegged
+at 255. Sharpness was never the problem: the board measured 258 Laplacian variance against 60 to
+98 for the background, so it was the sharpest thing in frame.
+
+Because the right exposure cannot be guessed from the room, `find_exposure` sweeps a ladder of
+manual exposures at preflight and keeps whichever decodes the most markers. That replaced asking
+the operator to pick a number, which had produced four failed runs and contradictory advice about
+which way to turn the reader's front light.
 
 The trap is display scaling. The board is emitted at the panel's native resolution so that a
 "fit to screen" viewer is the identity transform. Per the section above this corrupts only the

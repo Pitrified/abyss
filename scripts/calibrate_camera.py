@@ -46,6 +46,7 @@ records the board geometry, and ``solve`` reads it so the two cannot disagree.
 """
 
 import argparse
+from collections.abc import Sequence
 from dataclasses import asdict
 from dataclasses import dataclass
 import json
@@ -96,6 +97,12 @@ RMS_WARN_PX = 1.0
 
 DARK_LEVEL = 16
 """Grey value below which a pixel counts as crushed to black."""
+
+CLIP_LEVEL = 250
+"""Grey value at and above which a pixel counts as blown out."""
+
+CLIP_WARN_PCT = 15.0
+"""Saturation inside the candidate quads that is enough to destroy the bits."""
 
 SUGGESTED_EXPOSURE = 300
 """A starting manual exposure when auto meters for the room, not the board."""
@@ -401,6 +408,84 @@ def open_camera(
     return capture
 
 
+EXPOSURE_LADDER = (600, 400, 300, 200, 150, 100, 60)
+"""Manual exposures to try, darkest last. Units of 100 microseconds."""
+
+SETTLE_FRAMES = 8
+"""Frames to discard after changing exposure, so the change takes effect."""
+
+
+def count_markers(frame: np.ndarray, board: cv.aruco.CharucoBoard) -> int:
+    """Count how many markers decode in a frame.
+
+    Args:
+        frame: BGR frame to search.
+        board: The board being looked for, for its dictionary.
+
+    Returns:
+        Number of markers whose bits were read.
+    """
+    grey = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
+    detector = cv.aruco.ArucoDetector(
+        board.getDictionary(), cv.aruco.DetectorParameters()
+    )
+    _, ids, _ = detector.detectMarkers(grey)
+    return 0 if ids is None else len(ids)
+
+
+def find_exposure(
+    capture: cv.VideoCapture,
+    board: cv.aruco.CharucoBoard,
+) -> int | None:
+    """Sweep exposure and keep whatever decodes the most markers.
+
+    Auto exposure meters the whole scene, and a screen is usually brighter than
+    the room around it. The white squares then saturate and bloom into the
+    marker bits, so the detector finds marker-shaped quads and cannot read any
+    of them. That failure looks like a board problem and is an exposure
+    problem, so it is not worth asking anyone to guess a number.
+
+    Args:
+        capture: The already opened camera.
+        board: The board being looked for.
+
+    Returns:
+        The best exposure found, or ``None`` if auto was already the best.
+    """
+    print("  finding an exposure that decodes the board...")
+    capture.set(cv.CAP_PROP_AUTO_EXPOSURE, 3)
+    for _ in range(SETTLE_FRAMES):
+        capture.read()
+    _, frame = capture.read()
+    best_count = count_markers(frame, board)
+    best: int | None = None
+    print(f"    auto: {best_count} markers")
+
+    capture.set(cv.CAP_PROP_AUTO_EXPOSURE, 1)
+    for exposure in EXPOSURE_LADDER:
+        capture.set(cv.CAP_PROP_EXPOSURE, exposure)
+        for _ in range(SETTLE_FRAMES):
+            capture.read()
+        ok, frame = capture.read()
+        if not ok:
+            continue
+        count = count_markers(frame, board)
+        print(f"    {exposure:4d}: {count} markers")
+        if count > best_count:
+            best_count, best = count, exposure
+
+    if best is None:
+        capture.set(cv.CAP_PROP_AUTO_EXPOSURE, 3)
+        print(f"  keeping auto exposure, {best_count} markers")
+    else:
+        capture.set(cv.CAP_PROP_AUTO_EXPOSURE, 1)
+        capture.set(cv.CAP_PROP_EXPOSURE, best)
+        print(f"  using --exposure {best}, {best_count} markers")
+    for _ in range(SETTLE_FRAMES):
+        capture.read()
+    return best
+
+
 def preflight(
     capture: cv.VideoCapture,
     board: cv.aruco.CharucoBoard,
@@ -425,26 +510,34 @@ def preflight(
     for remaining in range(args.delay, 0, -1):
         print(f"  checking in {remaining} ", end="\r")
         time.sleep(1)
+
+    if args.exposure is None:
+        find_exposure(capture, board)
+
     ok, frame = capture.read()
     if not ok:
         lg.error("Camera returned no frame")
         return False
+
+    # Always keep the preflight frame, pass or fail. A successful check that
+    # saved nothing left the next failure with no baseline to compare against.
+    path = views_fol / "preflight.png"
+    cv.imwrite(str(path), frame)
 
     found = detect_corners(frame, board)
     if found is not None:
         print(f"  board found, {len(found[0])} corners. Starting.        ")
         return True
 
-    path = views_fol / "preflight.png"
-    cv.imwrite(str(path), frame)
     print(f"  {describe_failure(frame, board)}")
     print(f"\nSaved {path} so you can see what the camera saw.")
     print("Common causes, in the order worth trying:")
-    print("  - the board is backlit. Put the light behind the camera, not")
-    print("    behind the board, and turn the reader's front light up")
+    print("  - the board's white squares are blown out, and the glare bleeds")
+    print("    over the marker bits. Turn the reader's front light down until")
+    print("    the white squares stop clipping")
+    print("  - the board is backlit. Put the light behind the camera, so it")
+    print("    falls on the board rather than into the lens")
     print("  - the board is too small in frame. Fill a third to a half of it")
-    print("  - auto exposure metered for the room, not the board. Try")
-    print(f"    --exposure {SUGGESTED_EXPOSURE}")
     print("\nFix and re-run, or pass --force to capture anyway.")
     return False
 
@@ -538,15 +631,42 @@ def describe_failure(frame: np.ndarray, board: cv.aruco.CharucoBoard) -> str:
     mean = float(grey.mean())
     dark = float((grey <= DARK_LEVEL).mean() * 100)
 
+    # Clipping inside the rejected quads is the discriminator: a blown white
+    # square blooms over the marker bits, so the quad is found and unreadable.
+    blown = clipped_fraction(grey, rejected)
+
     if found:
         reason = f"{found} markers but too few corners"
     elif rejected:
-        reason = (
-            f"0 markers, {len(rejected)} shapes rejected: too dark, blurred or small"
-        )
+        reason = f"0 markers, {len(rejected)} shapes rejected"
+        if blown > CLIP_WARN_PCT:
+            reason += f", {blown:.0f}% of them blown out"
+        else:
+            reason += ": too dark, blurred or small"
     else:
         reason = "nothing board-like in frame"
     return f"{reason} (mean {mean:.0f}, {dark:.0f}% near black)"
+
+
+def clipped_fraction(grey: np.ndarray, quads: Sequence[np.ndarray]) -> float:
+    """Percentage of pixels inside candidate quads that are saturated.
+
+    Args:
+        grey: Greyscale frame.
+        quads: Candidate marker outlines from the detector.
+
+    Returns:
+        Percentage of masked pixels at or above :data:`CLIP_LEVEL`, or 0 when
+        there are no candidates to measure.
+    """
+    if len(quads) == 0:
+        return 0.0
+    mask = np.zeros(grey.shape, dtype=np.uint8)
+    cv.fillPoly(mask, [q.reshape(-1, 2).astype(np.int32) for q in quads], 255)
+    inside = grey[mask > 0]
+    if inside.size == 0:
+        return 0.0
+    return float((inside >= CLIP_LEVEL).mean() * 100)
 
 
 def load_spec(out_fol: Path) -> BoardSpec:
