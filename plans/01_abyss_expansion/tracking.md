@@ -289,3 +289,54 @@ Append-only. Newest at the bottom.
   size next to it is exact, straight from EDID.
   `scripts/read_edid.py` replaces the planned `from_edid()`; run here it reports 309x173 mm on
   `card1-eDP-1` and disconnected on the other four connectors, matching the literal it produced.
+- 2026-08-16 : moved to g7, the machine with a camera and a person in front of it. Nothing was
+  committed this session: the work was establishing what g7 actually is, and one new script.
+  Two blockers the handoff listed turned out not to exist. The `video` group is **not** needed:
+  `id` shows no such group, but systemd-logind grants the active session an ACL, and `getfacl
+  /dev/video0` shows `user:pmn:rw-`. Opening the device from Python works with no privileged
+  change, so no sudo handoff was required. And `scripts/read_edid.py` ran here unchanged, giving
+  `card1-eDP-1` at 344x193 mm, so g7's panel size needs no ruler either.
+  A number to be careful with: half of g7's panel height is 96.5 mm, which is numerically identical
+  to g4's entire `camera_to_centre_m` Y of 0.0965. That value is g4's 86.5 mm half-height plus its
+  10 mm bezel guess. Copying the literal across would look correct and be wrong by exactly the
+  bezel, which is the one part still unmeasured.
+  Device map, from `/sys/class/video4linux/*/name` rather than `v4l2-ctl`, which is not installed
+  and turned out not to be needed. `video0` is the RGB camera and `video2` is an infrared one on a
+  separate USB interface, `1-7:1.0` against `1-7:1.2`; `video1` and `video3` are their metadata
+  nodes. Measure against `video0`. The 640x360 frames that looked like a second mode in the first
+  probe were the IR camera.
+  g7's webcam is USB **04f2:b6c8**, where the `g4_internal` provenance string records 04ca:7063.
+  Both are labelled "HP HD Camera" and they are different hardware, so no measurement transfers
+  between the two registry entries.
+  **The pixel format decides the resolution.** OpenCV defaults to YUYV, which caps at 640x480 here
+  and silently ignores a request for anything larger, returning 640x480 while reporting success.
+  MJPG reaches 1280x720. 1080p does not exist in either. A bare `cv.VideoCapture(0)` therefore gets
+  the small mode, and the FOURCC has to be set before the frame size or it is clamped back.
+  This matters beyond throughput: 640x480 is 4:3 and 1280x720 is 16:9, so the two modes are not
+  self-evidently the same field of view sampled at two densities. `CameraConfig.focal_px_for_height`
+  rescales by height alone, which is only valid if the vertical field of view is shared. Whether it
+  is has **not** been established. `measure_focal.py compare-modes` exists to settle it and has not
+  been run.
+  New script `scripts/measure_focal.py`, manual and windowless so it works over ssh. `capture`
+  forces MJPG then the size, discards frames until auto-exposure settles, and writes a clean PNG
+  plus one with a measuring scale over it; `compare-modes` captures both modes of a fixed scene;
+  `solve` turns an apparent size in pixels, a distance and a real size into `focal_px` and prints
+  the registry snippet. The focal length itself is still unmeasured, so `g7_webcam` is untouched.
+  An episode worth recognising if it recurs. The first captures came back uniformly black: mean
+  10.7 of 255, standard deviation 2, flat across 90 consecutive frames, no spatial structure at all.
+  That is not an exposure problem, and the controls confirmed it, with auto-exposure on and already
+  pushed to a long 312 integration. It coincided with g7 sitting at its login screen and resolved
+  after the machine was interacted with, without any code change. The mechanism was never proven,
+  so this is recorded as a correlation and not a cause.
+  The consequence for phase 5 is real regardless of mechanism: the capture reported `ok=True` and
+  handed back black frames, and a face tracker fed black frames reports "no face" rather than an
+  error. If this box cuts the camera while the session is locked, the live loop fails silently. The
+  live path should check frame statistics, not just the read flag.
+  Auto-exposure blew out 54% of the frame against a lit wall, which would leave a white A4 target
+  with no measurable edge. `capture` now takes `--exposure` and warns above 15% clipping; 80 brings
+  it to 9.4% here. The frame also shows visible barrel distortion toward the edges, so the target
+  should be kept near the centre where it is weakest.
+  Regression baseline regenerated on g7 at `d7bd614` and copied to `~/abyss-baselines/g7-d7bd614/`
+  with sha256sums, before any change. Per-machine on purpose: MediaPipe CPU inference is not
+  guaranteed bit-identical across hardware, so g4's CSVs prove nothing here. `make check` is green,
+  97 tests.
