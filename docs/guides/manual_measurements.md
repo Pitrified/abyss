@@ -41,8 +41,15 @@ cp cache/viewer/*.csv ~/abyss-baselines/<host>-<commit>/
    It prints the panel's implied diagonal. If that disagrees with the device's spec sheet, stop
    and fix the preset.
 
-2. Copy `cache/calib/board_<preset>.png` to the device. Open it full screen and unscaled. Turn the
-   front light down.
+2. Copy the board to the device and open it full screen. Turn the front light down.
+
+   - **Kindle**: use `cache/calib/board_<preset>.pdf`. A Paperwhite will not open a raw PNG. Copy
+     it into `documents/` over USB. If the reader offers "fit to page" or "actual size", either is
+     fine, but do not let it crop margins.
+   - **Phone**: use `cache/calib/board_<preset>.png`, in any viewer that does not crop.
+
+   The PDF page is generated with exactly the panel's aspect ratio, which is the part that must be
+   right. If the reader scales the page it costs nothing but the reported distances.
 
 3. Capture, moving the board between every shot:
 

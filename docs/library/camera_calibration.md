@@ -41,6 +41,29 @@ The trap is display scaling. The board is emitted at the panel's native resoluti
 "fit to screen" viewer is the identity transform. Per the section above this corrupts only the
 distances, not the focal, but it corrupts them silently.
 
+## Getting the board onto a Kindle
+
+A Paperwhite will not open a raw PNG, so `board` writes a PDF alongside it. The page is sized
+`pixels / ppi` inches, which makes its aspect ratio exactly the panel's: 1236x1648 at 300 ppi
+gives a 296.64 x 395.52 pt page, aspect 0.750000 either way.
+
+Aspect is the only safety-critical property, and it is worth being precise about why.
+
+- A **uniform** scale, from letterboxing or a reader that fits the page differently, changes the
+  recovered distances and leaves the focal length untouched. Harmless for section 1.
+- A **stretch**, from a page whose aspect differs from the panel's, distorts the board's shape.
+  That corrupts the intrinsics themselves, and nothing downstream could detect it.
+
+PDF readers scale uniformly rather than stretch, so matching the aspect makes the second case
+impossible rather than merely unlikely. `test_pdf_page_has_exactly_the_panel_aspect` pins it.
+
+Verified round trip: rasterizing the generated PDF at 300 dpi returns 1648x1237 against an
+original canvas of 1648x1236, one pixel of rasteriser rounding, and detection finds all 48 corners.
+
+If the distances matter and the reader is suspected of scaling, measure the displayed board's
+width once with a ruler and compare against `square_px * squares_x / ppi`. That closes the metric
+scale without affecting anything already measured.
+
 ## What the A4 fallback gets wrong
 
 Beyond tape-measure error, a hand-held sheet is never exactly fronto-parallel. Tilt by θ makes it

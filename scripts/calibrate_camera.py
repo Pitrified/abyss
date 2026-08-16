@@ -57,10 +57,14 @@ from typing import cast
 import cv2 as cv
 from loguru import logger as lg
 import numpy as np
+from PIL import Image
 
 from abyss.params.abyss_params import get_abyss_paths
 
 MM_PER_INCH = 25.4
+
+PT_PER_INCH = 72.0
+"""PDF points per inch, for reporting the page size."""
 
 GREYSCALE_NDIM = 2
 """Number of axes a single channel image has."""
@@ -208,6 +212,24 @@ class BoardSpec:
     source: str
 
 
+def write_pdf(canvas: np.ndarray, path: Path, ppi: float) -> None:
+    """Write the board as a single page PDF, for readers that reject images.
+
+    A Kindle will not open a raw PNG, so the board has to travel as a PDF. The
+    page is sized ``pixels / ppi`` inches, which makes its aspect ratio exactly
+    the panel's. That is the property worth protecting: a reader that scales
+    the page uniformly changes only the recovered distances, and leaves the
+    focal length alone, but one that stretched the page would corrupt the
+    intrinsics themselves.
+
+    Args:
+        canvas: The rendered board, as a greyscale array.
+        path: Destination PDF path.
+        ppi: Pixel density, which sets the page size in inches.
+    """
+    Image.fromarray(canvas).convert("L").save(path, resolution=ppi)
+
+
 def build_board(spec: BoardSpec) -> cv.aruco.CharucoBoard:
     """Rebuild the OpenCV board object from a spec.
 
@@ -306,10 +328,13 @@ def cmd_board(args: argparse.Namespace, out_fol: Path) -> None:
     canvas[top : top + drawn.shape[0], left : left + drawn.shape[1]] = drawn
 
     png = out_fol / f"board_{args.device_preset}.png"
+    pdf = out_fol / f"board_{args.device_preset}.pdf"
     spec_path = out_fol / "board_spec.json"
     cv.imwrite(str(png), canvas)
+    write_pdf(canvas, pdf, preset.ppi)
     spec_path.write_text(json.dumps(asdict(spec), indent=2) + "\n")
     lg.info(f"Wrote {png}")
+    lg.info(f"Wrote {pdf}")
     lg.info(f"Wrote {spec_path}")
 
     # The advertised diagonal is the one spec that is easy to check by eye, so
@@ -320,7 +345,13 @@ def cmd_board(args: argparse.Namespace, out_fol: Path) -> None:
     print(f"  implies    {diagonal_in:.2f} in diagonal, check against the spec sheet")
     print(f"  square     {square_px} px = {square_m * 1000:.3f} mm")
     print(f"  board      {args.squares_x}x{args.squares_y} squares")
-    print(f"\nCopy {png.name} to the device and open it full screen, unscaled.")
+    page_w = preset.width_px / preset.ppi * PT_PER_INCH
+    page_h = preset.height_px / preset.ppi * PT_PER_INCH
+    print(f"  pdf page   {page_w:.2f} x {page_h:.2f} pt, same aspect as the panel")
+    print(f"\nPNG for a phone: {png.name}")
+    print(f"PDF for a Kindle, which will not open a raw PNG: {pdf.name}")
+    print("Open it full screen. Aspect is what matters, not scale: see")
+    print("docs/library/camera_calibration.md if the reader adds margins.")
 
 
 def cmd_capture(args: argparse.Namespace, out_fol: Path) -> None:

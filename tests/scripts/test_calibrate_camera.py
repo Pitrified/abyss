@@ -7,6 +7,7 @@ right and are worth failing loudly if OpenCV changes underneath them.
 
 import importlib.util
 from pathlib import Path
+import re
 import sys
 from types import ModuleType
 
@@ -178,6 +179,35 @@ def test_square_size_follows_the_pixel_pitch(script: ModuleType) -> None:
     square_px = min(preset.width_px // 7, preset.height_px // 9)
     square_m = square_px / preset.ppi * script.MM_PER_INCH / 1000
     assert square_m == pytest.approx(square_px * 25.4 / 300 / 1000)
+
+
+def test_pdf_page_has_exactly_the_panel_aspect(
+    script: ModuleType,
+    tmp_path: Path,
+) -> None:
+    """The Kindle needs a PDF, and only its aspect ratio is safety critical.
+
+    A reader that scales the page uniformly costs nothing but the distances,
+    since the focal length does not depend on the board's size. A page whose
+    aspect differed from the panel's would be stretched to fit and would
+    corrupt the intrinsics, which no later step could detect.
+    """
+    preset = script.DEVICE_PRESETS["kindle_pw11"]
+    canvas = np.full((preset.height_px, preset.width_px), 255, dtype=np.uint8)
+    pdf = tmp_path / "board.pdf"
+    script.write_pdf(canvas, pdf, preset.ppi)
+
+    box = re.search(rb"/MediaBox\s*\[([^\]]*)\]", pdf.read_bytes())
+    assert box is not None
+    x0, y0, x1, y1 = (float(v) for v in box.group(1).split())
+    page_w, page_h = x1 - x0, y1 - y0
+
+    panel_aspect = preset.width_px / preset.height_px
+    assert page_w / page_h == pytest.approx(panel_aspect, rel=1e-6)
+    # And the page is the panel's true physical size, so an unscaled render is
+    # 1:1 and the square size in the spec is the size actually displayed.
+    assert page_w / script.PT_PER_INCH == pytest.approx(preset.width_px / preset.ppi)
+    assert page_h / script.PT_PER_INCH == pytest.approx(preset.height_px / preset.ppi)
 
 
 def test_presets_imply_their_advertised_diagonal(script: ModuleType) -> None:

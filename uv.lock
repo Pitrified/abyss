@@ -19,6 +19,7 @@ dependencies = [
     { name = "loguru" },
     { name = "matplotlib" },
     { name = "opencv-contrib-python" },
+    { name = "pillow" },
     { name = "pose-tools" },
     { name = "pydantic" },
 ]
@@ -60,6 +61,7 @@ requires-dist = [
     { name = "loguru", specifier = ">=0.7.3" },
     { name = "matplotlib", specifier = ">=3.9" },
     { name = "opencv-contrib-python", specifier = ">=4.10" },
+    { name = "pillow", specifier = ">=10.0" },
     { name = "pose-tools", git = "https://github.com/Pitrified/pose-tools?rev=v0.4.0" },
     { name = "pydantic", specifier = ">=2.0" },
 ]
