@@ -41,7 +41,12 @@ cp cache/viewer/*.csv ~/abyss-baselines/<host>-<commit>/
    It prints the panel's implied diagonal. If that disagrees with the device's spec sheet, stop
    and fix the preset.
 
-2. Copy the board to the device and open it full screen. Turn the front light down.
+2. Copy the board to the device and open it full screen. Turn the reader's front light **up**:
+   e-ink is reflective, so it only shows up as well as the light falling on it.
+
+   Arrange the light so it comes from **behind the camera** and falls on the board. A window or
+   lamp behind the board backlights it, the camera meters for the bright background, and the board
+   goes black. That is the most likely reason a run finds nothing.
 
    - **Kindle**: use `cache/calib/board_<preset>.pdf`. A Paperwhite will not open a raw PNG. Copy
      it into `documents/` over USB. If the reader offers "fit to page" or "actual size", either is
@@ -57,9 +62,16 @@ cp cache/viewer/*.csv ~/abyss-baselines/<host>-<commit>/
    uv run --no-sync python scripts/calibrate_camera.py capture --views 15
    ```
 
-   Fill a third to a half of the frame. Tilt hard, 20 to 40 degrees, and vary roll, pitch and yaw.
-   Move around the frame, not just the centre. The script prints how many corners it found per
-   view; if it keeps saying "no board found", stop and fix the lighting or the framing.
+   Hold the board up **before** you start and keep it up for the whole run. The script says
+   `HOLD THE BOARD UP NOW`, waits, then checks one frame and refuses to continue if it cannot see
+   the board, so a lighting problem costs you one shot rather than fifteen.
+
+   Then, for each view: fill a third to a half of the frame, tilt hard, 20 to 40 degrees, and vary
+   roll, pitch and yaw. Move around the frame, not just the centre. Change the tilt during the
+   countdown, hold still while it says `capturing`.
+
+   Every frame is written to `cache/calib/views_<w>x<h>/`, the good ones as `view_*.png` and the
+   failures as `reject_*.png`, so there is always something to look at when it goes wrong.
 
 4. Solve:
 

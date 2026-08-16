@@ -34,8 +34,21 @@ screen gives it exactly from the pixel pitch, with no ruler.
 The physical square size follows from the panel's pixel pitch exactly. A screen is also rigid and
 flat where taped paper bows.
 
-E-ink beats a phone: matte rather than glossy, and specular glare is the main way this fails. It
-also has no backlight flicker to interact with exposure.
+E-ink beats a phone: matte rather than glossy, and specular glare is the main way this fails on a
+phone. It also has no backlight flicker to interact with exposure.
+
+The cost of e-ink being reflective is that it has no light of its own to speak of, so it loses to
+a bright background. Measured on the first real attempt here: the board held against a window came
+back at 39% pure black, with 0 markers decoded but 8 rejected candidates. The detector found
+marker-shaped quads and could not read their bits, which is the signature of too little contrast
+rather than a wrong board or dictionary. Put the light behind the camera and turn the front light
+up.
+
+That distinction is what `describe_failure` reports, because the two cases need opposite responses:
+
+- **rejected candidates, 0 decoded**: the board is there but unreadable. Fix contrast, focus or
+  framing.
+- **no candidates at all**: the board is not really in frame. Fix aim or distance.
 
 The trap is display scaling. The board is emitted at the panel's native resolution so that a
 "fit to screen" viewer is the identity transform. Per the section above this corrupts only the

@@ -94,6 +94,12 @@ MIN_CORNERS_PER_VIEW = 8
 RMS_WARN_PX = 1.0
 """Reprojection error above which the capture is worth redoing."""
 
+DARK_LEVEL = 16
+"""Grey value below which a pixel counts as crushed to black."""
+
+SUGGESTED_EXPOSURE = 300
+"""A starting manual exposure when auto meters for the room, not the board."""
+
 
 @dataclass(frozen=True)
 class DevicePreset:
@@ -354,6 +360,95 @@ def cmd_board(args: argparse.Namespace, out_fol: Path) -> None:
     print("docs/library/camera_calibration.md if the reader adds margins.")
 
 
+def open_camera(
+    device: int,
+    width: int,
+    height: int,
+    exposure: int | None,
+) -> cv.VideoCapture:
+    """Open the camera in the mode calibration wants, warmed up.
+
+    MJPG is requested before the size because the YUYV default silently clamps
+    anything above 640x480 back down while reporting success.
+
+    Args:
+        device: ``/dev/video*`` index to open.
+        width: Requested frame width in pixels.
+        height: Requested frame height in pixels.
+        exposure: Manual exposure in 100 microsecond units, or ``None`` for
+            auto. Auto meters for the whole scene, which underexposes a board
+            held against a window.
+
+    Returns:
+        The opened capture, past its warmup frames.
+
+    Raises:
+        CameraOpenError: If the device cannot be opened.
+    """
+    capture = cv.VideoCapture(device, cv.CAP_V4L2)
+    if not capture.isOpened():
+        capture.release()
+        raise CameraOpenError(device)
+    capture.set(cv.CAP_PROP_FOURCC, cv.VideoWriter.fourcc(*"MJPG"))
+    capture.set(cv.CAP_PROP_FRAME_WIDTH, width)
+    capture.set(cv.CAP_PROP_FRAME_HEIGHT, height)
+    if exposure is not None:
+        # V4L2 exposure_auto: 1 is manual, 3 is aperture priority.
+        capture.set(cv.CAP_PROP_AUTO_EXPOSURE, 1)
+        capture.set(cv.CAP_PROP_EXPOSURE, exposure)
+    for _ in range(WARMUP_FRAMES):
+        capture.read()
+    return capture
+
+
+def preflight(
+    capture: cv.VideoCapture,
+    board: cv.aruco.CharucoBoard,
+    views_fol: Path,
+    args: argparse.Namespace,
+) -> bool:
+    """Check the board is actually visible before taking a whole sequence.
+
+    Without this the first sign of a lighting problem is fifteen consecutive
+    failures, which is a slow way to learn the board was backlit.
+
+    Args:
+        capture: The already opened camera.
+        board: The board being looked for.
+        views_fol: Where to write the frame if the check fails.
+        args: Parsed command line arguments.
+
+    Returns:
+        Whether the board was found.
+    """
+    print("\n=== HOLD THE BOARD UP NOW, facing the camera ===")
+    for remaining in range(args.delay, 0, -1):
+        print(f"  checking in {remaining} ", end="\r")
+        time.sleep(1)
+    ok, frame = capture.read()
+    if not ok:
+        lg.error("Camera returned no frame")
+        return False
+
+    found = detect_corners(frame, board)
+    if found is not None:
+        print(f"  board found, {len(found[0])} corners. Starting.        ")
+        return True
+
+    path = views_fol / "preflight.png"
+    cv.imwrite(str(path), frame)
+    print(f"  {describe_failure(frame, board)}")
+    print(f"\nSaved {path} so you can see what the camera saw.")
+    print("Common causes, in the order worth trying:")
+    print("  - the board is backlit. Put the light behind the camera, not")
+    print("    behind the board, and turn the reader's front light up")
+    print("  - the board is too small in frame. Fill a third to a half of it")
+    print("  - auto exposure metered for the room, not the board. Try")
+    print(f"    --exposure {SUGGESTED_EXPOSURE}")
+    print("\nFix and re-run, or pass --force to capture anyway.")
+    return False
+
+
 def cmd_capture(args: argparse.Namespace, out_fol: Path) -> None:
     """Grab several views of the board, reporting what was detected in each.
 
@@ -369,49 +464,89 @@ def cmd_capture(args: argparse.Namespace, out_fol: Path) -> None:
 
     views_fol = out_fol / f"views_{args.width}x{args.height}"
     views_fol.mkdir(parents=True, exist_ok=True)
-    for stale in views_fol.glob("view_*.png"):
-        stale.unlink()
+    for pattern in ("view_*.png", "reject_*.png"):
+        for stale in views_fol.glob(pattern):
+            stale.unlink()
 
-    capture = cv.VideoCapture(args.device, cv.CAP_V4L2)
-    if not capture.isOpened():
-        capture.release()
-        raise CameraOpenError(args.device)
+    capture = open_camera(args.device, args.width, args.height, args.exposure)
     try:
-        capture.set(cv.CAP_PROP_FOURCC, cv.VideoWriter.fourcc(*"MJPG"))
-        capture.set(cv.CAP_PROP_FRAME_WIDTH, args.width)
-        capture.set(cv.CAP_PROP_FRAME_HEIGHT, args.height)
-        if args.exposure is not None:
-            capture.set(cv.CAP_PROP_AUTO_EXPOSURE, 1)
-            capture.set(cv.CAP_PROP_EXPOSURE, args.exposure)
-        for _ in range(WARMUP_FRAMES):
-            capture.read()
+        if not preflight(capture, board, views_fol, args) and not args.force:
+            return
 
-        print(f"\nTilt and move the board between shots. {args.delay}s per view.")
+        print("\n=== KEEP THE BOARD UP for the whole run ===")
+        print(f"Change the tilt between shots. {args.delay}s per view.")
         print("Vary roll, pitch and yaw: views that are all flat-on cannot solve.\n")
         kept = 0
         for view in range(args.views):
             for remaining in range(args.delay, 0, -1):
-                print(f"  view {view + 1}/{args.views} in {remaining}...", end="\r")
+                print(
+                    f"  view {view + 1}/{args.views}  change tilt... {remaining} ",
+                    end="\r",
+                )
                 time.sleep(1)
+            print(f"  view {view + 1}/{args.views}  capturing...   ", end="\r")
             ok, frame = capture.read()
             if not ok:
                 lg.warning(f"view {view + 1}: no frame")
                 continue
             found = detect_corners(frame, board)
-            count = 0 if found is None else len(found[0])
             if found is None:
-                print(f"  view {view + 1}/{args.views}: no board found, skipped ")
+                # Keep the failures too. A run that finds nothing is exactly
+                # when there is something to look at, and throwing the frames
+                # away leaves nothing to debug with.
+                path = views_fol / f"reject_{view:02d}.png"
+                cv.imwrite(str(path), frame)
+                print(
+                    f"  view {view + 1}/{args.views}: {describe_failure(frame, board)}"
+                )
                 continue
             path = views_fol / f"view_{view:02d}.png"
             cv.imwrite(str(path), frame)
             kept += 1
-            print(f"  view {view + 1}/{args.views}: {count} corners, saved       ")
+            print(f"  view {view + 1}/{args.views}: {len(found[0])} corners, saved   ")
     finally:
         capture.release()
 
     print(f"\nKept {kept} views in {views_fol}")
     if kept < ADVISED_VIEWS:
         lg.warning(f"{kept} views is thin, {ADVISED_VIEWS} or more is advised")
+    if kept < args.views:
+        print(f"Rejected frames were saved as reject_*.png in {views_fol}")
+
+
+def describe_failure(frame: np.ndarray, board: cv.aruco.CharucoBoard) -> str:
+    """Say why a view failed, in terms that point at a cause.
+
+    Distinguishes the two cases that need opposite fixes. Rejected candidates
+    mean the detector found marker-shaped quads and could not read their bits,
+    which is a contrast, focus or resolution problem. No candidates at all
+    means the board was not really in frame.
+
+    Args:
+        frame: The frame that failed.
+        board: The board being looked for, for its dictionary.
+
+    Returns:
+        A one line diagnosis.
+    """
+    grey = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
+    detector = cv.aruco.ArucoDetector(
+        board.getDictionary(), cv.aruco.DetectorParameters()
+    )
+    _, ids, rejected = detector.detectMarkers(grey)
+    found = 0 if ids is None else len(ids)
+    mean = float(grey.mean())
+    dark = float((grey <= DARK_LEVEL).mean() * 100)
+
+    if found:
+        reason = f"{found} markers but too few corners"
+    elif rejected:
+        reason = (
+            f"0 markers, {len(rejected)} shapes rejected: too dark, blurred or small"
+        )
+    else:
+        reason = "nothing board-like in frame"
+    return f"{reason} (mean {mean:.0f}, {dark:.0f}% near black)"
 
 
 def load_spec(out_fol: Path) -> BoardSpec:
@@ -516,6 +651,11 @@ def main() -> None:
     capture.add_argument("--views", type=int, default=15)
     capture.add_argument("--delay", type=int, default=4, help="seconds between shots")
     capture.add_argument("--exposure", type=int, default=None)
+    capture.add_argument(
+        "--force",
+        action="store_true",
+        help="capture even if the preflight check cannot see the board",
+    )
     capture.set_defaults(func=cmd_capture)
 
     solve = sub.add_parser("solve", help="calibrate from the saved views")
