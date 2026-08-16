@@ -15,7 +15,12 @@ window onto a scene rather than a flat picture. Analysis and open questions in
   position from a webcam, and knowing where the screen sits relative to the camera, are.
 - **Cheapest implementation, behind a named seam.** Q2-Q5 all resolved the same way: recorded clips
   not a live camera, nominal config not calibration, the simplest scene, frames to disk not a
-  window. Each is swappable, and a seam only counts when the second implementation can be named.
+  window. Each is swappable, and a seam only counts when the second implementation can be named
+  **and can actually plug into it** - phase 4 sharpened that, since a scene-shaped interface would
+  have excluded the GL renderer it existed for.
+  The companion rule, because it was being read too strictly: "no abstraction without a case today"
+  bans building for futures that cannot be named, not for work already written down. Scheduled is not
+  speculative, so a Protocol whose second implementation is the next phase earns itself now.
 - **Face landmarker, single eye.** Q1 confirms phase 0 in pose-tools; both landmarkers if they wire
   together easily, face alone if not. Q6 rules out stereo and accepts interpupillary distance as the
   scale reference, configured like every other device number.
@@ -38,8 +43,8 @@ window onto a scene rather than a flat picture. Analysis and open questions in
 
 ## Phases
 
-Q1-Q17 are answered and the scope is settled. Phases 1 and 2 have sub-plans; for 3 to 5 the
-sketches below are all there is until each is written up. Phase 0 shipped as pose-tools v0.4.0 and
+Q1-Q22 are answered and the scope is settled. Phases 1 to 4 have sub-plans; for phase 5 the
+sketch below is all there is until it is written up. Phase 0 shipped as pose-tools v0.4.0 and
 is pinned here.
 
 | #  | Phase                          | Plan | Status |
@@ -48,7 +53,7 @@ is pinned here.
 | 1  | viewer position from a clip    | [`01_viewer_position.md`](01_viewer_position.md) | done    |
 | 2  | camera and screen model        | [`02_camera_screen_model.md`](02_camera_screen_model.md) | done |
 | 3  | off-axis projection            | [`03_off_axis_projection.md`](03_off_axis_projection.md) | done |
-| 4  | minimal scene through it       | -    | planned, real renderer spun off |
+| 4  | minimal scene through it       | [`04_minimal_scene.md`](04_minimal_scene.md) | planned, real renderer spun off |
 | 5  | close the loop, live           | -    | planned, runs on g7 not here |
 
 Status values: draft / planned / in progress / done / superseded / discarded.
@@ -471,3 +476,56 @@ Append-only. Newest at the bottom.
   comparison, however impressive its parametrisation looks.
   Worth noting the tests passed on the first run, which is exactly when they deserve suspicion. The
   mutation pass is the only reason the claim was checked at all.
+- 2026-08-16 : planned phase 4 in [`04_minimal_scene.md`](04_minimal_scene.md). Writing it moved the
+  seam, which is the one thing in the phase that would have been expensive to get wrong.
+  Q4 asks for the simplest scene behind a seam, and the obvious reading puts the seam at the scene:
+  an interface yielding geometry, a wireframe today and a model later. That is the wrong place. The
+  named second implementation is `02_scene_rendering`, an OpenGL renderer, and it does not produce
+  geometry, it produces pixels, so a geometry-shaped interface would exclude the very implementation
+  it exists for. The seam is one step up, `render(view_projection, width_px, height_px) -> image`,
+  which numpy satisfies today and GL, splatting or a reprojection satisfy later. The scene becomes an
+  implementation detail of the wireframe renderer rather than a shared contract. General form of the
+  rule: a seam only counts when the second implementation can be named **and can actually plug into
+  it**, which is a stronger test than the one `00_start.md` states.
+  The scene is a box whose mouth is exactly the screen rectangle, so phase 3's corner invariant
+  becomes visible: the border is welded to the image edge or the projection is wrong, and that is
+  legible without reading a number. A cube floating mid-depth earns its place because parallax reads
+  as relative motion between two depths, not as one thing moving.
+  Keeping the scene entirely behind the window is load-bearing, not incidental: no point can then be
+  at or behind the eye, so `project_points` cannot raise and the phase needs no clipper. Named
+  upgrade is homogeneous-space clipping against the near plane, wanted the first time something is
+  meant to poke out through the window.
+  One trap found while planning rather than while debugging. Phase 3 maps the panel corners to the
+  viewport corners whatever the viewport is, so rendering a 1.78 panel into a 1.33 image fills it
+  perfectly, stretched, raising nothing. The check must be explicit and cannot be equality:
+  `g7_internal` is 1.7824 while 1280x720 is 1.7778, so a real panel is not exactly 16:9 and an exact
+  test would reject the actual device. A 2% tolerance passes g7's 0.26% and catches a genuine mix-up.
+  The test list is split by the phase 3 lesson rather than by subject: self-consistency tests on one
+  side, and on the other the ones that pin physics, being that the back wall drifts right when the
+  eye goes right, that the cube and the wall move by *different* amounts since equal motion would
+  mean depth never reached the projection, and that the frame is not blank, which is the guard
+  against everything projecting off-screen while the suite stays green.
+  Q20-Q22 left open rather than guessed: whether the output resolution belongs on `SinkConfig` or on
+  the call, whether a depth-faded wireframe box is Necker-ambiguous enough to need a filled back wall,
+  and whether `Renderer` earns a Protocol before its second implementation exists. The last is the
+  interesting one, because the project's two stated rules point opposite ways there.
+- 2026-08-16 : folded Q20-Q22, so phase 4 is planned rather than draft.
+  Q20 turned out to contain a false exclusive. Asked as "where is the resolution stored" it needed
+  phase 5 to settle; asked as "who owns it" it settled immediately. The sink owns it, so the `Sink`
+  protocol carries a `size` property and the loop is `renderer.render(matrix, *sink.size)`.
+  `PngSink` takes its size from `SinkConfig` and phase 5's `WindowSink` from the window it opened,
+  and the render path never learns which, so it is a config field *and* a call argument with no
+  conflict. No hack now and no refactor later. The bounded-cost check is what made deciding early
+  safe rather than confidence in the answer: the number is persisted in no format, so being wrong
+  costs one line at two call sites.
+  Q21 starts with **no filled back wall**. Depth-faded wireframe only, the scene stays one primitive,
+  and the fill gets added if the box reads Necker-ambiguous once there is something to look at. Free
+  to defer because it is entirely inside `WireframeRenderer`: no interface, no config, no test
+  outside that module. That is the line between deferring a decision and deferring a design.
+  Q22 answered **Protocol now, for both `Renderer` and `Sink`**, and the apparent conflict between
+  the project's two rules was a misreading rather than a real tension. "A case that demands it today"
+  bans abstraction built for futures that **cannot be named**, not for work already written down:
+  `02_scene_rendering` is a planned initiative and the window sink is literally the next phase, so
+  the second and third implementations are in scope and merely arrive tomorrow. Recorded in the key
+  decisions as well, since the strict reading had already come up more than once. Scheduled is not
+  speculative.
