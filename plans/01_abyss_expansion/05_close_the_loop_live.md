@@ -1,0 +1,208 @@
+---
+status: draft
+---
+
+# Phase 5 - close the loop, live
+
+## Overview
+
+Camera to tracker to renderer to screen, on the machine holding both. The exit criterion of the
+initiative, and the only phase that cannot be finished on a headless box.
+
+Context: [`00_start.md`](00_start.md). Wires together phase 1's
+[`01_viewer_position.md`](01_viewer_position.md) tracker, phase 2's
+[`02_camera_screen_model.md`](02_camera_screen_model.md) config, phase 3's
+[`03_off_axis_projection.md`](03_off_axis_projection.md) projection and phase 4's
+[`04_minimal_scene.md`](04_minimal_scene.md) renderer. Nothing after it belongs to this initiative:
+a real renderer is [`../02_scene_rendering/`](../02_scene_rendering/) and the phone is
+[`../03_phone_webapp/`](../03_phone_webapp/).
+
+**Almost no new maths.** Every piece exists; this phase makes them a loop. That is the reason to be
+suspicious of it rather than relaxed: the work that remains is exactly the work the previous four
+phases were able to defer, which is everything that only exists in real time. Latency, a scale
+estimate with no future frames to draw on, a camera that can fail while claiming success, and a
+window that has to be the panel rather than a rectangle on it.
+
+## What is actually new
+
+| Piece | Why it could not exist before |
+| ----- | ----------------------------- |
+| `WindowSink` | the named second sink, and the first one whose size it does not choose |
+| a live head scale | `estimate_head_scale` consumes a whole clip; live there is no whole clip |
+| capture health | a dead camera returns `ok=True` and black frames, which reads as "no face" |
+| a latency budget | nothing so far had to finish inside a frame |
+| the loop itself | the first code that owns capture, inference, projection and display together |
+
+## g7 can now be checked against a tape measure
+
+Worth stating before the plan, because it changes what "working" means for this phase.
+
+Substituting the scale estimate into the position, the reported depth is
+
+    depth = depth_m * scale
+          = depth_m * ipd_real / median(ipd_px * depth_m / focal)
+          -> focal * ipd_real / ipd_px
+
+so **MediaPipe's own depth cancels out**, up to the difference between a per-frame value and the
+median it was normalised by. The depth that reaches the frustum is the pinhole formula over the
+measured focal length and the viewer's real interpupillary distance, nothing more.
+
+Two consequences. First, the depth is only as good as those two numbers, and on g7 both are now real:
+945 px at 720 tall, measured by ChArUco, and an interpupillary distance that is currently the 63 mm
+population mean rather than this viewer's. Second, and this is what makes the phase checkable, a
+prediction can be written down before running anything:
+
+| apparent iris separation | predicted depth |
+| ------------------------ | --------------- |
+| 60 px | 0.99 m |
+| 80 px | 0.74 m |
+| 100 px | 0.60 m |
+| 120 px | 0.50 m |
+
+Sit at a tape-measured 0.50 m and the loop should say so. Every previous phase could only check
+internal consistency, because the sample clips have no known camera. This one can be wrong against
+the world, which is a much better test.
+
+## The loop, and where it is allowed to be simple
+
+    capture -> landmark -> eye sample -> scale -> smooth -> frustum -> render -> window
+
+One thread, one loop, synchronous, until measurement says otherwise. The named upgrade is
+MediaPipe's `LIVE_STREAM` running mode, which delivers results through a callback and decouples
+inference from capture, and a capture thread that always holds the newest frame. Both are real
+answers to a latency problem that has not been measured yet, and picking them first would be
+designing against a guess.
+
+So **step one is measurement, not code**: how long does a face landmarker call take on this CPU, at
+1280x720, on this machine. Everything about the loop's shape follows from that number, and it is a
+morning's difference whether it is 15 ms or 90 ms.
+
+## Capture, which has bitten this repo before
+
+Three findings from the calibration work in `tracking.md` apply directly, and all three are cheaper
+to build in than to rediscover:
+
+- **Pin the mode.** The Chicony webcam's YUYV default silently clamps to 640x480. MJPG 1280x720 is
+  the mode the focal length was measured at, and `focal_px_for_height` would rescale to 480 without
+  knowing the aspect ratio changed. Set the fourcc and the size, then verify what the camera
+  actually gave back rather than assuming it obeyed.
+- **Set `CAP_PROP_BUFFERSIZE` to 1.** The queue was measured four frames deep. Offline that produced
+  four identical calibration views; live it is 160 ms of pure latency between the viewer moving and
+  the camera admitting it.
+- **A dead camera claims success.** When the session was locked, `read()` returned `ok=True` with
+  black frames. Downstream that is indistinguishable from "no face", so the loop would sit there
+  rendering a held position and looking merely boring rather than broken. The loop must check frame
+  statistics, not the return flag, and say `CaptureIsBlackError` rather than shrugging.
+
+## Fullscreen is a geometric requirement
+
+`ScreenConfig` describes the whole panel: 344 by 193 mm, with the camera 100.5 mm above its centre.
+The frustum is built from that rectangle, so the render only means anything if it covers exactly that
+rectangle. A 1280x720 window floating on a 1920x1080 desktop is a different, smaller, differently
+placed window onto the world, and every number in the config would then be describing something that
+is not on screen.
+
+So fullscreen is not a presentation choice, it is what makes the geometry true. The window opens
+fullscreen or the phase has not been done. Modelling a windowed rectangle is possible - it is another
+`ScreenConfig` with a smaller size and an offset - but it is a different thing to build and there is
+no case for it.
+
+Render at the panel's native 1920x1080 rather than at 720 and letting OpenCV upscale. The scene is
+about forty lines; the cost is nothing and the result is crisp.
+
+## What gets built
+
+| Piece | Where | Role |
+| ----- | ----- | ---- |
+| `WindowSink` | `src/abyss/sink.py` | fullscreen `cv.imshow`, reporting the panel's size as its own |
+| `CaptureIsBlackError` and friends | `src/abyss/video/capture.py` | opening a camera in a known mode, and noticing when it dies |
+| `LiveScale` | `src/abyss/viewer/eye_position.py` or beside it | the bootstrap-and-freeze scale estimator |
+| the loop | `src/abyss/loop.py` | capture to sink, source and sink both injected |
+| `scripts/live.py` | `scripts/` | the manual entry point, the only piece that needs a display |
+
+`src/abyss/sink.py` becomes `src/abyss/sink/` here, as phase 4 said it would: a rename, not a
+redesign.
+
+**The loop takes its frame source and its sink as arguments**, which is what keeps this phase
+testable at all. The same loop run over a clip with a `PngSink` is phase 4's output and needs no
+camera and no display; run over device 0 with a `WindowSink` it is the live effect. If the loop can
+only be exercised through a window, the phase has been built wrong.
+
+## Tests
+
+The live path cannot be tested automatically here, and pretending otherwise would be the anti-pattern
+this repo keeps catching. What *can* be tested is everything that is not the window:
+
+- the loop over a recorded clip with a `PngSink` produces the same frames as phase 4's track mode,
+  which pins that the live wiring did not quietly change the offline behaviour
+- `LiveScale` freezes after its bootstrap: the same samples in a different order give the same
+  factor, and a later outlier does not move it
+- `LiveScale` before bootstrap reports that it is not ready, rather than returning 1.0 and silently
+  rendering at the wrong scale
+- a black frame raises `CaptureIsBlackError`, and a frame with content does not
+- a capture that comes back at 640x480 when 1280x720 was asked for raises, rather than rescaling the
+  focal length to a resolution it was never measured at
+- `WindowSink` satisfies the `Sink` protocol, checked without opening a window
+
+And one manual check, written down because it is the phase's real exit criterion: sit at a
+tape-measured distance and compare the reported depth against the table above.
+
+## Out of scope
+
+- A real renderer. The wireframe room is what gets displayed, unchanged from phase 4.
+- The phone, the webapp, and serving frames anywhere. `../03_phone_webapp/`.
+- Multiple viewers, or choosing between them. There is one person and one `ViewerConfig`.
+- Stereo. Ruled out in `00_start.md` and still ruled out.
+- Recording the live session to disk. `VideoSink` already exists and could be attached, but a run
+  that both displays and records is a feature, not part of closing the loop.
+
+## Open questions
+
+- Q23: **How is the head scale estimated with no future frames?** `estimate_head_scale` takes the
+  whole clip and returns one constant, which live is not available.
+  a. Bootstrap and freeze: collect front-facing samples until N of them, take the median, never
+     change it. A key re-runs the bootstrap.
+  b. Rolling median over the last N front-facing samples, updated every frame.
+  c. Skip it, leave the scale at 1.0 and accept the per-person error, which was measured at 13%
+     between two subjects.
+  Recommended: a, because b makes the scale a slowly moving target and the whole scene breathes
+  when it moves, which is worse than being consistently a few percent off. Freezing also matches
+  what the offline path does, so the two agree.
+- Q24: **`VIDEO` or `LIVE_STREAM` running mode for the landmarker?** `VIDEO` is synchronous and is
+  what phase 1 already uses, so the offline and live paths stay identical. `LIVE_STREAM` delivers
+  results through a callback and lets capture run ahead of inference, at the cost of the loop no
+  longer being a loop.
+  Recommended: start on `VIDEO`, measure, and move only if the measurement says so. Named upgrade,
+  not a starting point.
+- Q25: **What happens to the smoother when frames are not evenly spaced?** `PositionSmoother` uses a
+  left-triangle filter over the last five samples and assumes even spacing, which a clip guarantees
+  and a live loop does not. Five taps at 25 fps is also 0.2 s of lag, which is visible in a
+  head-coupled display in a way it never was in a plot.
+  a. Leave it and retune the tap count once the real frame rate is known.
+  b. Make it time-aware, weighting by elapsed time rather than by sample count.
+  Recommended: a, because the tap count is one number and the real frame rate is not known yet.
+- Q26: **Does the loop own the timing, or does the sink?** A display sink has a natural pace and a
+  PNG sink does not, so "run at 30 fps" is a property of neither the renderer nor the tracker.
+  Recommended: the loop, running as fast as the source allows and reporting what it achieved. Frame
+  pacing is a problem only if the loop turns out to be faster than the display, which would be a
+  good problem.
+- Q27: **Is the viewer's own interpupillary distance worth measuring?** The depth is now
+  `focal * ipd / ipd_px`, so the 63 mm population mean maps directly into a depth error: a viewer at
+  60 mm would be read 5% too far away. Measuring it is a manual step, and there is a viewer registry
+  waiting for the entry.
+  Recommended: yes, once the loop runs, since it is the one remaining unmeasured number in the whole
+  chain and the tape-measure check will show it as a constant offset.
+
+## Done when
+
+- The loop runs live on g7, fullscreen, and the scene moves with the viewer's head the way a window
+  would.
+- The measured end-to-end rate and latency are written down in the log, whatever they turn out to be.
+  A slow loop that is honestly measured closes this phase; an unmeasured fast one does not.
+- The reported depth agrees with a tape measure to within a stated tolerance, and any constant offset
+  is explained rather than tuned away.
+- The same loop, given a clip and a `PngSink`, reproduces phase 4's offline output.
+- A dead or blocked camera fails loudly, and holding a position through a missing face is visible on
+  the frame.
+- `make check` is green, and the suite still passes with no camera, no display and no model present.
+- The phase 1 regression CSVs are untouched.

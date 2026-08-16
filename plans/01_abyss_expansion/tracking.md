@@ -55,8 +55,8 @@ window onto a scene rather than a flat picture. Analysis and open questions in
 
 ## Phases
 
-Q1-Q22 are answered and the scope is settled. Phases 1 to 4 have sub-plans; for phase 5 the
-sketch below is all there is until it is written up. Phase 0 shipped as pose-tools v0.4.0 and
+Q1-Q22 are answered, Q23-Q27 are open on phase 5, and the scope is settled. Every phase now has
+a sub-plan. Phase 0 shipped as pose-tools v0.4.0 and
 is pinned here.
 
 | #  | Phase                          | Plan | Status |
@@ -66,7 +66,7 @@ is pinned here.
 | 2  | camera and screen model        | [`02_camera_screen_model.md`](02_camera_screen_model.md) | done |
 | 3  | off-axis projection            | [`03_off_axis_projection.md`](03_off_axis_projection.md) | done |
 | 4  | minimal scene through it       | [`04_minimal_scene.md`](04_minimal_scene.md) | done, real renderer spun off |
-| 5  | close the loop, live           | -    | planned, runs on g7 not here |
+| 5  | close the loop, live           | [`05_close_the_loop_live.md`](05_close_the_loop_live.md) | draft, runs on g7 |
 
 Status values: draft / planned / in progress / done / superseded / discarded.
 
@@ -608,3 +608,32 @@ Append-only. Newest at the bottom.
   committed fixture with a real test rather than an out-of-repo checksum: phase 1 went out-of-repo
   because MediaPipe inference is not bit-identical across machines, and projecting a fixed scene
   through a fixed matrix is arithmetic, so that reason does not apply here.
+- 2026-08-16 : planned phase 5 in [`05_close_the_loop_live.md`](05_close_the_loop_live.md). Writing
+  it turned up one thing that changes what the phase can claim, and it came out of substituting the
+  scale estimate into the position rather than from reading the code.
+  **After the scale correction, MediaPipe's own depth cancels out.** `estimate_head_scale` divides by
+  our focal length, so `depth = depth_m * scale` collapses to `focal * ipd_real / ipd_px`: the
+  pinhole formula over the measured focal and the viewer's real interpupillary distance, up to the
+  difference between a per-frame value and the median it was normalised by. That means phase 5 is the
+  first phase whose output can be **wrong against the world** rather than merely inconsistent with
+  itself. A prediction is written into the plan before any code: 120 px of iris separation is 0.50 m,
+  100 px is 0.60 m, 60 px is 0.99 m. Sit at a tape-measured distance and check. Every earlier phase
+  could only check internal consistency, because the sample clips have no known camera.
+  It also promotes the viewer's interpupillary distance from a detail to the last unmeasured number
+  in the chain: at the 63 mm population mean, a viewer who is actually 60 mm reads 5% too far away,
+  as a constant offset the tape measure will show (Q27).
+  Fullscreen turns out to be a geometric requirement rather than a presentation choice. `ScreenConfig`
+  describes the whole 344 by 193 mm panel with the camera 100.5 mm above its centre, so a windowed
+  render would make every number in the config describe a rectangle that is not on screen.
+  Three capture findings from the calibration sessions are folded in as requirements rather than left
+  to be rediscovered: pin MJPG 1280x720 since YUYV clamps to 640x480 and the focal was measured at
+  720; set `CAP_PROP_BUFFERSIZE` to 1, since the queue measured four frames deep is 160 ms of latency
+  live rather than duplicate stills; and check frame statistics rather than the return flag, because
+  a camera cut by the lock screen returns `ok=True` with black frames, which downstream is
+  indistinguishable from "no face".
+  The structural requirement is that the loop takes its source and its sink as arguments, so the same
+  loop over a clip with a `PngSink` reproduces phase 4 with no camera and no display. If it can only
+  be run through a window, it has been built wrong.
+  Q23-Q27 raised: how to estimate head scale with no future frames, `VIDEO` against `LIVE_STREAM`,
+  what an evenly-spaced-samples smoother does on a variable frame rate, who owns frame pacing, and
+  whether to measure the viewer's interpupillary distance. Each carries a recommendation.
