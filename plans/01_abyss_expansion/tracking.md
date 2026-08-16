@@ -47,7 +47,7 @@ is pinned here.
 | 0  | face landmarker in pose-tools  | tracked in pose-tools | done, shipped as v0.4.0 |
 | 1  | viewer position from a clip    | [`01_viewer_position.md`](01_viewer_position.md) | done    |
 | 2  | camera and screen model        | [`02_camera_screen_model.md`](02_camera_screen_model.md) | done |
-| 3  | off-axis projection            | -    | planned |
+| 3  | off-axis projection            | [`03_off_axis_projection.md`](03_off_axis_projection.md) | planned |
 | 4  | minimal scene through it       | -    | planned, real renderer spun off |
 | 5  | close the loop, live           | -    | planned, runs on g7 not here |
 
@@ -429,3 +429,20 @@ Append-only. Newest at the bottom.
   the guide both now say. Revisit only if something genuinely needs 480.
   Phase 3 is now unblocked on data as well as on maths: it has a real focal length and a real
   screen rectangle to build a frustum from.
+- 2026-08-16 : planned phase 3 in [`03_off_axis_projection.md`](03_off_axis_projection.md). Writing
+  it moved where the risk sits. The asymmetric frustum itself is four divisions and will work first
+  time; what is actually delicate is that three coordinate frames meet in this phase and two of them
+  disagree about which way is up. The camera frame points `+Y` down, which is why g7's
+  `camera_to_centre_m` is a positive 0.1005 for a camera sitting above the panel, and the screen
+  frame points `+Y` up. So the phase has one interesting function, the conversion, and the frustum
+  is the easy part after it.
+  Recorded as a trap for whoever writes it: the X sign already depends on `mirrored` and
+  `eye_position_m` already applies it, so this phase must not flip it a second time.
+  The test list gained one the sketch did not have, and it subsumes most of the others. The four
+  screen corners must map to the four viewport corners **for every eye position**, not only a
+  centred one, because that is the definition of the screen behaving like a window. Swept over a
+  grid it catches sign errors, the Y flip, and any confusion between the screen plane and the near
+  plane in a single assertion.
+  Two questions left open rather than guessed: Q18 whether the pixel viewport transform belongs
+  here or in phase 4, and Q19 whether the three frames should be distinct types instead of bare
+  3-vectors. Both are better answered while writing the conversion than before it.
