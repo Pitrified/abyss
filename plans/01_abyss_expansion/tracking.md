@@ -340,3 +340,40 @@ Append-only. Newest at the bottom.
   with sha256sums, before any change. Per-machine on purpose: MediaPipe CPU inference is not
   guaranteed bit-identical across hardware, so g4's CSVs prove nothing here. `make check` is green,
   97 tests.
+- 2026-08-16 : added `scripts/calibrate_camera.py`, ChArUco calibration off a screen, which
+  supersedes the A4 method as the way to get a focal length. `measure_focal.py` stays as the
+  fallback for when there is no second screen.
+  The prompt for it was the Kindle and the Pixel being available as targets, with the objection
+  that neither the displayed size nor the distance is known. Both objections dissolve. The distance
+  is not needed at all: one head-on view of a known-size target is degenerate because `f` and `Z`
+  only appear as `f / Z`, which is exactly why the A4 method needs a tape measure, while several
+  views at different orientations constrain the intrinsics through the orthonormality of the
+  rotation columns and hand back the distance as a result. And the displayed size does not affect
+  the focal at all: scaling the board scales the recovered translations and leaves the intrinsics
+  untouched. Both are pinned by tests rather than asserted.
+  Measured caveat on that second claim: invariance held to 0.001 px between scale 1.0 and 2.0, but
+  at scale 0.5 the recovered focal drifted 0.4%, which is conditioning from tiny object
+  coordinates rather than a real scale effect. So the true size is still worth supplying, and a
+  screen gives it exactly from the pixel pitch with no ruler. `board` prints the diagonal the ppi
+  implies as a check against the spec sheet: 6.87 in for the Kindle against an advertised 6.8.
+  This method also removes a bias the A4 method cannot detect. A hand-held sheet is never exactly
+  fronto-parallel, and tilt by 10 degrees shortens it by `cos 10` and biases the focal low by 1.5%
+  with nothing to reveal it. Zhang's method requires tilt instead of suffering from it.
+  No new dependency: `opencv-contrib-python` 5.0.0 is already pinned and carries aruco,
+  `CharucoBoard` and `CharucoDetector`. `calibrateCameraCharuco` is **gone** in OpenCV 5, so the
+  path is `CharucoDetector.detectBoard` then `board.matchImagePoints` then `cv.calibrateCamera`.
+  Building OpenCV from source was considered and rejected: the wheel already has FFMPEG, V4L2, Qt5
+  and IPP, only GStreamer and the non-free algorithms are absent and neither is wanted, and a
+  hand-built install in the uv venv would be silently reverted by `uv sync` exactly as the editable
+  pose-tools install is. If the OpenCV 5 API churns further the cheap lever is a 4.x pin, not a
+  source build.
+  Two pyright findings worth keeping in mind, both from imprecise cv2 stubs against a verified
+  runtime: `matchImagePoints` is typed for a sequence of matrices but takes the single `(N, 2)`
+  array `detectBoard` returns, and `getChessboardCorners` is typed as a sequence but returns an
+  ndarray. One real bug came out of the same pass: `cv.imread` returns `None` on an unreadable
+  file and that was being passed straight into detection.
+  Detection measured on the generated board: 48 of 48 corners on the full panel canvas, 36 of 48
+  after a 4x downscale and a 12 degree rotation. Partial views are fine, which is the reason for
+  ChArUco over a plain checkerboard. 103 tests now, ruff and pyright clean.
+  Still unmeasured: the focal itself, the mode comparison, and the bezel gap. The tooling is ready
+  for all three and none has been run against a real board yet.

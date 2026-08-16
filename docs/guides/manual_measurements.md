@@ -21,7 +21,66 @@ CSVs: MediaPipe CPU inference is not guaranteed bit-identical across hardware.
 Filling in a focal length does not move these numbers, because the sample clips use the separate
 `unknown_clip` entry, which stays unmeasured on purpose.
 
-## 1. Focal length
+## 1. Focal length, preferred: ChArUco on a screen
+
+`scripts/calibrate_camera.py`. Use this one. Section 1b is the fallback for when there is no
+second screen to hand.
+
+No tape measure at all. A single head-on view of a known-size target cannot give a focal length,
+because `f` and `Z` only appear as `f / Z`. Several views at **different orientations** break that
+degeneracy, and the distance comes out as a result rather than an input. Distances and tilt are
+both measured by the solver, so the two largest error sources in 1b vanish: a hand-held sheet
+tilted by 10 degrees appears `cos 10` shorter and biases `f` low by 1.5%, undetectably.
+
+The board's physical size does **not** affect the focal length. Scaling the board scales the
+recovered distances and leaves the intrinsics alone
+(`test_intrinsics_do_not_depend_on_the_board_size`). Getting it right still matters for the
+distances, and a screen gives it exactly from the pixel pitch, with no ruler.
+
+1. Emit the board at the panel's native resolution, so any "fit to screen" viewer is the identity
+   transform:
+
+   ```bash
+   uv run --no-sync python scripts/calibrate_camera.py board --device-preset kindle_pw11
+   ```
+
+   Check the implied diagonal it prints against the device's spec sheet. If they disagree the ppi
+   is wrong, and every distance downstream will be wrong by that ratio.
+
+2. Copy `cache/calib/board_<preset>.png` to the device, open it full screen, unscaled. Prefer the
+   Kindle: e-ink is matte, and specular glare on a glossy phone is the main way this fails.
+
+3. Capture, tilting and moving the board between shots:
+
+   ```bash
+   uv run --no-sync python scripts/calibrate_camera.py capture --views 15
+   ```
+
+   Vary roll, pitch **and** yaw, and put the board in different parts of the frame. Views that are
+   all flat-on are the degenerate case again, however many you take. The script reports detected
+   corners per view and skips the ones it cannot read.
+
+4. Solve:
+
+   ```bash
+   uv run --no-sync python scripts/calibrate_camera.py solve
+   ```
+
+   Sanity checks before pasting the snippet: RMS reprojection well under 1 px, `fx/fy` close to
+   1.0, and `cx,cy` near the frame centre. `focal_px` takes `fy`, since the model is vertical-FOV
+   based.
+
+The calibration also returns the principal point and distortion coefficients, which `CameraConfig`
+has nowhere to put today. Record them in the provenance and the log. If `cx,cy` land far from
+centre or distortion is large, that is a measured reason to extend the model rather than a
+speculative one.
+
+This also settles section 2 properly: run `capture` and `solve` at both resolutions and compare
+`fy` directly, instead of eyeballing two PNGs.
+
+## 1b. Focal length, fallback: one object at a known distance
+
+Use when there is no second screen. Less accurate for the reasons above.
 
 Not calibration, no checkerboard. One object of known size at a known distance:
 
