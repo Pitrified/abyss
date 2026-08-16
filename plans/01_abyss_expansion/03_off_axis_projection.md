@@ -1,5 +1,5 @@
 ---
-status: planned
+status: done
 ---
 
 # Phase 3 - off-axis projection
@@ -48,16 +48,30 @@ So the phase has exactly one interesting function and it is not the frustum: it 
 takes an eye position in the camera frame and a `ScreenConfig`, and returns the eye in the screen
 frame. Subtract `camera_to_centre_m`, then flip the axes that disagree.
 
-Two specific traps in that conversion:
+Worked out rather than assumed, **both X and Y flip and Z does not**:
 
-- **The Y flip is not optional.** The camera frame points `+Y` down, and `camera_to_centre_m` is
-  expressed in it, which is why g7's offset is a *positive* 0.1005 for a camera sitting *above* the
-  panel. The screen frame points `+Y` up. Getting this wrong puts the viewer's eye below the screen
-  when they are above it, and the scene tilts the wrong way.
-- **The X sign depends on `mirrored`, and that is already handled upstream.** `eye_position_m`
-  flips X when `FrameGeometry.mirrored`, so this phase must not flip it again. `g7_webcam` is not
-  mirrored; `pixel7pro_front` is. This phase should take the eye position as given and stay out of
-  it, but a test should pin that it does.
+    x_screen = -(x_camera - offset_x)
+    y_screen = -(y_camera - offset_y)
+    z_screen = +(z_camera - offset_z)
+
+- **Y flips** because the camera frame points `+Y` down while the screen frame points `+Y` up.
+  `camera_to_centre_m` is expressed in the camera frame, which is why g7's offset is a *positive*
+  0.1005 for a camera sitting *above* the panel. Getting this wrong puts the eye below the screen
+  when it is above it.
+- **X flips too**, which is the less obvious half. The camera looks *at* the viewer, so the
+  viewer's right hand appears on the **left** of an unmirrored image, the same way a person facing
+  you has their right hand on your left. Image left is negative camera X, so the viewer's right is
+  camera `-X`. This is exactly why video call apps mirror the self view.
+- **Z does not flip.** Camera `+Z` points away from the lens, which is toward the viewer, and the
+  screen frame's `+Z` points out of the panel, also toward the viewer.
+
+Together that is a 180 degree rotation about Z, which is the right shape for two frames that face
+each other, and a proper rotation rather than a reflection.
+
+One further trap: **the X sign also depends on `mirrored`, and that is already handled upstream.**
+`eye_position_m` flips X when `FrameGeometry.mirrored`, so this phase must not flip it a second
+time. `g7_webcam` is not mirrored; `pixel7pro_front` is. The bug would be invisible on g7 and wrong
+on the phone, so a test should pin that this phase treats the incoming X as already correct.
 
 ## What gets built
 
@@ -67,8 +81,9 @@ Two specific traps in that conversion:
 | ----- | ---- |
 | `eye_in_screen_frame(eye_camera_m, screen)` | the coordinate handoff above, returns a 3-vector |
 | `Frustum` | frozen dataclass, `left/right/bottom/top/near/far` in metres at the near plane |
-| `frustum_for_eye(screen, eye_screen_m, near_m, far_m)` | the four divisions |
+| `frustum_for_eye(screen, eye_camera_m, near_m, far_m)` | the four divisions |
 | `projection_matrix(frustum)` | the 4x4, `glFrustum` convention |
+| `view_projection_matrix(screen, eye_camera_m, near_m, far_m)` | the above plus the eye translation, so callers stay in the screen frame |
 
 Plus one convenience for phase 4, which does not have OpenGL and will be drawing with numpy:
 
@@ -107,12 +122,31 @@ The three the sketch named, plus the one that actually matters.
   explicit expected sign, not just "it changed".
 - **Corners map where they should.** For a centred eye the screen corners land on the viewport
   corners.
-- **And the invariant that defines head-coupled perspective**: the four screen corners map to the
-  four viewport corners **for every eye position**, not only the centred one. That is what makes
-  the screen behave like a window rather than a picture. Swept over a grid of eye positions,
-  including well off to the side and very close, it catches sign errors, the Y flip, and any
-  confusion between the screen plane and the near plane in one assertion. If only one test survives
-  review, this is the one.
+- **The invariant that defines head-coupled perspective**: the four screen corners map to the four
+  viewport corners **for every eye position**, not only the centred one. That is what makes the
+  screen behave like a window rather than a picture.
+
+**Corrected after implementing, by deliberately breaking each sign and watching what went red.**
+The plan originally claimed the corner invariant would catch the frame conversion too, and that if
+only one test survived it should be that one. That is wrong, and wrong in an instructive way.
+
+The corner invariant is a **self-consistency** check. It verifies that `frustum_for_eye`,
+`projection_matrix` and `project_points` agree with each other. If the frame conversion is wrong,
+the frustum is built for the wrong eye position and the corners *still* fill the image perfectly,
+because the error is upstream of the part being checked. Measured: flipping the X or Y sign in the
+conversion leaves all 45 swept cases green.
+
+So two independent families are needed, and neither substitutes for the other:
+
+| Family | Catches | Blind to |
+| ------ | ------- | -------- |
+| corner invariant, swept | near-plane scaling, the matrix, the viewport transform, the eye translation | the camera to screen conversion |
+| directional and parallax | the conversion signs, which way the world moves | an internally consistent pipeline that is uniformly wrong |
+
+The directional tests are the ones that pin physics: moving to the viewer's right shifts the
+frustum left, moving up shifts it down, and a point deep behind the window drifts across the image
+the way a distant tree does. Exactly three tests fail when an axis sign is flipped, and all three
+are of that family.
 
 Plus the error cases, since the project raises named exceptions rather than producing quiet
 nonsense:
@@ -140,15 +174,22 @@ rather than a measurement to pin exactly.
 ## Open questions
 
 - Q18: **Does the viewport transform belong here or in phase 4?** `project_points` is the only
-  piece that needs to know pixels, and pixels are arguably a sink concern. Leaning to keep it here
-  as the thin wrapper described, because phase 4 will otherwise reimplement the perspective divide,
-  which is where sign errors breed. Revisit if phase 4's first caller wants something different.
+  piece that needs to know pixels, and pixels are arguably a sink concern.
+  ANS: **Here.** Phase 4 would otherwise reimplement the perspective divide, which is exactly where
+  sign errors breed, and the point of this phase is that the sign work happens once in a place with
+  tests around it.
 - Q19: **Should the eye position carry its frame in the type?** Three frames meet in this phase and
   they are all bare 3-vectors of floats, so nothing stops a camera-frame vector being passed where
-  a screen-frame one is wanted. A `NewType` or a wrapper would make that a type error rather than a
-  silently wrong picture. Against it: the project's own simplicity rule, and that the confusion is
-  contained to one function. Decide while writing the conversion, when it is clear how easy the
-  mistake actually is.
+  a screen-frame one is wanted.
+  ANS: **Document it, do not type it, and type it the moment it travels.** The rule being applied:
+  contained within one place means prose is enough; passed along means it earns a type.
+  That makes a design constraint rather than just a note, because the screen-frame vector is
+  currently produced by one function and consumed by the next. To keep it contained, **every public
+  entry point takes the eye in the camera frame**, and the screen-frame vector never crosses out of
+  this module. `eye_in_screen_frame` stays public because it is worth testing and debugging
+  directly, but nothing outside `abyss.render` is expected to hold its result.
+  The trigger to revisit is explicit: if any caller outside this module ever needs a screen-frame
+  eye position, it is being passed along, and it gets a `NewType` then.
 
 ## Done when
 

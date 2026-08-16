@@ -47,7 +47,7 @@ is pinned here.
 | 0  | face landmarker in pose-tools  | tracked in pose-tools | done, shipped as v0.4.0 |
 | 1  | viewer position from a clip    | [`01_viewer_position.md`](01_viewer_position.md) | done    |
 | 2  | camera and screen model        | [`02_camera_screen_model.md`](02_camera_screen_model.md) | done |
-| 3  | off-axis projection            | [`03_off_axis_projection.md`](03_off_axis_projection.md) | planned |
+| 3  | off-axis projection            | [`03_off_axis_projection.md`](03_off_axis_projection.md) | done |
 | 4  | minimal scene through it       | -    | planned, real renderer spun off |
 | 5  | close the loop, live           | -    | planned, runs on g7 not here |
 
@@ -446,3 +446,28 @@ Append-only. Newest at the bottom.
   Two questions left open rather than guessed: Q18 whether the pixel viewport transform belongs
   here or in phase 4, and Q19 whether the three frames should be distinct types instead of bare
   3-vectors. Both are better answered while writing the conversion than before it.
+- 2026-08-16 : **phase 3 done.** `src/abyss/render/frustum.py`, 63 tests, 169 in the suite, ruff and
+  pyright clean, and the regression CSVs byte-identical since this phase only adds a consumer.
+  Q18 answered **here**: phase 4 would otherwise reimplement the perspective divide, which is where
+  sign errors breed. Q19 answered **document, do not type, and type it the moment it travels**, which
+  turned into a design constraint rather than a note: every public function takes the eye in the
+  camera frame, so the screen-frame vector never crosses out of the module and stays contained. The
+  trigger to revisit is explicit, being any caller outside `abyss.render` wanting one.
+  The conversion was worked out rather than assumed and **both X and Y flip, Z does not**. Y because
+  the frames disagree about down. X because the camera looks at the viewer, so a viewer's right hand
+  lands on the left of an unmirrored image, the same reason video call apps mirror the self view.
+  Together a 180 degree rotation about Z, a proper rotation, which is the right shape for two frames
+  facing each other.
+  **The plan's headline test claim was wrong, and mutation testing is what caught it.** The plan said
+  the swept corner invariant would catch sign errors and that if only one test survived it should be
+  that one. Breaking each sign in turn showed otherwise: flipping X or Y leaves all 45 swept cases
+  **green**, because a wrong eye position builds a frustum that is wrong to match and the corners
+  still fill the image perfectly. The invariant is a self-consistency check, not a correctness one.
+  So two independent families are needed and neither substitutes for the other. The corner invariant
+  covers the near-plane scaling, the matrix and the viewport transform, where all 45 cases fail at
+  once for each. The directional and parallax tests cover the conversion, and exactly three of them
+  fail when an axis sign flips. Recorded because the general lesson outlives this phase: a test built
+  from the system's own outputs cannot catch an error that is upstream of both sides of the
+  comparison, however impressive its parametrisation looks.
+  Worth noting the tests passed on the first run, which is exactly when they deserve suspicion. The
+  mutation pass is the only reason the claim was checked at all.
