@@ -1,7 +1,12 @@
 # Manual measurements
 
-Three measurements that need a camera, a screen and a hand. They cannot be done over ssh.
-Each ends in a literal pasted into `src/abyss/params/abyss_devices.py`.
+Three measurements that cannot be done over ssh: a focal length, which resolutions share a field
+of view, and where the camera sits relative to the screen. Each ends in a literal pasted into
+`src/abyss/params/abyss_devices.py`.
+
+You need the machine with the camera, and for the preferred focal method a second screen to show
+a pattern on: a Kindle or a phone. A ruler is needed only for section 3, and a tape measure only
+for the 1b fallback.
 
 Run each experiment on the machine holding the device, and name the registry entry after the
 device, not the machine.
@@ -37,6 +42,10 @@ recovered distances and leaves the intrinsics alone
 (`test_intrinsics_do_not_depend_on_the_board_size`). Getting it right still matters for the
 distances, and a screen gives it exactly from the pixel pitch, with no ruler.
 
+One caveat on that, measured rather than assumed: invariance held to 0.001 px between scale 1.0
+and 2.0, but drifted 0.4% at scale 0.5. That is conditioning from very small object coordinates,
+not a real scale effect. Supply the true size anyway; the pixel pitch makes it free.
+
 1. Emit the board at the panel's native resolution, so any "fit to screen" viewer is the identity
    transform:
 
@@ -45,10 +54,15 @@ distances, and a screen gives it exactly from the pixel pitch, with no ruler.
    ```
 
    Check the implied diagonal it prints against the device's spec sheet. If they disagree the ppi
-   is wrong, and every distance downstream will be wrong by that ratio.
+   is wrong, and every distance downstream will be wrong by that ratio. Known good for
+   `kindle_pw11`: 1236x1648 at 300 ppi, square 176 px = 14.901 mm, implied diagonal 6.87 in
+   against an advertised 6.8.
 
 2. Copy `cache/calib/board_<preset>.png` to the device, open it full screen, unscaled. Prefer the
    Kindle: e-ink is matte, and specular glare on a glossy phone is the main way this fails.
+
+   Turn the front light down rather than up. The detector wants contrast, not brightness, and a
+   bright panel photographed in a lit room is what clips.
 
 3. Capture, tilting and moving the board between shots:
 
@@ -58,7 +72,16 @@ distances, and a screen gives it exactly from the pixel pitch, with no ruler.
 
    Vary roll, pitch **and** yaw, and put the board in different parts of the frame. Views that are
    all flat-on are the degenerate case again, however many you take. The script reports detected
-   corners per view and skips the ones it cannot read.
+   corners per view and skips the ones it cannot read. It also clears previous views for that
+   resolution, so a re-run starts clean rather than mixing two sessions.
+
+   The board has 48 interior corners. Measured detection: 48 of 48 on the board image itself, 36
+   of 48 after a 4x downscale and a 12 degree rotation. So partial reads are normal and fine, and
+   a view reporting 25 to 45 corners is healthy. Anything consistently under 15 means the board is
+   too small in frame, too glared, or too far.
+
+   Fill roughly a third to a half of the frame with the board. Tilt hard enough to see it: 20 to
+   40 degrees, not 5.
 
 4. Solve:
 
@@ -70,10 +93,23 @@ distances, and a screen gives it exactly from the pixel pitch, with no ruler.
    1.0, and `cx,cy` near the frame centre. `focal_px` takes `fy`, since the model is vertical-FOV
    based.
 
+### Reading the result
+
+| Symptom | Means |
+| --- | --- |
+| RMS above 1 px | blur, glare, or a moving board. Recapture, do not accept it |
+| `fx/fy` far from 1.0 | non-square pixels, or too few well-spread views |
+| `cx,cy` far from frame centre | real, if it survives a recapture. The model assumes centre |
+| distances implausible | the pixel pitch is wrong. The focal is still fine |
+| focal changes a lot between runs | not enough tilt variety, the usual cause |
+
+Run it twice with a fresh set of views. Two runs agreeing within a percent is the cheapest
+evidence the number is real; a single run tells you the solver converged, not that it is right.
+
 The calibration also returns the principal point and distortion coefficients, which `CameraConfig`
 has nowhere to put today. Record them in the provenance and the log. If `cx,cy` land far from
 centre or distortion is large, that is a measured reason to extend the model rather than a
-speculative one.
+speculative one. g7's webcam shows visible barrel distortion, so expect a non-trivial `k1`.
 
 This also settles section 2 properly: run `capture` and `solve` at both resolutions and compare
 `fy` directly, instead of eyeballing two PNGs.
