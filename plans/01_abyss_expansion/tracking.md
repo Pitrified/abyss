@@ -65,7 +65,7 @@ is pinned here.
 | 1  | viewer position from a clip    | [`01_viewer_position.md`](01_viewer_position.md) | done    |
 | 2  | camera and screen model        | [`02_camera_screen_model.md`](02_camera_screen_model.md) | done |
 | 3  | off-axis projection            | [`03_off_axis_projection.md`](03_off_axis_projection.md) | done |
-| 4  | minimal scene through it       | [`04_minimal_scene.md`](04_minimal_scene.md) | planned, real renderer spun off |
+| 4  | minimal scene through it       | [`04_minimal_scene.md`](04_minimal_scene.md) | done, real renderer spun off |
 | 5  | close the loop, live           | -    | planned, runs on g7 not here |
 
 Status values: draft / planned / in progress / done / superseded / discarded.
@@ -576,3 +576,35 @@ Append-only. Newest at the bottom.
   it sits. The `NEW_ANS:` slot stays unused for the same practical reason it always was: answers
   arrive in conversation, so asking and folding in happen in one pass. Noted what would bring it
   back, which is answers arriving as edits to the plan files.
+- 2026-08-16 : **phase 4 done.** `abyss.render.scene`, `abyss.render.renderer`, `abyss.config.sink`,
+  `abyss.sink` and `scripts/render_scene.py`, 39 new tests, 208 in the suite, ruff and pyright clean.
+  The phase 1 regression CSVs regenerate byte-identical, checked against
+  `~/abyss-baselines/g7-d7bd614/`, since this phase only adds a consumer. The effect is visible: the
+  cyan frame marker stays welded to the image border while the room slides and the cube crosses the
+  back wall grid.
+  **The depth fade test was a proxy, and only mutation exposed it.** Setting `FAR_GAIN` to 1.0, which
+  removes fading entirely, left the whole suite green. The test compared whatever was near against
+  whatever was far, and the near things happened to be the cyan marker while the far things were the
+  grey grid: it passed on base colour alone. Rewritten to compare the *same* base colour at two
+  depths. Phase 3's lesson in a new costume - there the test was built from the system's own outputs,
+  here from a correlated variable, and both look like coverage until something is deliberately broken.
+  The general form: a test that separates two groups must be checked for what else separates them.
+  Other mutations behaved. Flattening the cube against the window fails 3 tests, flipping the sweep
+  sign 2, disabling the aspect check 2, dropping the zero padding 1, and a renderer that ignores the
+  eye translation fails the two directional tests.
+  **The clip track renders an extreme view, and it is correct.** `face01_eye.csv` through
+  `g7_internal` puts the back wall largely out of frame. Verified by hand rather than by eye: the
+  clip's viewer is 0.2435 m above the panel centre at 0.456 m, so the back wall centre is seen
+  through the window at y = +0.138 m against a panel top edge of 0.0965 m. It is genuinely outside
+  the window. That is the ordinary laptop pose, eyes above the top of the screen, which makes the
+  centred sweep the unrealistic one rather than the track. Phase 5 should not tune a demo around a
+  viewer who sits where nobody sits.
+  The sweep amplitude turned out to be bounded by the scene rather than by taste: at 0.20 m the back
+  wall left the frame and took the parallax reference with it, leaving the cube nothing to slide
+  against. The bound is about `half_width * distance / depth`, and 0.12 m is now a constant with the
+  reason attached.
+  Two plan corrections while building. The box contributes 4 back edges and 4 corner connectors, not
+  12 edges, since the mouth's own edges cannot be drawn. And phase 4's regression baseline is a
+  committed fixture with a real test rather than an out-of-repo checksum: phase 1 went out-of-repo
+  because MediaPipe inference is not bit-identical across machines, and projecting a fixed scene
+  through a fixed matrix is arithmetic, so that reason does not apply here.

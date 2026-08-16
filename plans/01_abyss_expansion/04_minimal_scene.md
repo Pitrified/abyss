@@ -1,5 +1,5 @@
 ---
-status: planned
+status: done
 ---
 
 # Phase 4 - a minimal scene through the window
@@ -55,15 +55,18 @@ One primitive: a 3D line segment in the screen frame. A box, a grid and a floati
 segments, so there is one thing to project and one thing to draw.
 
 **A box whose mouth is the screen.** Front face exactly the panel rectangle at `z = 0`, back face at
-`z = -depth`, default 0.6 m. The mouth is the window, so it must land on the image border for every
-eye position, which is phase 3's corner invariant made visible: if the border ever moves, the
-projection is wrong, and you can see it without reading a number.
+`z = -depth`, default 0.6 m. The mouth is the window, so it lands on the image border for every eye
+position, which is phase 3's corner invariant made visible.
+
+The mouth's own four edges are **not** drawn, for the reason below: they fall exactly on the image
+boundary and clip away. The four connectors that run from the mouth corners to the back corners are
+drawn, and they still converge on the image corners, so the box reads as a box.
 
 Contents, each earning its place:
 
 | Piece | Why |
 | ----- | --- |
-| 12 box edges | the room |
+| 4 back edges and 4 corner connectors | the room |
 | a **frame marker** at 98% of the panel rect, `z = 0` | the border self-check, see below |
 | a grid on the back wall | parallax needs a reference to slide against |
 | one mid-line per side wall | tells the eye the walls recede, cheaply |
@@ -273,3 +276,39 @@ existing `scripts/viewer_position.py` baselines are already verified this way.
 - `make check` is green, and the suite still passes with no clip, no camera and no model present.
 - The regression CSVs are untouched: this phase adds a consumer and changes nothing upstream, so
   `scripts/viewer_position.py` output must stay byte-identical.
+
+## What the implementation found
+
+Three things the plan could not have known, and one of them is a defect in a test rather than in the
+code.
+
+**The depth fade test was a proxy, and mutation is what exposed it.** Removing the fade entirely -
+setting `FAR_GAIN` to 1.0 - left the whole suite green. The test compared "whatever is near" against
+"whatever is far", and the near things happened to be the cyan marker while the far things were the
+grey grid, so it passed on base colour alone and would have passed with no fade at all. Rewritten to
+compare the *same* base colour at two depths, the room's back edges against the corner connectors
+that run out to the mouth. This is phase 3's lesson recurring in a new costume: there the test was
+built from the system's own outputs, here from a correlated variable, and both look like real
+coverage until something is deliberately broken.
+
+The other mutations behaved: flattening the cube against the window fails 3 tests, flipping the sweep
+sign fails 2, disabling the aspect check fails 2, dropping the zero padding fails 1, and a renderer
+that ignores the eye translation fails the two directional tests.
+
+**The clip track puts the viewer well outside the panel, and it is right to.** Rendering
+`face01_eye.csv` through `g7_internal` gives an extreme view with the back wall largely out of frame.
+Checked by hand rather than by eye: the clip's viewer sits 0.2435 m above the panel centre at 0.456 m,
+so the back wall's centre is seen through the window at y = +0.138 m, above the panel's top edge at
+0.0965 m. It is genuinely outside the window. This is the ordinary laptop pose - eyes above the top
+of the screen - which means the centred sweep is the unrealistic one, not the track. Worth knowing
+before phase 5 tunes a demo around a viewer who sits where nobody sits.
+
+**The sweep amplitude is bounded by the scene, not by taste.** At the first amplitude tried, 0.20 m,
+the back wall left the frame at the extremes and took the parallax reference with it: the cube had
+nothing to slide against. The bound is roughly `half_width * distance / depth`, and the sweep now
+uses 0.12 m. Recorded as a constant with the reason, since the next person to widen it will see the
+same thing.
+
+One plan correction made before coding: the plan said the box contributes "12 box edges", but the
+mouth's own four edges cannot be drawn, so the room is 4 back edges plus 4 corner connectors. The
+connectors still converge on the image corners, so it reads as a box anyway.
