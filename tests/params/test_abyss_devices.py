@@ -30,6 +30,17 @@ def test_the_clip_camera_is_unmeasured() -> None:
     assert get_camera("unknown_clip").is_measured is False
 
 
+def test_the_g7_screen_offset_is_measured() -> None:
+    """Panel from EDID, offset from a ruler: half of 193 mm plus a 4 mm bezel."""
+    screen = get_screen("g7_internal")
+    assert screen.width_m == pytest.approx(0.344)
+    assert screen.height_m == pytest.approx(0.193)
+    assert screen.camera_to_centre_m == pytest.approx((0.0, 0.1005, 0.0))
+    assert screen.camera_to_centre_m[1] == pytest.approx(screen.height_m / 2 + 0.004)
+    # Measured, so it must not carry the word that marks a guess.
+    assert "PROVISIONAL" not in screen.provenance
+
+
 def test_the_g7_webcam_is_measured() -> None:
     """Measured on g7 by ChArUco calibration, two runs agreeing to 0.5%."""
     camera = get_camera("g7_webcam")

@@ -417,4 +417,15 @@ Append-only. Newest at the bottom.
   `test_no_camera_is_measured_yet` was replaced rather than deleted. It pinned a fact about the
   world that has now changed, so it became tests for the measured focal and its rescaling, and the
   existing clip-camera test gained the reason it now matters more.
-  Still unmeasured: the mode comparison at 640x480, and the bezel gap for a `g7_internal` screen.
+  `SCREENS["g7_internal"]` is also complete: 344x193 mm from EDID, and the bezel measured with a
+  ruler at 4 mm from the top edge of the active area to the centre of the lens, giving a
+  `camera_to_centre_m` of `(0.0, 0.1005, 0.0)`, half the panel height plus that gap. Nothing on g7
+  is PROVISIONAL any more; g4's entry keeps the word because g4 is still reached over ssh.
+  The 640x480 mode comparison is **dropped rather than pending**, and this is a decision not an
+  omission. Nothing uses that mode: 1280x720 MJPG is the best the camera has and capture pins it,
+  so measuring 480 would be building for a caller that does not exist. The real hazard is that
+  `focal_px_for_height` rescales to any height without knowing whether that is meaningful across a
+  change of aspect ratio, so the mitigation is to pin the capture mode, which the provenance and
+  the guide both now say. Revisit only if something genuinely needs 480.
+  Phase 3 is now unblocked on data as well as on maths: it has a real focal length and a real
+  screen rectangle to build a frustum from.

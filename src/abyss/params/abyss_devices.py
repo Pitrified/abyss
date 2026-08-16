@@ -62,7 +62,11 @@ CAMERAS: dict[str, CameraConfig] = {
             "to 0.5%. Vertical field of view 41.7 deg, not the 63 deg MediaPipe "
             "assumes, so the fallback underestimates depth here by 38%. "
             "Principal point 646x374 and k1 near zero were also recovered but are "
-            "loosely constrained, the board having stayed near the frame centre"
+            "loosely constrained, the board having stayed near the frame centre. "
+            "Valid at 1280x720 only: the camera's other mode is 640x480, a "
+            "different aspect ratio, and the two were never shown to share a "
+            "vertical field of view. Pin capture to MJPG 1280x720, since the "
+            "YUYV default silently clamps to 640x480"
         ),
     ),
     "pixel7pro_front": CameraConfig(
@@ -84,6 +88,19 @@ SCREENS: dict[str, ScreenConfig] = {
             "size from the panel's own EDID, exact. Offset is PROVISIONAL: half the "
             "panel height plus a 10 mm bezel guess, since measuring it needs a ruler "
             "held against a machine reached over ssh"
+        ),
+    ),
+    "g7_internal": ScreenConfig(
+        name="g7_internal",
+        width_m=0.344,
+        height_m=0.193,
+        # Camera above the panel, so the panel centre is below it: +Y is down.
+        # Half the panel height, 96.5 mm, plus the 4 mm measured bezel gap.
+        camera_to_centre_m=(0.0, 0.1005, 0.0),
+        provenance=(
+            "size from the panel's own EDID on card1-eDP-1, exact. Offset "
+            "measured 2026-08-16 with a ruler: 4 mm from the top edge of the "
+            "active area to the centre of the lens, plus half the panel height"
         ),
     ),
 }

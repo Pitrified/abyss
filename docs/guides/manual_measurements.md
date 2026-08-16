@@ -121,7 +121,16 @@ published spec, which quotes the diagonal.
 
 ## 2. Whether two resolutions share a field of view
 
-Run section 1 twice, once per resolution, and compare:
+**Only do this if something actually needs the second resolution.** On g7 nothing does: 1280x720
+MJPG is the best mode the camera has, and capture pins it. `g7_webcam` is therefore measured at 720
+and valid at 720 only, which its provenance says.
+
+The trap to avoid is not the missing measurement, it is that `focal_px_for_height()` will rescale
+to any height without knowing whether that is meaningful. Two modes of differing aspect ratio are
+not necessarily the same field of view sampled at two densities. So pin the capture mode rather
+than relying on the rescale, and remember a bare `cv.VideoCapture(0)` gets YUYV 640x480 silently.
+
+If you do need it, run section 1 twice, once per resolution, and compare:
 
 ```bash
 uv run --no-sync python scripts/calibrate_camera.py capture --width 1280 --height 720
