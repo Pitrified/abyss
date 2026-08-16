@@ -367,6 +367,25 @@ def cmd_board(args: argparse.Namespace, out_fol: Path) -> None:
     print("docs/library/camera_calibration.md if the reader adds margins.")
 
 
+def grab_fresh(capture: cv.VideoCapture) -> tuple[bool, np.ndarray | None]:
+    """Read a frame that reflects now, not the start of the last idle.
+
+    ``read`` returns the oldest queued frame. Between two timed shots the queue
+    fills with frames captured just after the previous read, so a naive read
+    after a four second wait hands back four second old content. Dropping the
+    queue first costs a sixth of a second at 30 fps.
+
+    Args:
+        capture: The open camera.
+
+    Returns:
+        Whether a frame was read, and the frame.
+    """
+    for _ in range(FLUSH_FRAMES):
+        capture.grab()
+    return capture.retrieve()
+
+
 def open_camera(
     device: int,
     width: int,
@@ -399,6 +418,10 @@ def open_camera(
     capture.set(cv.CAP_PROP_FOURCC, cv.VideoWriter.fourcc(*"MJPG"))
     capture.set(cv.CAP_PROP_FRAME_WIDTH, width)
     capture.set(cv.CAP_PROP_FRAME_HEIGHT, height)
+    # V4L2 queues frames while nobody reads, so a read after an idle returns a
+    # frame from the start of that idle. A shallow queue plus grab_fresh keeps
+    # what gets saved current. Measured here: depth 4 by default, 1 after this.
+    capture.set(cv.CAP_PROP_BUFFERSIZE, 1)
     if exposure is not None:
         # V4L2 exposure_auto: 1 is manual, 3 is aperture priority.
         capture.set(cv.CAP_PROP_AUTO_EXPOSURE, 1)
@@ -413,6 +436,9 @@ EXPOSURE_LADDER = (600, 400, 300, 200, 150, 100, 60)
 
 SETTLE_FRAMES = 8
 """Frames to discard after changing exposure, so the change takes effect."""
+
+FLUSH_FRAMES = 5
+"""Queued frames to drop before keeping one, so the kept frame is current."""
 
 
 def count_markers(frame: np.ndarray, board: cv.aruco.CharucoBoard) -> int:
@@ -514,8 +540,8 @@ def preflight(
     if args.exposure is None:
         find_exposure(capture, board)
 
-    ok, frame = capture.read()
-    if not ok:
+    ok, frame = grab_fresh(capture)
+    if not ok or frame is None:
         lg.error("Camera returned no frame")
         return False
 
@@ -578,8 +604,8 @@ def cmd_capture(args: argparse.Namespace, out_fol: Path) -> None:
                 )
                 time.sleep(1)
             print(f"  view {view + 1}/{args.views}  capturing...   ", end="\r")
-            ok, frame = capture.read()
-            if not ok:
+            ok, frame = grab_fresh(capture)
+            if not ok or frame is None:
                 lg.warning(f"view {view + 1}: no frame")
                 continue
             found = detect_corners(frame, board)
