@@ -261,24 +261,37 @@ tape-measured distance and compare the reported depth against the table above.
   - **The failure is a build-time switch, not a missing dependency.** `GPU processing is disabled in
     build flags` is the graph refusing to instantiate a calculator that was compiled out. No package
     installed alongside it can add one back.
-  Options, if it were ever wanted:
-  a. Leave it. Inference is 11.2 ms and the camera caps at 30 fps, so a frame budget is 33 ms and
-     inference already fits three times over.
-  b. Build MediaPipe from source with bazel and GPU enabled, then depend on the locally built wheel.
-     This is the only route that produces a GPU-capable Python MediaPipe. It brings a bazel
-     toolchain, a long build, and a wheel that is now this machine's rather than a pinned public
-     artefact - which cuts against the repo's habit of pinning dependencies by tag.
-  c. Leave MediaPipe's graph entirely and run the face landmark models under another GPU runtime,
-     onnxruntime-gpu or TensorRT. That means reimplementing detection, landmarks, blendshapes and
-     the facial transformation matrix, which is most of what pose-tools wraps.
-  Recommended: **a, and the reason is not laziness but where the time goes.** The camera hands over
-  30 frames a second and no more, so the loop cannot beat 33 ms per frame however fast inference is.
-  Accelerating an 11 ms stage inside a 33 ms budget buys nothing that the viewer can see. Worth
-  revisiting only if the scene grows a model heavy enough to need the GPU for *rendering*, which is
-  `02_scene_rendering` and a different question, or if a future landmarker is much more expensive.
-  Verification left undone: whether a GPU-enabled Linux Python build is officially supported upstream
-  at 1.0.x. Option b should start by reading MediaPipe's own build docs rather than by trusting this
-  entry, since packaging is exactly the kind of thing that changes between releases.
+  **Corrected on 2026-08-17 after actually searching, having first concluded this needed a source
+  build.** It does not, and the real story is duller and more useful:
+  - **GPU in the Python Tasks API is an officially supported feature**, and the docs are specific
+    about where: "GPU support is currently limited to Ubuntu platforms". g7 runs Ubuntu 22.04, so
+    this is the supported combination, not an exotic one.
+  - **What we hit is a packaging regression, not a design.** The delegate worked on the Linux wheel
+    up to **0.10.31** and broke in **0.10.32**, whose `manylinux_2_28_x86_64` wheel was built without
+    the GPU flags, giving exactly our error. Reported upstream as
+    [issue #6231](https://github.com/google-ai-edge/mediapipe/issues/6231) on 2026-02-03. Our 1.0.0
+    inherits it.
+  Routes, cheapest first:
+  a. **Leave it, and re-probe on the next mediapipe bump.** The check is the twenty-line script that
+     found this, so the cost of noticing a fix is a minute.
+  b. **Pin 0.10.31.** Not one line, despite appearances: `pose-tools` requires `mediapipe>=1.0`, so
+     this is an upstream change and a tag bump before abyss can express it, and it trades a current
+     library for a six-month-old one across three repos.
+  c. **Build from source with bazel.** Last resort rather than the answer, which is how it was
+     wrongly written here first.
+  Recommended: **a**, and now for three independent reasons rather than one.
+  - The camera hands over 30 frames a second, so the frame budget is 33 ms and inference already fits
+    in a third of it. Nothing the viewer can see improves.
+  - **The GPU may not even be faster.** Users report no noticeable CPU/GPU difference in recent
+    versions where 0.10.20 had one
+    ([issue #6216](https://github.com/google-ai-edge/mediapipe/issues/6216)), which is plausible: the
+    CPU path runs XNNPACK, and at this model size the transfer overhead can eat the win. Chasing it
+    would mean paying b's cost for an unmeasured gain.
+  - It is upstream's bug and upstream's to fix, and the workaround costs more than the wait.
+  Worth naming why this looked absurd: MediaPipe is marketed on running well on every device, and
+  that claim is about mobile and web, where the GPU path is the normal one. Python on desktop Linux
+  is the thinnest-served corner of it, narrow enough that a routine wheel build could drop GPU
+  support and ship. Not a stale claim so much as one that was never about this target.
 
 ## Done when
 

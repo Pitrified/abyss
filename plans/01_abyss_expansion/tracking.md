@@ -710,3 +710,23 @@ Append-only. Newest at the bottom.
   build-time switch, so the only route to a GPU-capable Python MediaPipe is a bazel source build,
   which trades a pinned public artefact for a local one. Recommended against on the grounds that the
   camera's 30 fps cap makes an 11 ms stage not worth accelerating.
+- 2026-08-17 : **correcting today's earlier entry**, which said the only route to a GPU-capable
+  Python MediaPipe is a bazel source build. That was reasoning from the error message and from
+  memory, and a web search shows it is wrong.
+  GPU in the Python Tasks API is **officially supported, and specifically on Ubuntu**: the docs say
+  "GPU support is currently limited to Ubuntu platforms", which is what g7 runs. What we hit is a
+  **packaging regression**, not a design decision: the delegate worked on the Linux wheel through
+  0.10.31 and broke in 0.10.32, whose wheel was built without the GPU flags, producing exactly our
+  error. Upstream issue #6231, reported 2026-02-03, and our 1.0.0 inherits it.
+  So the routes are cheaper than stated: re-probe after any mediapipe bump, or pin 0.10.31 - though
+  that is not one line either, since `pose-tools` requires `mediapipe>=1.0` and would need its own
+  change and tag bump first. A source build is the last resort rather than the answer.
+  The recommendation does not move, but it now rests on three independent legs instead of one: the
+  camera's 30 fps cap makes an 11 ms stage irrelevant, the GPU may not even be faster since the CPU
+  path runs XNNPACK and users report no difference in recent versions (issue #6216), and it is
+  upstream's bug to fix.
+  The lesson worth keeping is about method rather than MediaPipe. The error message named build
+  flags, which is true and complete, and reasoning from it produced a confident wrong conclusion
+  about what could be done. One search found a version that works. **An error explaining what
+  happened is not evidence about what the fix is**, and a library's own issue tracker is a cheaper
+  oracle than inference from symptoms.
