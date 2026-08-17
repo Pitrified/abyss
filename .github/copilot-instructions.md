@@ -78,9 +78,12 @@ though g4's constraints were the environment's; they are not.
 - **Write for the weaker machine by default.** Everything must be checkable headless, on a recorded
   clip, with file output. That rule comes from the sequencing, not from the hardware: a phase that
   can only be run in front of a screen cannot be tested.
-- **The GPU is a measurement, not an assumption.** MediaPipe 1.0.0 exposes a `GPU` delegate, which
-  says nothing about whether the Linux pip wheel can bind a GPU context for the Tasks API. Benchmark
-  it before writing a GPU-delegate code path, and keep the CPU path working either way.
+- **MediaPipe runs on the CPU on both machines, and this was measured.** The `GPU` delegate exists
+  in the enum but fails with `GPU processing is disabled in build flags`: the pip wheel is built
+  without GPU support, so the driver, EGL and GLESv2 being present changes nothing. Do not write
+  GPU-delegate code paths, and do not install drivers to fix it - only a source build of MediaPipe
+  would, and at 11.2 ms per face landmarker call at 1920x1080 there is nothing to gain. The GPU is
+  still real and still matters for OpenGL rendering on g7.
 - **A display is not guaranteed.** `cv.imshow` and `cv.waitKey` work on g7 and not on g4, so
   anything that needs a window is a manual script under `scripts/`, never part of the test suite.
   `scripts/camera.py` is the existing example.

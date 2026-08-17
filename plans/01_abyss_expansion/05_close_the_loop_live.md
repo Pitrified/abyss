@@ -82,24 +82,27 @@ face landmarker call takes, and it is a morning's difference whether that is 15 
 against a **recorded clip**, so it needs no camera, no display and nobody sitting still, which is
 what lets the same script run on any machine in the fleet and produce comparable numbers.
 
-Axes, since more than one thing is unknown:
+**The question it answers has already changed once, which is the argument for building it.** It was
+going to be "is the GPU delegate faster". A twenty-line probe run before any of this settled that:
+the delegate is disabled in the wheel's build flags, and CPU inference is 11.2 ms median at
+1920x1080 regardless. So inference is not where the time goes, and the benchmark's job is now to
+find out where it does.
 
 | Axis | Values |
 | ---- | ------ |
-| delegate | `CPU`, `GPU` |
+| stage | capture, landmark, eye position, projection, render, sink |
 | frame size | 1280x720, and 640x480 as the cheap fallback |
-| stage | landmark, eye position, projection, render, sink |
 
 Output is one row per configuration - median, p95 and the achievable frame rate - written to
 `cache/benchmark/` and pasted into the log per machine. Per machine matters: g4 is an old integrated
-GPU and g7 is a Quadro RTX 3000, so a single number would be meaningless, and the interesting result
-is the shape of the gap rather than either figure alone.
+GPU and g7 a Quadro, and while neither runs the inference on its GPU, the CPUs differ and the
+interesting result is the shape of the gap rather than either figure alone.
 
-**The GPU delegate is a measurement, not an assumption.** The enum exists in MediaPipe 1.0.0, which
-says nothing about whether the Linux pip wheel can actually bind a GPU context for the Tasks API. It
-either works and is faster, works and is not, or fails to initialise. All three are useful, and the
-one thing not to do is write GPU-delegate code paths on the strength of the hardware being present.
-The benchmark falls back to CPU and records that it did.
+The delegate axis is **dropped, not skipped**: `delegate=GPU` raises
+`GPU processing is disabled in build flags` on this wheel, so a GPU row would only ever record the
+same failure. Recorded here so the next person does not spend an afternoon installing drivers that
+are already installed. Reopening it means building MediaPipe from source, and at an 89 fps ceiling
+there is nothing to buy.
 
 This also corrects a repo-wide claim rather than only informing this phase, so the fix goes with it:
 `.github/copilot-instructions.md` states "CPU only. No Nvidia GPU here" and "Headless. No display",
@@ -206,11 +209,18 @@ tape-measured distance and compare the reported depth against the table above.
   longer being a loop.
   Recommended: start on `VIDEO`, measure, and move only if the measurement says so. Named upgrade,
   not a starting point.
-  ANS: **Assess after measuring**, and the measurement got bigger than this question. g7 has a
-  **Quadro RTX 3000 with 6 GB**, driver 580, OpenGL 4.6, and MediaPipe 1.0.0 exposes a `GPU`
-  delegate alongside `CPU`. The repo has been carrying "CPU only, do not write GPU-delegate code
-  paths" as though it were universal, when it is g4's constraint and not g7's. So the running mode
-  is one axis of a benchmark rather than a decision to take now - see the section above.
+  ANS: **`VIDEO`, and the GPU question is closed by measurement rather than deferred.** Measured on
+  g7 on 2026-08-17, before writing any of the loop:
+  - **The GPU delegate cannot be used, and no install fixes it.** `delegate=GPU` fails with
+    `ImageCloneCalculator: GPU processing is disabled in build flags`. The pip wheel is compiled
+    without GPU support, so the Quadro, the driver, EGL and GLESv2 being present is irrelevant. The
+    only route is building MediaPipe from source with GPU flags.
+  - **It would not be worth it anyway.** CPU inference over `face01.mp4` at 1920x1080 runs at a
+    median of **11.2 ms**, p95 11.7 ms, a face found in all 60 frames. That is an 89 fps ceiling
+    from inference alone, at a larger frame than the loop will use.
+  So inference is not the bottleneck, `VIDEO` stays, `LIVE_STREAM` is not needed, and the latency
+  budget is spent somewhere else - capture queue depth and display, which is where the loop should
+  look.
 - Q25: **What happens to the smoother when frames are not evenly spaced?** `PositionSmoother` uses a
   left-triangle filter over the last five samples and assumes even spacing, which a clip guarantees
   and a live loop does not. Five taps at 25 fps is also 0.2 s of lag, which is visible in a

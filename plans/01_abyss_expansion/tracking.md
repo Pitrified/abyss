@@ -657,3 +657,27 @@ Append-only. Newest at the bottom.
   and produces comparable rows across delegate, frame size and stage. The interesting result is the
   shape of the gap between the machines rather than either number alone, so results are logged per
   machine.
+- 2026-08-17 : measured the landmarker before building anything, prompted by the offer to install
+  drivers or libraries on g7. The answer is that **nothing needs installing**, and both halves of
+  that are worth recording.
+  **The GPU delegate cannot be used and no install would fix it.** `delegate=GPU` fails with
+  `ImageCloneCalculator: GPU processing is disabled in build flags`: the pip wheel is compiled
+  without GPU support. EGL, GLESv2 and OpenCL are all present and the wheel's `libmediapipe.so` does
+  carry GPU calculators, which is exactly the trap - the hardware and the libraries look ready, so
+  the failure invites an afternoon of driver installation that cannot work. Only a source build of
+  MediaPipe would change it.
+  **And it would buy nothing.** CPU inference over `face01.mp4` at 1920x1080 is a median of 11.2 ms,
+  p95 11.7, with a face found in all 60 frames: an 89 fps ceiling from inference alone, at a larger
+  frame than the loop will use. Q24 is therefore closed by measurement rather than deferred to the
+  benchmark: `VIDEO` stays, `LIVE_STREAM` is not needed, and the latency budget must be going
+  somewhere other than inference - capture queue depth and display being the candidates.
+  The benchmark survives with its question changed, which is a better reason to build it than the
+  one it started with. Its delegate axis is dropped rather than skipped, with the failure recorded so
+  nobody re-runs it, and capture is added as a stage.
+  `.github/copilot-instructions.md` updated again: the GPU bullet now states the measured result
+  rather than telling the reader to go and measure it. The GPU remains real and remains relevant to
+  OpenGL rendering on g7, which is `02_scene_rendering`, not this.
+  One install is still worth making and is not about the GPU: `v4l-utils`, for `v4l2-ctl`. Phase 5
+  pins the capture mode, there are four `/dev/video*` nodes and it is not established which is the
+  camera, and the `g7_webcam` provenance claims the only other mode is 640x480 - inferred from
+  behaviour, never read from the device. Handed to the user to run, per the privileged-command rule.
