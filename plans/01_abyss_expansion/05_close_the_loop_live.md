@@ -1,5 +1,5 @@
 ---
-status: draft
+status: planned
 ---
 
 # Phase 5 - close the loop, live
@@ -73,9 +73,39 @@ inference from capture, and a capture thread that always holds the newest frame.
 answers to a latency problem that has not been measured yet, and picking them first would be
 designing against a guess.
 
-So **step one is measurement, not code**: how long does a face landmarker call take on this CPU, at
-1280x720, on this machine. Everything about the loop's shape follows from that number, and it is a
-morning's difference whether it is 15 ms or 90 ms.
+So **step one is measurement, not code**. Everything about the loop's shape follows from how long a
+face landmarker call takes, and it is a morning's difference whether that is 15 ms or 90 ms.
+
+## Step one: a benchmark that outlives this phase
+
+`scripts/benchmark_landmarker.py`, and it is deliberately not part of the loop. It times the stages
+against a **recorded clip**, so it needs no camera, no display and nobody sitting still, which is
+what lets the same script run on any machine in the fleet and produce comparable numbers.
+
+Axes, since more than one thing is unknown:
+
+| Axis | Values |
+| ---- | ------ |
+| delegate | `CPU`, `GPU` |
+| frame size | 1280x720, and 640x480 as the cheap fallback |
+| stage | landmark, eye position, projection, render, sink |
+
+Output is one row per configuration - median, p95 and the achievable frame rate - written to
+`cache/benchmark/` and pasted into the log per machine. Per machine matters: g4 is an old integrated
+GPU and g7 is a Quadro RTX 3000, so a single number would be meaningless, and the interesting result
+is the shape of the gap rather than either figure alone.
+
+**The GPU delegate is a measurement, not an assumption.** The enum exists in MediaPipe 1.0.0, which
+says nothing about whether the Linux pip wheel can actually bind a GPU context for the Tasks API. It
+either works and is faster, works and is not, or fails to initialise. All three are useful, and the
+one thing not to do is write GPU-delegate code paths on the strength of the hardware being present.
+The benchmark falls back to CPU and records that it did.
+
+This also corrects a repo-wide claim rather than only informing this phase, so the fix goes with it:
+`.github/copilot-instructions.md` states "CPU only. No Nvidia GPU here" and "Headless. No display",
+which are g4's constraints presented as the environment's. On g7 there is a Quadro RTX 3000 with
+6 GB, OpenGL 4.6 and an X11 session on `:1`. Both machines' constraints stay written down, attached
+to the machine they belong to.
 
 ## Capture, which has bitten this repo before
 
@@ -114,6 +144,7 @@ about forty lines; the cost is nothing and the result is crisp.
 
 | Piece | Where | Role |
 | ----- | ----- | ---- |
+| `benchmark_landmarker.py` | `scripts/` | step one, and portable across the fleet |
 | `WindowSink` | `src/abyss/sink.py` | fullscreen `cv.imshow`, reporting the panel's size as its own |
 | `CaptureIsBlackError` and friends | `src/abyss/video/capture.py` | opening a camera in a known mode, and noticing when it dies |
 | `LiveScale` | `src/abyss/viewer/eye_position.py` or beside it | the bootstrap-and-freeze scale estimator |
@@ -168,12 +199,18 @@ tape-measured distance and compare the reported depth against the table above.
   Recommended: a, because b makes the scale a slowly moving target and the whole scene breathes
   when it moves, which is worse than being consistently a few percent off. Freezing also matches
   what the offline path does, so the two agree.
+  ANS: **a, bootstrap and freeze.**
 - Q24: **`VIDEO` or `LIVE_STREAM` running mode for the landmarker?** `VIDEO` is synchronous and is
   what phase 1 already uses, so the offline and live paths stay identical. `LIVE_STREAM` delivers
   results through a callback and lets capture run ahead of inference, at the cost of the loop no
   longer being a loop.
   Recommended: start on `VIDEO`, measure, and move only if the measurement says so. Named upgrade,
   not a starting point.
+  ANS: **Assess after measuring**, and the measurement got bigger than this question. g7 has a
+  **Quadro RTX 3000 with 6 GB**, driver 580, OpenGL 4.6, and MediaPipe 1.0.0 exposes a `GPU`
+  delegate alongside `CPU`. The repo has been carrying "CPU only, do not write GPU-delegate code
+  paths" as though it were universal, when it is g4's constraint and not g7's. So the running mode
+  is one axis of a benchmark rather than a decision to take now - see the section above.
 - Q25: **What happens to the smoother when frames are not evenly spaced?** `PositionSmoother` uses a
   left-triangle filter over the last five samples and assumes even spacing, which a clip guarantees
   and a live loop does not. Five taps at 25 fps is also 0.2 s of lag, which is visible in a
@@ -181,17 +218,21 @@ tape-measured distance and compare the reported depth against the table above.
   a. Leave it and retune the tap count once the real frame rate is known.
   b. Make it time-aware, weighting by elapsed time rather than by sample count.
   Recommended: a, because the tap count is one number and the real frame rate is not known yet.
+  ANS: **a, retune the tap count once the rate is measured.**
 - Q26: **Does the loop own the timing, or does the sink?** A display sink has a natural pace and a
   PNG sink does not, so "run at 30 fps" is a property of neither the renderer nor the tracker.
   Recommended: the loop, running as fast as the source allows and reporting what it achieved. Frame
   pacing is a problem only if the loop turns out to be faster than the display, which would be a
   good problem.
+  ANS: **The loop owns it**, running as fast as the source allows and reporting what it achieved.
 - Q27: **Is the viewer's own interpupillary distance worth measuring?** The depth is now
   `focal * ipd / ipd_px`, so the 63 mm population mean maps directly into a depth error: a viewer at
   60 mm would be read 5% too far away. Measuring it is a manual step, and there is a viewer registry
   waiting for the entry.
   Recommended: yes, once the loop runs, since it is the one remaining unmeasured number in the whole
   chain and the tape-measure check will show it as a constant offset.
+  ANS: **Yes, measure it**, once the loop runs and the tape-measure check can show it as the
+  constant offset it would be.
 
 ## Done when
 
@@ -199,6 +240,8 @@ tape-measured distance and compare the reported depth against the table above.
   would.
 - The measured end-to-end rate and latency are written down in the log, whatever they turn out to be.
   A slow loop that is honestly measured closes this phase; an unmeasured fast one does not.
+- The benchmark has been run on g7, and on g4 if it is reachable, with both delegates, and the
+  numbers are in the log next to the machine they came from.
 - The reported depth agrees with a tape measure to within a stated tolerance, and any constant offset
   is explained rather than tuned away.
 - The same loop, given a clip and a `PngSink`, reproduces phase 4's offline output.

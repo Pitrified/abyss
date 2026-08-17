@@ -99,7 +99,7 @@ they do not hand us this for free.
   | Machine | Role here |
   | ------- | --------- |
   | `g4` | the headless CPU-only box: no camera, no display, development and tests only |
-  | `g7` | 4 GB VRAM, webcam - the first machine that can actually run the loop live |
+  | `g7` | webcam and a screen - the first machine that can actually run the loop live. Corrected on 2026-08-17: the GPU is a Quadro RTX 3000 with **6 GB**, not 4, with driver 580 and OpenGL 4.6, so the `02_scene_rendering` spin-off has a real GL context here and does not need offscreen EGL |
   | Pixel 7 Pro | phone: front camera plus screen, the eventual demo target |
 
   Published specs for these (sensor FOV, screen size in mm) can be looked up online and used as the

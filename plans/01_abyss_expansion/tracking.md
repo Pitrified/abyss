@@ -55,8 +55,7 @@ window onto a scene rather than a flat picture. Analysis and open questions in
 
 ## Phases
 
-Q1-Q22 are answered, Q23-Q27 are open on phase 5, and the scope is settled. Every phase now has
-a sub-plan. Phase 0 shipped as pose-tools v0.4.0 and
+Q1-Q27 are answered and the scope is settled. Every phase has a sub-plan. Phase 0 shipped as pose-tools v0.4.0 and
 is pinned here.
 
 | #  | Phase                          | Plan | Status |
@@ -66,7 +65,7 @@ is pinned here.
 | 2  | camera and screen model        | [`02_camera_screen_model.md`](02_camera_screen_model.md) | done |
 | 3  | off-axis projection            | [`03_off_axis_projection.md`](03_off_axis_projection.md) | done |
 | 4  | minimal scene through it       | [`04_minimal_scene.md`](04_minimal_scene.md) | done, real renderer spun off |
-| 5  | close the loop, live           | [`05_close_the_loop_live.md`](05_close_the_loop_live.md) | draft, runs on g7 |
+| 5  | close the loop, live           | [`05_close_the_loop_live.md`](05_close_the_loop_live.md) | planned, runs on g7 |
 
 Status values: draft / planned / in progress / done / superseded / discarded.
 
@@ -637,3 +636,24 @@ Append-only. Newest at the bottom.
   Q23-Q27 raised: how to estimate head scale with no future frames, `VIDEO` against `LIVE_STREAM`,
   what an evenly-spaced-samples smoother does on a variable frame rate, who owns frame pacing, and
   whether to measure the viewer's interpupillary distance. Each carries a recommendation.
+- 2026-08-17 : folded Q23-Q27, so phase 5 is planned. Head scale bootstraps and freezes, the smoother
+  keeps its filter and gets its tap count retuned once the real rate is known, the loop owns frame
+  pacing, and the viewer's interpupillary distance gets measured once the loop runs and the tape
+  measure can show it as a constant offset.
+  **Q24 turned out to be bigger than the question asked, because the repo has been wrong about its
+  own hardware.** g7 has a Quadro RTX 3000 with 6 GB, driver 580 and OpenGL 4.6, and MediaPipe 1.0.0
+  exposes a `GPU` delegate alongside `CPU`. `.github/copilot-instructions.md` has been carrying
+  "CPU only. No Nvidia GPU here ... do not write GPU-delegate code paths" and "Headless. No display"
+  as repo-wide rules, when both are g4's constraints. Corrected to a per-machine table, keeping the
+  useful half of the rule - write for the weaker machine, everything checkable headless on a clip -
+  and dropping the false half. `00_start.md` said 4 GB VRAM for g7; it is 6, and OpenGL 4.6 means the
+  `02_scene_rendering` spin-off has a real GL context there and does not need offscreen EGL.
+  The GPU delegate stays a **measurement, not an assumption**: the enum existing says nothing about
+  whether the Linux pip wheel can bind a GPU context for the Tasks API, and the three possible
+  outcomes - faster, not faster, fails to initialise - are all useful.
+  So step one of the phase became `scripts/benchmark_landmarker.py`, deliberately outside the loop
+  and timed against a **recorded clip** so it needs no camera, no display and nobody sitting still.
+  That is what makes it portable: the same script runs on g4's old integrated GPU and on g7's Quadro
+  and produces comparable rows across delegate, frame size and stage. The interesting result is the
+  shape of the gap between the machines rather than either number alone, so results are logged per
+  machine.

@@ -66,10 +66,24 @@ Reach the paths through `get_abyss_paths()`, never by constructing `AbyssPaths()
 
 ## Environment constraints
 
-- **CPU only.** No Nvidia GPU here. MediaPipe defaults to the CPU delegate and its wheels carry no
-  CUDA build, so this costs nothing - but do not write GPU-delegate code paths.
-- **Headless.** No display: `cv.imshow` and `cv.waitKey` cannot run. `scripts/camera.py` needs a
-  camera and a screen and is manual-only. Prefer matplotlib output or writing frames to a file.
+**These are per machine, and the repo is developed on more than one.** They used to be written as
+though g4's constraints were the environment's; they are not.
+
+| | g4 | g7 |
+| --- | --- | --- |
+| GPU | integrated, old | Quadro RTX 3000, 6 GB, driver 580, OpenGL 4.6 |
+| display | none, reached over ssh | X11 on `:1` |
+| camera | present but useless, nobody sits there | Chicony 04f2:b6c8, measured |
+
+- **Write for the weaker machine by default.** Everything must be checkable headless, on a recorded
+  clip, with file output. That rule comes from the sequencing, not from the hardware: a phase that
+  can only be run in front of a screen cannot be tested.
+- **The GPU is a measurement, not an assumption.** MediaPipe 1.0.0 exposes a `GPU` delegate, which
+  says nothing about whether the Linux pip wheel can bind a GPU context for the Tasks API. Benchmark
+  it before writing a GPU-delegate code path, and keep the CPU path working either way.
+- **A display is not guaranteed.** `cv.imshow` and `cv.waitKey` work on g7 and not on g4, so
+  anything that needs a window is a manual script under `scripts/`, never part of the test suite.
+  `scripts/camera.py` is the existing example.
 - **Data lives outside the repo.** Sample videos in `~/data/pose/` (`AbyssPaths.pose_fol`),
   MediaPipe models in `~/.mediapipe/models/`. Neither is in git, and neither is present on every
   machine. Models are no longer a manual step: `ModelManager().ensure_model("face_landmarker")`
