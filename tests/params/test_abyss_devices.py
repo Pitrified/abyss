@@ -52,9 +52,11 @@ def test_the_g7_webcam_is_measured() -> None:
 def test_the_g7_webcam_focal_rescales_with_height() -> None:
     """A focal in pixels is only valid at its own resolution.
 
-    The camera also offers 640x480, and the two modes were never shown to
-    share a vertical field of view, so this pins the arithmetic rather than
-    the claim that rescaling to 480 is meaningful here.
+    360 is not an arbitrary number: 640x360 is a real mode on this camera and
+    is exactly 16:9, so it shares the aspect ratio the focal was measured at
+    and the rescaling is meaningful there. Read from the device with v4l2-ctl,
+    correcting an earlier note here which said the only other mode was 640x480.
+    Rescaling to a 4:3 mode would still be arithmetic rather than a claim.
     """
     camera = get_camera("g7_webcam")
     assert camera.focal_px_for_height(1440) == pytest.approx(1890.0)

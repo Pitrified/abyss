@@ -63,10 +63,15 @@ CAMERAS: dict[str, CameraConfig] = {
             "assumes, so the fallback underestimates depth here by 38%. "
             "Principal point 646x374 and k1 near zero were also recovered but are "
             "loosely constrained, the board having stayed near the frame centre. "
-            "Valid at 1280x720 only: the camera's other mode is 640x480, a "
-            "different aspect ratio, and the two were never shown to share a "
-            "vertical field of view. Pin capture to MJPG 1280x720, since the "
-            "YUYV default silently clamps to 640x480"
+            "Read from the device with v4l2-ctl on 2026-08-17, correcting an "
+            "earlier guess: MJPG offers eight sizes, of which 1280x720, 960x540, "
+            "640x360 and 320x180 are exactly 16:9 and share this focal length's "
+            "aspect ratio, so rescaling within that family is meaningful. The 4:3 "
+            "modes 640x480 and 320x240 are not, and 848x480 is 1.767 rather than "
+            "1.778. Every mode caps at 30 fps. Pin capture to MJPG 1280x720, "
+            "since the YUYV default silently clamps. Reported by the kernel as "
+            "'HP HD Camera', which is the product string on a Chicony module: "
+            "g4_internal carries that same product string on different silicon"
         ),
     ),
     "pixel7pro_front": CameraConfig(

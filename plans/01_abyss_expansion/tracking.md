@@ -681,3 +681,32 @@ Append-only. Newest at the bottom.
   pins the capture mode, there are four `/dev/video*` nodes and it is not established which is the
   camera, and the `g7_webcam` provenance claims the only other mode is 640x480 - inferred from
   behaviour, never read from the device. Handed to the user to run, per the privileged-command rule.
+- 2026-08-17 : `v4l-utils` installed on g7, and reading the device corrected two records and produced
+  one number that reshapes phase 5.
+  **The camera caps at 30 fps**, in every mode. So the loop's ceiling is 33 ms per frame from
+  capture, not the 89 fps that inference alone allows. That reframes yesterday's measurement: 11.2 ms
+  of inference inside a 33 ms budget is a third of the frame, with room to spare, and it is the
+  reason the GPU question below resolves to "leave it".
+  **The `g7_webcam` provenance was wrong** and is corrected. It claimed the only other mode was
+  640x480 at a different aspect ratio. MJPG actually offers eight sizes, of which 1280x720, 960x540,
+  640x360 and 320x180 are exactly 16:9 and share the aspect the focal was measured at, so rescaling
+  within that family is meaningful; 640x480 and 320x240 are 4:3 and 848x480 is 1.767. This also
+  promotes an existing test from arithmetic to a claim: `focal_px_for_height(360)` is checked at 360
+  because 640x360 is a real mode on this camera.
+  Two identification traps recorded so nobody else loses ten minutes. The kernel reports the camera
+  as "HP HD Camera", which is the product string on a Chicony module - `g4_internal` carries the same
+  product string on different silicon, so the name does not identify the machine; the USB ID
+  04f2:b6c8 does. And of the four `/dev/video*` nodes only `video0` is the RGB capture; `video2` is a
+  GREY 640x360 15 fps sensor, presumably the infrared one.
+  **Correcting yesterday's entry**: it said the wheel's `libmediapipe.so` carries GPU calculators.
+  That came from a case-insensitive substring match where "egl" matched inside unrelated words, and a
+  narrower search finds no `GlContext` and no `cuda` at all. The strings evidence is unreliable in
+  both directions - it does not find the error message the library demonstrably emits either - so the
+  runtime failure is the evidence and the strings search should not have been quoted as support.
+  The trap is the *system* looking ready, not the wheel.
+  Q28 raised and answered from that: there is no `mediapipe[cuda]`, since mediapipe declares no
+  extras at all in 1.0.0 locally or 1.0.1 on PyPI, and CUDA is the wrong axis anyway because
+  MediaPipe's GPU path is the TFLite GPU delegate over OpenGL ES through EGL. The failure is a
+  build-time switch, so the only route to a GPU-capable Python MediaPipe is a bazel source build,
+  which trades a pinned public artefact for a local one. Recommended against on the grounds that the
+  camera's 30 fps cap makes an 11 ms stage not worth accelerating.

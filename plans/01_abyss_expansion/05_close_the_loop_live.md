@@ -244,6 +244,42 @@ tape-measured distance and compare the reported depth against the table above.
   ANS: **Yes, measure it**, once the loop runs and the tape-measure check can show it as the
   constant offset it would be.
 
+- Q28: **Is there a packaging fix for the GPU delegate, such as `mediapipe[cuda]`?** Raised because
+  the situation looks absurd from outside: a 6 GB Quadro, driver 580, EGL, GLESv2 and OpenCL all
+  present, and the library declines to use any of it. If a wheel variant exists, it is a one-line
+  change to `pyproject.toml`.
+  What is established, and how:
+  - **There is no such extra.** `mediapipe` 1.0.0 declares no extras at all, checked in the installed
+    metadata, and PyPI reports the same for the current 1.0.1. `mediapipe[cuda]` would install plain
+    mediapipe and emit a "does not provide the extra" warning, which is the worst outcome of the
+    three: it looks like it worked.
+  - **CUDA is the wrong axis.** MediaPipe's GPU inference is the TFLite GPU delegate over OpenGL ES
+    compute shaders, reached through EGL on Linux, with Metal on Apple. There is no CUDA backend to
+    enable, so the NVIDIA-ness of the card is not the missing piece. Confidence: high on the
+    architecture, and it is consistent with the error naming build flags rather than a missing
+    runtime.
+  - **The failure is a build-time switch, not a missing dependency.** `GPU processing is disabled in
+    build flags` is the graph refusing to instantiate a calculator that was compiled out. No package
+    installed alongside it can add one back.
+  Options, if it were ever wanted:
+  a. Leave it. Inference is 11.2 ms and the camera caps at 30 fps, so a frame budget is 33 ms and
+     inference already fits three times over.
+  b. Build MediaPipe from source with bazel and GPU enabled, then depend on the locally built wheel.
+     This is the only route that produces a GPU-capable Python MediaPipe. It brings a bazel
+     toolchain, a long build, and a wheel that is now this machine's rather than a pinned public
+     artefact - which cuts against the repo's habit of pinning dependencies by tag.
+  c. Leave MediaPipe's graph entirely and run the face landmark models under another GPU runtime,
+     onnxruntime-gpu or TensorRT. That means reimplementing detection, landmarks, blendshapes and
+     the facial transformation matrix, which is most of what pose-tools wraps.
+  Recommended: **a, and the reason is not laziness but where the time goes.** The camera hands over
+  30 frames a second and no more, so the loop cannot beat 33 ms per frame however fast inference is.
+  Accelerating an 11 ms stage inside a 33 ms budget buys nothing that the viewer can see. Worth
+  revisiting only if the scene grows a model heavy enough to need the GPU for *rendering*, which is
+  `02_scene_rendering` and a different question, or if a future landmarker is much more expensive.
+  Verification left undone: whether a GPU-enabled Linux Python build is officially supported upstream
+  at 1.0.x. Option b should start by reading MediaPipe's own build docs rather than by trusting this
+  entry, since packaging is exactly the kind of thing that changes between releases.
+
 ## Done when
 
 - The loop runs live on g7, fullscreen, and the scene moves with the viewer's head the way a window
