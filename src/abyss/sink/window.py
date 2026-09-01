@@ -29,6 +29,16 @@ QUIT_KEYS = (ord("q"), 27)
 RESET_KEY = ord("r")
 """Key that re-runs the head scale bootstrap (Q23)."""
 
+MARK_KEY = ord("m")
+"""Key that records the current reading to the log.
+
+The tape measure check needs a number read while sitting at a measured
+distance, and the run is fullscreen: there is no terminal to look at, the text
+is small at a metre, and remembering three readings while holding still is how
+a measurement becomes an impression. Pressing a key puts it in the scrollback
+instead, where it can be copied afterwards.
+"""
+
 WAIT_MS = 1
 """Milliseconds to give the window's event loop per frame.
 
@@ -57,6 +67,7 @@ class WindowSink:
         self.name = name
         self._quit = False
         self._reset = False
+        self._mark = False
         cv.namedWindow(name, cv.WINDOW_NORMAL)
         cv.setWindowProperty(name, cv.WND_PROP_FULLSCREEN, cv.WINDOW_FULLSCREEN)
         lg.info(f"Opened fullscreen window {name!r} for {size[0]}x{size[1]} frames")
@@ -85,6 +96,8 @@ class WindowSink:
             self._quit = True
         elif key == RESET_KEY:
             self._reset = True
+        elif key == MARK_KEY:
+            self._mark = True
 
     def close(self) -> None:
         """Destroy the window."""
@@ -95,6 +108,15 @@ class WindowSink:
     def quit_requested(self) -> bool:
         """Whether a quit key has been pressed. Stays true once set."""
         return self._quit
+
+    def take_mark_request(self) -> bool:
+        """Whether a reading was asked for, clearing the request.
+
+        Returns:
+            True if the mark key has been pressed since the last call.
+        """
+        asked, self._mark = self._mark, False
+        return asked
 
     def take_reset_request(self) -> bool:
         """Whether a reset was asked for, clearing the request.

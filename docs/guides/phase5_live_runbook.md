@@ -114,7 +114,7 @@ What should happen, in order:
    wrong; if nothing moves, tracking is not reaching the renderer.
 
 Keys: `q` or escape to quit, `r` to re-run the bootstrap (use it if someone else sat down, or if
-you bootstrapped while turned away).
+you bootstrapped while turned away), and **`m` to record the current reading to the log**.
 
 **Record**: both lines the loop prints on exit. The second one is the important one:
 
@@ -146,11 +146,18 @@ wrong against the world rather than merely inconsistent with itself. Every earli
 verify internal consistency, because the sample clips have no known camera.
 
 Measure from the **camera lens** (top bezel, above the panel centre) to the **bridge of your nose**.
-Sit at each distance, hold still, and read the frame: the loop prints the eye position and the
-apparent iris separation across the top left, so the number to compare is on the screen in front of
-you.
 
-    eye -0.018 -0.110 0.430 m (camera frame)   iris 123 px
+**Do not try to read the screen and remember it.** Sit at the distance, hold still, and press `m`.
+The reading goes to the terminal, where it can be copied afterwards:
+
+    MARK  eye -0.018 -0.110 0.430 m (camera frame)   iris 123 px
+
+The same line is drawn across the top left of the frame while you sit there, so you can see it is
+tracking you, but the number that gets recorded is the one the key captures - and it is the same
+text either way, from one formatter.
+
+Three distances, in one run: sit at 0.50 m and press `m`, move to 0.75 m and press `m`, then 1.00 m
+and press `m`. Then `q`, and copy the three MARK lines.
 
 **The third number is the depth, and it should equal what your tape measure says.** That is the
 whole check. The chain reduces to `depth = focal * ipd / ipd_px` with g7's measured focal of 945 px

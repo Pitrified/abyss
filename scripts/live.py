@@ -13,7 +13,9 @@ something broke. If a change makes `camera` work and `clip` stop, the change is
 wrong.
 
 Keys, in the window: ``q`` or escape to quit, ``r`` to re-run the head scale
-bootstrap when the wrong person is sitting there.
+bootstrap when the wrong person is sitting there, and ``m`` to record the
+current reading to the log, which is how the tape measure check takes its
+numbers without anyone having to read small text at a metre and remember it.
 
 The manual check this exists for is in
 ``docs/guides/phase5_live_runbook.md``: sit at a tape-measured distance and see
@@ -37,6 +39,7 @@ from abyss.config.camera import FrameGeometry
 from abyss.config.sink import SinkConfig
 from abyss.config.viewer import DEFAULT_IPD_M
 from abyss.config.viewer import ViewerConfig
+from abyss.loop import Controls
 from abyss.loop import run_loop
 from abyss.loop import track_with_landmarker
 from abyss.params.abyss_devices import get_camera
@@ -177,8 +180,11 @@ def run_camera(args: argparse.Namespace) -> None:
                 track_with_landmarker(landmarker, geometry),
                 geometry,
                 viewer,
-                stop=lambda: window.quit_requested,
-                reset=window.take_reset_request,
+                controls=Controls(
+                    stop=lambda: window.quit_requested,
+                    reset=window.take_reset_request,
+                    mark=window.take_mark_request,
+                ),
             )
         finally:
             window.close()

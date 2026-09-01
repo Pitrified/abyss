@@ -132,6 +132,27 @@ def track_with_landmarker(
 
 
 @dataclass(frozen=True)
+class Controls:
+    """What the viewer asked for, as the sink reports it.
+
+    One object rather than three arguments because they are one concept: keys
+    pressed in the window, read between frames. The loop never learns what kind
+    of sink it has, which is what keeps it runnable over a clip with no display
+    and no keyboard - the default is all three absent.
+
+    Args:
+        stop: Returns true when the run should end.
+        reset: Returns true when the head scale bootstrap should run again.
+        mark: Returns true when the current reading should be logged, which is
+            how the tape measure check takes its numbers.
+    """
+
+    stop: Callable[[], bool] | None = None
+    reset: Callable[[], bool] | None = None
+    mark: Callable[[], bool] | None = None
+
+
+@dataclass(frozen=True)
 class LoopStats:
     """What a run achieved.
 
@@ -233,6 +254,24 @@ def message_frame(
     return frame
 
 
+def readout_text(eye_camera_m: np.ndarray, ipd_px: float | None) -> str:
+    """Format the tracked position for the frame and for the log.
+
+    One function so the number pressing the mark key records is character for
+    character the number on screen. Two formatters would drift.
+
+    Args:
+        eye_camera_m: Eye position in the camera frame, metres.
+        ipd_px: Apparent interpupillary distance, or ``None`` when held.
+
+    Returns:
+        The readout line.
+    """
+    x, y, z = (float(v) for v in eye_camera_m)
+    iris = f"{ipd_px:.0f} px" if ipd_px is not None else "held"
+    return f"eye {x:+.3f} {y:+.3f} {z:.3f} m (camera frame)   iris {iris}"
+
+
 def annotate_position(
     frame: np.ndarray,
     eye_camera_m: np.ndarray,
@@ -254,11 +293,9 @@ def annotate_position(
         ipd_px: Apparent interpupillary distance, or ``None`` when the position
             is held rather than measured.
     """
-    x, y, z = (float(v) for v in eye_camera_m)
-    iris = f"{ipd_px:.0f} px" if ipd_px is not None else "held"
     cv.putText(
         frame,
-        f"eye {x:+.3f} {y:+.3f} {z:.3f} m (camera frame)   iris {iris}",
+        readout_text(eye_camera_m, ipd_px),
         MESSAGE_ORIGIN,
         cv.FONT_HERSHEY_SIMPLEX,
         MESSAGE_SCALE,
@@ -325,7 +362,7 @@ def frame_for(
     renderer: Renderer,
     geometry: FrameGeometry,
     size: tuple[int, int],
-) -> tuple[np.ndarray, str]:
+) -> tuple[np.ndarray, str, str | None]:
     """Decide what this frame should show, and draw it.
 
     The three states of the loop live here, which is why they are one function
@@ -342,12 +379,13 @@ def frame_for(
         size: Output ``(width_px, height_px)``.
 
     Returns:
-        The frame, and which state produced it: ``"calibrating"``, ``"held"``
-        or ``"tracked"``.
+        The frame, which state produced it (``"calibrating"``, ``"held"`` or
+        ``"tracked"``), and the readout line when there is a position.
     """
     if not live_scale.is_ready:
         have, need = live_scale.progress
-        return message_frame(size, f"Look at the camera: {have}/{need}"), "calibrating"
+        text = f"Look at the camera: {have}/{need}"
+        return message_frame(size, text), "calibrating", None
 
     position = (
         eye_position_m(sample, geometry, live_scale.scale)
@@ -357,10 +395,35 @@ def frame_for(
     smoothed = smoother.update(position) if position is not None else smoother.hold()
     if smoothed is None:
         # Nothing has ever been seen, so there is no position to hold.
-        return message_frame(size, "Waiting for a face"), "calibrating"
+        return message_frame(size, "Waiting for a face"), "calibrating", None
 
     kind = "tracked" if sample is not None else "held"
-    return draw_scene(screen, renderer, size, smoothed, sample), kind
+    ipd_px = sample.ipd_px if sample is not None else None
+    drawn = draw_scene(screen, renderer, size, smoothed, sample)
+    return drawn, kind, readout_text(smoothed, ipd_px)
+
+
+def apply_controls(
+    live_scale: LiveScale,
+    reading: str | None,
+    controls: Controls,
+) -> bool:
+    """Act on the keys the sink reports, between frames.
+
+    Args:
+        live_scale: The head scale estimator, which a reset clears.
+        reading: This frame's readout line, which a mark records.
+        controls: What the viewer asked for.
+
+    Returns:
+        Whether the scale was reset, so the caller can clear the smoother too.
+    """
+    if controls.mark is not None and controls.mark():
+        lg.info(f"MARK  {reading or 'no position yet'}")
+    if controls.reset is not None and controls.reset():
+        live_scale.reset()
+        return True
+    return False
 
 
 def stage_medians(timings: dict[str, list[float]]) -> dict[str, float]:
@@ -387,8 +450,7 @@ def run_loop(
     viewer: ViewerConfig,
     *,
     scale: LiveScale | None = None,
-    stop: Callable[[], bool] | None = None,
-    reset: Callable[[], bool] | None = None,
+    controls: Controls | None = None,
 ) -> LoopStats:
     """Run frames through the whole chain and into the sink.
 
@@ -402,14 +464,14 @@ def run_loop(
         geometry: Frame geometry of the source.
         viewer: The person in front of the camera.
         scale: The head scale estimator. A fresh bootstrapping one by default.
-        stop: Called after each frame; the run ends when it returns true.
-        reset: Called after each frame; the scale re-bootstraps when it returns
-            true.
+        controls: What the viewer asked for, checked after each frame. All
+            absent by default, which is the offline case.
 
     Returns:
         What the run achieved.
     """
     live_scale = scale if scale is not None else LiveScale(geometry, viewer)
+    keys = controls if controls is not None else Controls()
     smoother = PositionSmoother()
     counts = {"frames": 0, "faces": 0, "held": 0, "calibrating": 0}
     started = time.perf_counter()
@@ -419,9 +481,9 @@ def run_loop(
     idx = -1
 
     while True:
-        mark = time.perf_counter()
+        started_stage = time.perf_counter()
         frame = next(source, None)
-        capture_ms = (time.perf_counter() - mark) * MS_PER_S
+        capture_ms = (time.perf_counter() - started_stage) * MS_PER_S
         if frame is None:
             break
         idx += 1
@@ -429,30 +491,29 @@ def run_loop(
         counts["frames"] += 1
         msec = (time.perf_counter() - started) * MS_PER_S
 
-        mark = time.perf_counter()
+        started_stage = time.perf_counter()
         sample = track(frame, idx, msec)
-        timings["track"].append((time.perf_counter() - mark) * MS_PER_S)
+        timings["track"].append((time.perf_counter() - started_stage) * MS_PER_S)
 
         if sample is not None:
             counts["faces"] += 1
             live_scale.update(sample)
 
-        mark = time.perf_counter()
-        out, kind = frame_for(
+        started_stage = time.perf_counter()
+        out, kind, reading = frame_for(
             sample, live_scale, smoother, screen, renderer, geometry, sink.size
         )
-        timings["render"].append((time.perf_counter() - mark) * MS_PER_S)
+        timings["render"].append((time.perf_counter() - started_stage) * MS_PER_S)
         if kind in counts:
             counts[kind] += 1
 
-        mark = time.perf_counter()
+        started_stage = time.perf_counter()
         sink.write(out)
-        timings["sink"].append((time.perf_counter() - mark) * MS_PER_S)
+        timings["sink"].append((time.perf_counter() - started_stage) * MS_PER_S)
 
-        if reset is not None and reset():
-            live_scale.reset()
+        if apply_controls(live_scale, reading, keys):
             smoother = PositionSmoother()
-        if stop is not None and stop():
+        if keys.stop is not None and keys.stop():
             break
 
     stats = LoopStats(

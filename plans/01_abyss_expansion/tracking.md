@@ -1023,3 +1023,22 @@ Append-only. Newest at the bottom.
   machine was too laggy to copy the terminal at the time, so the record says "pretty close" where it
   should carry three pairs and a tolerance. And the benchmark has not run on g4, which is not
   blocking but is the comparison it was built portable for.
+- 2026-09-01 : **the buffer fix landed and the loop hits the camera's ceiling.** `131 frames in
+  4.6 s, 28.2 fps: 131 with a face, 0 held, 29 calibrating`, `capture 11.2 track 12.6 render 3.5
+  sink 5.4 | measured 32.7 of 35.4 actual`. The loop's own work is 21.5 ms against a 33.3 ms camera
+  interval, so capture is now the loop waiting rather than the loop starving, exactly as the probe
+  predicted. No starvation warning. 8.3 to 14.8 to 28.2 fps across the three fixes.
+  **The tape measure check had a usability hole and the user found it**: the readout is on a
+  fullscreen frame, so taking three numbers at three distances means reading small text at a metre
+  and remembering it, which is how a measurement becomes an impression. Added `m`, which logs the
+  current reading to the terminal where it can be copied afterwards. `readout_text` is shared by the
+  frame and the log so the recorded number is character for character the displayed one.
+  Two defects surfaced while wiring it, both mine, both caught by the linter and a new test rather
+  than by anything running.
+  **A timing variable named `mark` shadowed the `mark` callable**, so the second frame would have
+  called a float. It survived because no test passed a mark at all - the argument existed for one
+  commit with nothing exercising it. The test now asks for a mark on three consecutive frames, which
+  is the shape that catches shadowing; a single-frame test would have passed.
+  And the three control callables pushed `run_loop` past the argument limit, which was the right
+  moment to notice they are one concept rather than three: `Controls`, holding stop, reset and mark,
+  all optional. The loop still never learns what kind of sink it has.

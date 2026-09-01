@@ -15,6 +15,7 @@ from abyss.config.camera import CameraConfig
 from abyss.config.camera import FrameGeometry
 from abyss.config.screen import ScreenConfig
 from abyss.config.viewer import ViewerConfig
+from abyss.loop import Controls
 from abyss.loop import LoopStats
 from abyss.loop import run_loop
 from abyss.render.renderer import WireframeRenderer
@@ -262,7 +263,7 @@ def test_stop_ends_the_run_early(screen, geometry, viewer, renderer) -> None:
     stats = run_loop(
         frames(), sink, screen, renderer, always_tracks, geometry, viewer,
         scale=LiveScale(geometry, viewer, scale=0.94),
-        stop=stop,
+        controls=Controls(stop=stop),
     )
 
     assert stats.frames == 3
@@ -286,7 +287,7 @@ def test_reset_re_bootstraps_the_scale(screen, geometry, viewer, renderer) -> No
     with_reset = run_loop(
         frames(), RecordingSink(), screen, renderer, always_tracks, geometry, viewer,
         scale=LiveScale(geometry, viewer, needed=4),
-        reset=reset,
+        controls=Controls(reset=reset),
     )
     without = run_loop(
         frames(), RecordingSink(), screen, renderer, always_tracks, geometry, viewer,
@@ -393,3 +394,43 @@ def test_a_fed_loop_does_not_warn() -> None:
         stage_ms={"capture": 1.7, "track": 14.8, "render": 4.0, "sink": 20.2},
     )
     assert "exposure_dynamic_framerate" not in captured_warnings(fed)
+
+
+def test_the_mark_key_logs_the_reading_every_time(
+    screen, geometry, viewer, renderer
+) -> None:
+    """Asked for on three frames, logged three times, with the position in it.
+
+    Every frame matters here rather than just the first: the callable was once
+    shadowed by a timing variable of the same name, so frame two called a float.
+    Nothing caught it because no test passed a mark at all.
+    """
+    asked = iter([True, True, True] + [False] * 20)
+
+    stats_lines: list[str] = []
+    handler = lg.add(stats_lines.append, level="INFO")
+    try:
+        run_loop(
+            frames(), RecordingSink(), screen, renderer, always_tracks, geometry,
+            viewer,
+            scale=LiveScale(geometry, viewer, scale=0.94),
+            controls=Controls(mark=lambda: next(asked, False)),
+        )
+    finally:
+        lg.remove(handler)
+
+    marks = [line for line in stats_lines if "MARK" in line]
+    assert len(marks) == 3
+    assert "iris 100 px" in marks[0]
+    assert " m (camera frame)" in marks[0]
+
+
+def test_the_readout_is_the_same_on_the_frame_and_in_the_log() -> None:
+    """One formatter, or the number recorded is not the number displayed."""
+    from abyss.loop import readout_text
+
+    eye = np.array([0.012, -0.043, 0.512])
+    assert readout_text(eye, 118.0) == readout_text(eye, 118.0)
+    assert "0.512" in readout_text(eye, 118.0)
+    assert "118 px" in readout_text(eye, 118.0)
+    assert "held" in readout_text(eye, None)
