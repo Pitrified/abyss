@@ -969,3 +969,25 @@ Append-only. Newest at the bottom.
   **Two wrong guesses in two days, both corrected by measurement in minutes**: the render fill (I
   reproduced it wrongly and blamed the benchmark) and this. The pattern in both is that the symptom
   was honest and the inference from it was not.
+- 2026-09-01 : two more runs after clearing `exposure_dynamic_framerate`, and a new suspect that is
+  again our own code.
+  `285 frames, 14.8 fps, capture 44.0 track 13.3 render 4.0 sink 5.7`, and with an extra lamp on
+  `144 frames, 14.7 fps, capture 40.3 track 16.6 render 4.5 sink 5.3`.
+  So the control was worth 8.3 to 14.8 fps and capture 99 to 44 ms. **The extra light did almost
+  nothing for the rate** - 44 to 40 ms - **and a great deal for tracking**: face loss went from 54 of
+  285 to 1 of 144. Two separate effects that both look like "it works better with light", worth
+  keeping apart: the rate is the camera's exposure policy, the tracking is the landmarker's.
+  What is left is a clean factor of two. Total frame time is 67 ms against a camera interval of
+  33.3, and the loop's own work is 23 to 26 ms - comfortably inside one interval, yet it lands on
+  exactly two. 14.8 and 14.7 fps against a camera doing 30.
+  **The suspect is `CAP_PROP_BUFFERSIZE` of 1, which is ours.** It came from the calibration
+  sessions, where a reader that went idle and came back got a four frame old still. That finding is
+  real and it is about idle-then-read. A loop reading continuously has the opposite problem: with a
+  single buffer the driver has nowhere to put the next frame while userspace works, so a frame
+  arriving during the loop's own 25 ms is dropped and the read waits for the one after it, halving
+  the rate however fast the loop is. The same setting fixes one access pattern and breaks the other,
+  which is why it was applied confidently and wrongly.
+  Not fixed by guessing. `scripts/probe_capture_rate.py` sweeps the buffer size against a simulated
+  work time and reports what arrives - camera needed, no display, no model, no face. It decides
+  whether one line fixes this or whether the loop needs the capture thread the plan already names as
+  the upgrade.
