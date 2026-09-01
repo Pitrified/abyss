@@ -74,8 +74,19 @@ distance shows up there as a constant offset at every distance, and the offset g
 as `ipd_true = ipd_used * measured / reported`. The mirror is the starting guess; the tape measure is
 the measurement.
 
-**Record**: the value, and which method. Then either pass it as `--viewer-ipd-mm 64` for now, or add
-a `VIEWERS` entry in `src/abyss/params/abyss_devices.py` once you trust it.
+**If you wear glasses, subtract for them.** The camera measures your iris separation *through* the
+lenses, and a myopic lens minifies: `apparent = true / (1 - d * F)`, with the vertex distance `d` in
+metres (about 0.013) and the lens power `F` in dioptres, negative for myopia. At -2.75 D that is
+0.966, so an anatomical 60 mm should be entered as **58 mm**. Long-sighted lenses magnify and go the
+other way. The number the loop wants is what the camera can see, not what an optician would write
+down.
+
+The effect is about 3.5% at -2.75 D, which is the same size as the error a hand-held tape can
+produce, so do not expect to see it confirmed in the numbers - enter it because the optics say so.
+
+**Record**: the value, which method, and your prescription if you wear glasses. Then either pass it
+as `--viewer-ipd-mm 58` for now, or add a `VIEWERS` entry in
+`src/abyss/params/abyss_devices.py` once you trust it.
 
 ## 3. The live run
 

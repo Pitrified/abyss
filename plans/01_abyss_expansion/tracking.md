@@ -55,7 +55,7 @@ window onto a scene rather than a flat picture. Analysis and open questions in
 
 ## Phases
 
-Q1-Q29 are answered and the scope is settled. Every phase has a sub-plan. Phase 0 shipped as pose-tools v0.4.0 and
+Q1-Q30 are answered and the scope is settled. **The initiative is complete.** Every phase has a sub-plan. Phase 0 shipped as pose-tools v0.4.0 and
 is pinned here.
 
 | #  | Phase                          | Plan | Status |
@@ -65,7 +65,7 @@ is pinned here.
 | 2  | camera and screen model        | [`02_camera_screen_model.md`](02_camera_screen_model.md) | done |
 | 3  | off-axis projection            | [`03_off_axis_projection.md`](03_off_axis_projection.md) | done |
 | 4  | minimal scene through it       | [`04_minimal_scene.md`](04_minimal_scene.md) | done, real renderer spun off |
-| 5  | close the loop, live           | [`05_close_the_loop_live.md`](05_close_the_loop_live.md) | in progress, runs on g7 |
+| 5  | close the loop, live           | [`05_close_the_loop_live.md`](05_close_the_loop_live.md) | done, 29.6 fps on g7 |
 
 Status values: draft / planned / in progress / done / superseded / discarded.
 
@@ -1042,3 +1042,34 @@ Append-only. Newest at the bottom.
   And the three control callables pushed `run_loop` past the argument limit, which was the right
   moment to notice they are one concept rather than three: `Controls`, holding stop, reset and mark,
   all optional. The loop still never learns what kind of sink it has.
+- 2026-09-01 : **phase 5 done, and with it the initiative.** Final live run on g7:
+  `3911 frames in 132.0 s, 29.6 fps: 3314 with a face, 597 held, 29 calibrating`, with
+  `capture 11.4 track 12.3 render 3.4 sink 5.4 | measured 32.6 of 33.7 actual`. The loop's work is
+  21.1 ms against a 33.3 ms camera interval, so capture is waiting rather than starving. The three
+  fixes were worth 8.3 to 14.8 to 28.2 to a steady 29.6 fps.
+  Tape measure, taken with the `m` key in one run at 60 mm: 0.50 m read 0.536 (+7.2%), 0.75 m read
+  0.745 (-0.7%), 1.00 m read 0.973 (-2.7%). Mean absolute 3.5%.
+  **The write-up was cut back after the user pushed on it, and that correction is the entry worth
+  keeping.** The first draft fitted a line to the three points, reported per-point implied head
+  sizes, and concluded there was a compression of the range with a residual traceable to the frozen
+  median. All of that is over-reading. The distance is a tape held by hand against a seated person,
+  good to a centimetre or two, which is 2 to 4% at the near end; the 60 mm is a mirror-and-ruler
+  estimate that scales every reported depth linearly. The claim the data supports is one sentence -
+  reported depth tracks a tape across a 2x range to within a few percent - and structure in the
+  residuals is not among the claims.
+  **The user also wears -2.75 D glasses, and that is a real effect this data cannot see.** A myopic
+  lens sits between the iris and the camera and minifies it: thin lens imaging at a 13 mm vertex
+  gives 0.966, so an anatomical 60 mm reads as 57.9 mm apparent, and passing 60 inflates depth by
+  3.6%. It does not cancel in the bootstrap, which normalises against the same minified pixels.
+  Predicted +3.6% against a measured +1.3% mean signed: same sign, same order, and correcting to
+  58 mm makes the mean absolute error *worse*, 4.6% against 3.5%. So a genuine 3.6% optical effect
+  is invisible here, which is the sharpest available statement of what three hand-held points
+  resolve.
+  The durable output is the rule rather than the number: **for a spectacle wearer, configure the
+  apparent interpupillary distance through the lenses**, `apparent = true / (1 - d * F)`. In the
+  runbook now, with a warning not to expect the numbers to confirm it.
+  Q30 asked whether the few-percent error is worth chasing and answers **no, and measure better
+  before modelling** if accuracy is ever wanted: a fixed rig, a real interpupillary measurement, five
+  distances. Any fix chosen from the present data would be fitted to noise.
+  Still open and not blocking: the benchmark has never run on g4. Take it whenever g4 is next in use.
+  The spin-offs `02_scene_rendering` and `03_phone_webapp` are the next initiatives, both at draft.

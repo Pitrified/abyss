@@ -1,5 +1,5 @@
 ---
-status: in progress
+status: done
 ---
 
 # Phase 5 - close the loop, live
@@ -538,6 +538,82 @@ tape-measured distance and compare the reported depth against the table above.
 - `make check` is green, and the suite still passes with no camera, no display and no model present.
 - The phase 1 regression CSVs are untouched.
 
+## What the implementation found
+
+**The loop runs at the camera's ceiling and the depth is right to a few percent.** Final run on g7:
+`3911 frames in 132.0 s, 29.6 fps: 3314 with a face, 597 held, 29 calibrating`, with
+`capture 11.4 track 12.3 render 3.4 sink 5.4 | measured 32.6 of 33.7 actual`. The loop's own work is
+21.1 ms against a 33.3 ms camera interval, so capture is the loop waiting.
+
+Getting there took three fixes and each was a different kind of mistake:
+
+| fix | fps | what it was |
+| --- | --- | ----------- |
+| - | 8.3 | starting point |
+| `exposure_dynamic_framerate=0` | 14.8 | the camera throttling itself for exposure, ours to find not to cause |
+| `CAP_PROP_BUFFERSIZE` 1 to 2 | 28.2 | our own setting, right for the calibration script and wrong here |
+| (steady state) | 29.6 | the camera's cap |
+
+### The tape measure, which is the phase's real exit criterion
+
+Taken in one run with the `m` key, at 60 mm of interpupillary distance:
+
+| tape | reported | error | iris |
+| ---- | -------- | ----- | ---- |
+| 0.50 m | 0.536 | +7.2% | 106 px |
+| 0.75 m | 0.745 | -0.7% | 74 px |
+| 1.00 m | 0.973 | -2.7% | 55 px |
+
+**Read these as best-effort, because both inputs are.** The distance is a tape held by hand against
+a seated person, good to a centimetre or two at best, which is 2 to 4% at the near end. The 60 mm is
+a mirror-and-ruler estimate, not a measurement, and it scales every reported depth linearly. Neither
+number deserves three significant figures and the errors above inherit that.
+
+So the claim the data supports, and the only one: **the reported depth tracks a tape measure across
+a 2x range of distance to within a few percent**, mean absolute 3.5%. That is the phase passing. It
+is the first result in this initiative that could have been wrong against the world.
+
+**And the viewer wears glasses**, which turns out to matter and to be computable. A spectacle lens
+sits between the iris and the camera, so the camera measures the iris separation *through* it. A
+myopic lens is concave and minifies: for -2.75 D at a 13 mm vertex distance, thin lens imaging of
+the eye gives an apparent size of 0.966 of the true one, so an anatomical 60 mm reads as **57.9 mm
+apparent**. Passing 60 therefore inflates every reported depth by about 3.6%, since depth is
+`focal * ipd_used / ipd_px` and the pixels are already minified. The bootstrap does not cancel it:
+it normalises against the same minified pixels.
+
+The honest part is what this does to the numbers above. It predicts +3.6% and the measurement shows
++1.3% mean signed - same sign, same order, and comfortably inside the measurement's own error.
+Correcting to 58 mm moves the mean signed error to -2.2% and makes the mean absolute *worse*, 4.6%
+against 3.5%. So **a real 3.6% optical effect is invisible in this data**, which is the clearest
+possible statement of what three hand-held points can resolve.
+
+What does survive is the rule, which holds whether or not this data could see it: **for a spectacle
+wearer the number to configure is the apparent interpupillary distance through the lenses**, not the
+anatomical one, and `apparent = true / (1 - d * F)` with the vertex distance `d` in metres and the
+lens power `F` in dioptres. Worth knowing before someone measures an interpupillary distance
+carefully and is surprised it does not help.
+
+The claims the data does not support, resisted on purpose: the per-point errors are not equal, and
+it is tempting to read structure into that - a scale error here, a compression there. Three points
+from one operator with a hand-held tape and a mirror-estimated head size cannot separate a model
+bias of a few percent from the measurement itself. Anything fitted to them would be fitted to noise.
+Q30 records what to do if the accuracy is ever wanted, which starts with measuring better rather
+than modelling harder.
+
+### Other findings
+
+- **Light is two effects, not one.** An extra lamp moved the frame rate barely at all, 44 to 40 ms
+  of capture, and moved face loss from 54 of 285 to 1 of 144. The rate is the camera's exposure
+  policy; the tracking is the landmarker's. Worth separating because both feel like "better in good
+  light".
+- **Face loss over a long run is real**: 597 held of 3911, 15%, over two minutes that included
+  sitting at 1 m where the face is small. Not a defect - the held frames are marked and the position
+  holds - but it is the number to watch if the effect ever feels sticky.
+- **`implied IPD 39-43 mm` in the log is correct and looks alarming.** MediaPipe assumes a 63 degree
+  vertical field of view, 587.5 px at 720 tall, against g7's measured 945: a factor of 1.609. Its
+  head model through our focal is 64.5 * 587.5 / 945 = 40.1 mm. The scale of about 1.5 corrects it,
+  and the final depth is unaffected because that focal cancels.
+
 ## Where this stands
 
 Verified:
@@ -551,14 +627,21 @@ Verified:
 - A dead camera and a held position both fail visibly, covered by tests rather than by a live
   demonstration - locking the screen mid-run has not been tried.
 
-Outstanding, and none of it is code:
+- The final rate is measured at 29.6 fps and the tape measure numbers are recorded above.
 
-- **The final rate is unmeasured.** Every live figure in the log predates the buffer fix: 8.3, then
-  14.8 with the exposure control cleared, then the fix the probe says is worth 2x. One run closes
-  this, and it is the criterion that says an unmeasured fast loop does not count.
-- **The tape measure numbers were never written down.** The check passed and the machine was too
-  laggy to copy the terminal, so the record has "pretty close" where it should have three pairs and
-  a stated tolerance. Worth one more pass now that the depth readout is on the frame.
-- **The benchmark has not run on g4.** It was built to be portable for exactly this and g4 has not
-  been touched since. Not blocking: the interesting comparison is the shape of the gap, and it can
-  be taken whenever g4 is next in use.
+Outstanding, and deliberately not blocking:
+
+- **The benchmark has not run on g4.** It was built portable for exactly this and g4 has not been
+  touched since. The interesting result is the shape of the gap between the machines, and it can be
+  taken whenever g4 is next in use. Not a reason to hold the phase open.
+
+- Q30: **Is the few-percent depth error worth chasing?** It is invisible in use and the effect works.
+  a. Leave it, and treat the current numbers as a sanity check that passed rather than as a
+     characterisation of the error.
+  b. If accuracy is ever wanted, **measure better before modelling**: a fixed rig rather than a hand
+     held tape, a real interpupillary measurement rather than a mirror estimate, and five distances
+     rather than three. Only then ask whether a model bias exists.
+  Recommended: a now, b as the entry point if a later phase needs the depth to be better than a few
+  percent. The current data cannot tell a small model bias from its own measurement error, so any
+  fix chosen from it would be fitted to noise.
+  ANS: **a, and b is written down for whoever needs it.**
