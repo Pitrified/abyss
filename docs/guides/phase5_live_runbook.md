@@ -79,7 +79,19 @@ a `VIEWERS` entry in `src/abyss/params/abyss_devices.py` once you trust it.
 
 ## 3. The live run
 
-Sit down first. The window opens fullscreen and covers the screen.
+**First, stop the camera throttling itself.** One command, no root needed:
+
+```bash
+v4l2-ctl -d /dev/video0 -c exposure_dynamic_framerate=0
+```
+
+`exposure_dynamic_framerate` lets a UVC camera drop its own frame rate to buy longer exposures in a
+dim room. It defaults to off and was found on: the camera advertised 30 fps throughout and delivered
+about 10, which capped the loop at 8.3 fps with two thirds of every frame spent waiting. It is not
+sticky across reboots, so it belongs here rather than in a one-time setup section. If the run warns
+that capture is pacing it, this is why.
+
+Then sit down. The window opens fullscreen and covers the screen.
 
 ```bash
 uv run --no-sync python scripts/live.py camera --viewer-ipd-mm <yours>
@@ -182,6 +194,8 @@ Each of these has already happened once on this hardware. The error message is t
 | `HELD: no face` on screen | Tracking lost you | Expected when you leave frame. Persistent means lighting or distance |
 | Scene renders but the marker drifts with your head | The projection is wrong | Stop and report it - this is a real defect, not a setup problem |
 | The window is not fullscreen, or is letterboxed | Render size does not match the panel | Pass `--width`/`--height` to match your desktop resolution |
+| A warning that `capture` is pacing the run | The camera is delivering fewer frames than it advertises | `v4l2-ctl -d /dev/video0 -c exposure_dynamic_framerate=0`, and add light |
+| Low frame rate with a small `capture` | The loop really is the bottleneck | Read the stage line: whichever number is largest is the answer |
 
 ## 6. What to append to the log
 

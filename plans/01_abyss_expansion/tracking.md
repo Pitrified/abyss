@@ -947,3 +947,25 @@ Append-only. Newest at the bottom.
   **The general lesson matches the memory one from an hour earlier**: everything measured was fine
   and the answer was in the stage nobody could measure. The plan even said the window sink was
   unmeasured and moved on.
+- 2026-09-01 : **the 8.3 fps is the camera, not the loop, and the instrumentation found it in one
+  run.** `capture 99.0 track 12.2 render 3.3 sink 5.4 | measured 119.9 of 119.8 actual`. A second
+  run at 1280x720 output gave capture 97.4, unchanged, ruling out the render size.
+  **My suspect was wrong.** I predicted the window sink, on the argument that it was the one stage
+  never measured. The sink is 5.4 ms. The unmeasured stage was the right place to look and the
+  wrong place to guess, which is the distinction: instrumenting cost twenty minutes and answered it,
+  and no amount of reasoning from the symptom would have.
+  The cause is `exposure_dynamic_framerate`, a UVC control that lets the camera drop its own rate to
+  buy longer exposures in low light. It defaults to 0 and was 1. The camera advertised 30 fps in
+  `--get-parm` the whole time and delivered about 10, so nothing short of timing the read pointed at
+  it. Set to 0 with `v4l2-ctl -d /dev/video0 -c exposure_dynamic_framerate=0`, no root needed.
+  99 ms is almost exactly three frame intervals at 30 fps, which is what a camera dropping to 10 fps
+  looks like from the far side of a blocking read.
+  The loop now warns when capture exceeds its own work, naming the control and the command. That is
+  a hardware quirk encoded in library code and it earns its place: the loop is the only thing that
+  can see the ratio, and a starved loop and a slow loop have opposite fixes - optimising a starved
+  one changes nothing.
+  With 21 ms of work the loop should reach about 47 fps once fed, which would be capped at 30 by
+  the camera. Numbers to confirm on the next run.
+  **Two wrong guesses in two days, both corrected by measurement in minutes**: the render fill (I
+  reproduced it wrongly and blamed the benchmark) and this. The pattern in both is that the symptom
+  was honest and the inference from it was not.

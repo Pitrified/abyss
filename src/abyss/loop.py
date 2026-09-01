@@ -63,6 +63,14 @@ MESSAGE_THICKNESS = 2
 
 MS_PER_S = 1000.0
 
+CAPTURE_STALL_MS = 40.0
+"""Capture median above which the camera is pacing the run, not the loop.
+
+Above one camera frame at 30 fps, with a margin. A loop doing less work than it
+spends waiting is not slow, it is starved, and the two have opposite fixes:
+optimising a starved loop changes nothing at all.
+"""
+
 STAGE_NAMES = ("capture", "track", "render", "sink")
 """Stages timed inside the loop, in the order they run.
 
@@ -154,6 +162,7 @@ class LoopStats:
             f"{self.faces} with a face, {self.held} held, "
             f"{self.calibrating} calibrating"
         )
+        self._warn_if_starved()
         timed = " ".join(
             f"{name} {self.stage_ms[name]:.1f}" for name in STAGE_NAMES
             if name in self.stage_ms
@@ -163,6 +172,32 @@ class LoopStats:
         lg.info(
             f"median ms per frame: {timed} | measured {accounted:.1f} of "
             f"{per_frame:.1f} actual"
+        )
+
+    def _warn_if_starved(self) -> None:
+        """Say so when the camera, not the loop, is setting the rate.
+
+        Measured on g7 on 2026-09-01: capture 99 ms against 21 ms of work, so
+        8.3 fps where the loop could manage 47. The cause was
+        ``exposure_dynamic_framerate``, a UVC control that lets the camera drop
+        its own rate to buy longer exposures in a dim room. It defaults to off
+        and was on, the camera advertised 30 fps throughout, and the frame rate
+        was identical at two render sizes - so nothing about the loop pointed
+        at it. Naming it here costs one branch and saves the next person the
+        afternoon it cost this time.
+        """
+        capture = self.stage_ms.get("capture", 0.0)
+        work = sum(ms for name, ms in self.stage_ms.items() if name != "capture")
+        if capture <= CAPTURE_STALL_MS or capture <= work:
+            return
+        lg.warning(
+            f"Capture is {capture:.0f} ms against {work:.0f} ms of work: the "
+            f"camera is pacing this run, so the loop could reach "
+            f"{MS_PER_S / work:.0f} fps if fed. On a UVC webcam the usual cause "
+            f"is exposure_dynamic_framerate, which trades frame rate for "
+            f"exposure in low light. Check with "
+            f"'v4l2-ctl -d /dev/video0 --list-ctrls' and turn it off with "
+            f"'v4l2-ctl -d /dev/video0 -c exposure_dynamic_framerate=0'"
         )
 
 

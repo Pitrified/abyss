@@ -7,6 +7,7 @@ hardware. If any of this needed a window, the phase would have been built
 wrong.
 """
 
+from loguru import logger as lg
 import numpy as np
 import pytest
 
@@ -14,6 +15,7 @@ from abyss.config.camera import CameraConfig
 from abyss.config.camera import FrameGeometry
 from abyss.config.screen import ScreenConfig
 from abyss.config.viewer import ViewerConfig
+from abyss.loop import LoopStats
 from abyss.loop import run_loop
 from abyss.render.renderer import WireframeRenderer
 from abyss.render.scene import window_box
@@ -340,3 +342,54 @@ def test_the_frame_carries_the_depth_readout(
     )
     band = slice(20, 60)
     assert not np.array_equal(plain.frames[0][band], bare[band])
+
+
+def captured_warnings(stats) -> str:
+    """Run `report` and return what it logged at warning level.
+
+    loguru does not route through the standard library, so `caplog` sees
+    nothing; a list sink is the way to read it.
+
+    Args:
+        stats: The `LoopStats` to report.
+
+    Returns:
+        The concatenated warning text.
+    """
+    messages: list[str] = []
+    handler = lg.add(messages.append, level="WARNING")
+    try:
+        stats.report()
+    finally:
+        lg.remove(handler)
+    return "".join(messages)
+
+
+def test_a_starved_loop_says_the_camera_is_pacing_it() -> None:
+    """The 8.3 fps run looked slow and was starved, which is the opposite fix.
+
+    Capture 99 ms against 21 ms of work, at two render sizes, with the camera
+    advertising 30 fps throughout: nothing in the loop pointed at the camera.
+    """
+    starved = LoopStats(
+        frames=168,
+        faces=157,
+        held=11,
+        calibrating=29,
+        seconds=20.1,
+        stage_ms={"capture": 99.0, "track": 12.2, "render": 3.3, "sink": 5.4},
+    )
+    assert "exposure_dynamic_framerate" in captured_warnings(starved)
+
+
+def test_a_fed_loop_does_not_warn() -> None:
+    """Or the warning is noise and gets ignored when it matters."""
+    fed = LoopStats(
+        frames=250,
+        faces=250,
+        held=0,
+        calibrating=29,
+        seconds=10.6,
+        stage_ms={"capture": 1.7, "track": 14.8, "render": 4.0, "sink": 20.2},
+    )
+    assert "exposure_dynamic_framerate" not in captured_warnings(fed)
