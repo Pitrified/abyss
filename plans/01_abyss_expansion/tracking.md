@@ -1073,3 +1073,25 @@ Append-only. Newest at the bottom.
   distances. Any fix chosen from the present data would be fitted to noise.
   Still open and not blocking: the benchmark has never run on g4. Take it whenever g4 is next in use.
   The spin-offs `02_scene_rendering` and `03_phone_webapp` are the next initiatives, both at draft.
+- 2026-09-01 : **the benchmark ran on g4 over ssh, closing the last open item.** No camera and no
+  display needed, which is what it was built portable for, and it worked first time on a machine
+  that had not been touched since phase 2.
+  120 frames, same flags, medians: landmark 11.29 against g7's 11.55, decode 1.50 against 1.60,
+  render at 1080p 3.37 against 2.52, PngSink 19.06 against 15.01, and a loop budget of **16.32 ms
+  and 61.3 fps against g7's 16.85 and 59.4**.
+  **The expectation was wrong, and it was mine.** g4 is described throughout this repo as the weaker
+  machine, the phase was sequenced to run on it for that reason, and an hour ago I predicted the
+  landmark stage would be the interesting row because g4's CPU is older. The two machines are within
+  3% and g4 is marginally ahead: it wins inference, the stage that dominates, and loses render and
+  PNG encoding by about 30%.
+  **Not read as a hardware comparison, for a stated reason.** g7's numbers were taken on a working
+  desktop with an editor, a browser and two agent sessions running; g4 was idle over ssh. The
+  spread agrees - g4's p95 is 1.49 ms above its median on landmark and 0.10 on render, against 2.03
+  and 1.13 on g7. Same lesson as the tape measure an hour earlier: the data supports "both machines
+  are comfortably fast enough" and does not support anything about the silicon.
+  It also shrinks the 640x480 question rather than answering it. g4 has the smaller frame 0.6 ms
+  faster where g7 had it 0.7 to 1.2 ms slower, so across two machines the sign is not stable.
+  "Shrinking the capture buys nothing" stands, and the reason to pin 1280x720 remains that it is the
+  mode the focal length was measured at.
+  Useful conclusion: **both machines feed the loop faster than the camera fills it**, 61 and 59 fps
+  of headroom against a 30 fps source. The camera is the ceiling on this hardware, everywhere.

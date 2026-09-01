@@ -629,11 +629,38 @@ Verified:
 
 - The final rate is measured at 29.6 fps and the tape measure numbers are recorded above.
 
-Outstanding, and deliberately not blocking:
+### The benchmark on both machines
 
-- **The benchmark has not run on g4.** It was built portable for exactly this and g4 has not been
-  touched since. The interesting result is the shape of the gap between the machines, and it can be
-  taken whenever g4 is next in use. Not a reason to hold the phase open.
+Run on g4 over ssh, 120 frames, same flags, which is what the script was built portable for. Medians
+in milliseconds:
+
+| stage | g7 | g4 | g4/g7 |
+| ----- | -- | -- | ----- |
+| landmark 1280x720 | 11.55 | 11.29 | 0.98x |
+| landmark 640x480 | 12.77 | 10.67 | 0.84x |
+| decode 1280x720 | 1.60 | 1.50 | 0.94x |
+| render 1920x1080 | 2.52 | 3.37 | 1.34x |
+| sink 1920x1080 (`PngSink`) | 15.01 | 19.06 | 1.27x |
+| **loop budget, 720 in 1080 out** | **16.85** | **16.32** | **0.97x** |
+
+**The expectation was wrong.** g4 was described as the weaker machine and the phase was written to
+run on it for that reason; on this workload the two are within 3% and g4 is marginally ahead. It
+wins the stage that dominates, inference, and loses render and PNG encoding by about 30%.
+
+One confound, stated because it is large enough to matter: g7's numbers were taken on a working
+desktop with an editor, a browser and two agent sessions running, while g4 was idle over ssh. The
+spread supports that - g4's p95 sits 1.49 ms above its median on the landmark stage and 0.10 ms on
+render, against 2.03 and 1.13 on g7. So this is not a clean microarchitecture comparison and no
+conclusion about the hardware should be drawn from it. What it does establish is the useful thing:
+**both machines can feed the loop faster than the camera can fill it**, at 61 and 59 fps of headroom
+against a 30 fps source.
+
+It also settles the 640x480 question by making it smaller rather than by answering it. g4 has the
+smaller frame 0.6 ms *faster* where g7 had it 0.7 to 1.2 ms slower. Across two machines the sign is
+not stable, so "shrinking the capture buys nothing" stands and the reason to pin 1280x720 remains
+what it always was: it is the mode the focal length was measured at.
+
+Nothing outstanding.
 
 - Q30: **Is the few-percent depth error worth chasing?** It is invisible in use and the effect works.
   a. Leave it, and treat the current numbers as a sanity check that passed rather than as a
