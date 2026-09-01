@@ -65,7 +65,7 @@ is pinned here.
 | 2  | camera and screen model        | [`02_camera_screen_model.md`](02_camera_screen_model.md) | done |
 | 3  | off-axis projection            | [`03_off_axis_projection.md`](03_off_axis_projection.md) | done |
 | 4  | minimal scene through it       | [`04_minimal_scene.md`](04_minimal_scene.md) | done, real renderer spun off |
-| 5  | close the loop, live           | [`05_close_the_loop_live.md`](05_close_the_loop_live.md) | planned, runs on g7 |
+| 5  | close the loop, live           | [`05_close_the_loop_live.md`](05_close_the_loop_live.md) | in progress, runs on g7 |
 
 Status values: draft / planned / in progress / done / superseded / discarded.
 
@@ -730,3 +730,194 @@ Append-only. Newest at the bottom.
   about what could be done. One search found a version that works. **An error explaining what
   happened is not evidence about what the fix is**, and a library's own issue tracker is a cheaper
   oracle than inference from symptoms.
+- 2026-08-17 : **phase 5 step one done**, `scripts/benchmark_landmarker.py` with 7 tests, 215 in the
+  suite, ruff and pyright clean. Phase 5 is in progress. Also corrected a stale exit criterion that
+  still required running the benchmark "with both delegates", which the Q24/Q28 work had made
+  impossible: a GPU row can only record the same build-flags failure.
+  Two corrections to the plan came out of writing the script rather than running it.
+  **The single frame-size axis does not survive contact.** The tracker stages scale with the capture
+  size and the render stages with the output size, and in the live loop those are different numbers,
+  1280x720 in and 1920x1080 out. Worse, the plan's cheap fallback of 640x480 is 4:3, so rendering
+  into it raises `AspectMismatchError` against a 16:9 panel: half the planned axis was not a legal
+  configuration. Split into two axes.
+  **And there is no capture stage.** Timing an mp4 decode and calling it capture would be a proxy,
+  which is the anti-pattern this repo has now caught three times: a V4L2 MJPG read costs queue
+  latency and JPEG decode that a seek-free file read does not. The decode is timed and named
+  `decode`. Real capture timing arrives with `video/capture.py` in step two, where it can use the
+  real opener rather than a second copy of it. Same reasoning made the budget table exclude the
+  sink and print the excluded figure beside it: only `PngSink` exists to time, and a PNG encode is
+  not what the window sink will do.
+  Measured on g7 over `face01.mp4`, 120 frames, medians. Tracker at 1280x720: decode 1.60, landmark
+  11.55, eye position 0.08. Render at 1920x1080: projection 0.04, render 9.12, PngSink 14.41. The
+  loop is **22.4 ms rendering native, 44.7 fps**, leaving 10.9 ms of the camera's 33.3 ms for the
+  window sink.
+  **640x480 is not a cheap fallback: it measured slower**, 12.77 ms against 11.55, in both runs.
+  MediaPipe resizes to a fixed model input so the capture size does not change what the network
+  sees. Why the smaller frame is consistently worse is not established and the 4:3 squash of a 16:9
+  source is the suspect. The axis is settled either way - pin 1280x720, which is also where the
+  focal length was measured - and it removes an escape hatch the plan was holding in reserve.
+  **The plan's claim that rendering at 1080p "costs nothing" was wrong, and the reason is one line.**
+  The render stage is 9.1 ms, of which the projection is 0.02 and drawing 36 anti-aliased lines is
+  0.51. The other 8.2 ms is `np.full((h, w, 3), (16, 16, 16), np.uint8)`: passing a **3-tuple**
+  rather than a scalar takes numpy off memset and onto broadcast assignment, and the identical array
+  from `np.full(..., 16)` costs 0.20 ms. A factor of 41, for a quarter of the live frame budget.
+  Worth recording how it was found, because the first decomposition said the opposite. Timing the
+  parts by hand gave 0.66 ms total against a 9.12 ms stage, a 14x gap that looked like the benchmark
+  being wrong. It was the reproduction that was wrong: the hand-written probe filled with a scalar
+  while the renderer fills with a tuple. **A reproduction that is not the real call is evidence about
+  the reproduction.** Re-timing `renderer.render` itself confirmed the benchmark to 0.5 ms.
+  Raised as Q29 rather than fixed in passing, per the rule that a real defect gets its own step.
+  Noting that the minimal and general fixes differ: the scalar is exactly equivalent only while the
+  background is grey, and a per-channel assign costs 1.79 ms for an arbitrary colour.
+- 2026-08-17 : folded Q29 and planned it as **step two of phase 5**, before the loop is written,
+  since the frame budget is what the rest of the phase is designed against.
+  The fill assigns per channel at 1.79 ms rather than taking the scalar's 0.20 ms. The scalar is
+  four times cheaper again and exactly equivalent *while the background is grey*, which makes
+  correctness a precondition on a constructor argument callers are free to change: a non-grey
+  background would then render silently in the wrong colour, which is a worse failure than 1.6 ms of
+  a 33 ms budget. The branch that picks the scalar when all three channels agree is named as the
+  upgrade if the window sink eats the headroom, and deliberately not built - two code paths for a
+  saving nothing needs yet.
+  **Reusing one buffer across frames is rejected outright rather than deferred**, which is the more
+  interesting of the two rejections. It would take the fill to zero and it is wrong at this seam:
+  `render` returns the frame and the caller keeps it, so with phase 4's `render_run` holding selected
+  frames for the contact sheet while writing the same frame to two sinks, a reused buffer would
+  rewrite frames already handed over and the sheet would come out as nine copies of the last one.
+  A test that two successive renders return independent arrays goes in to stop it being
+  reintroduced as an optimisation later.
+  The other test worth naming is a non-grey background rendering in that colour: nothing varies that
+  parameter today, and it is precisely the test that fails if someone takes the scalar shortcut.
+  No timing assertion goes in the suite - a wall-clock threshold on a shared machine measures the
+  load average. The benchmark is the instrument, and re-running it is the exit criterion.
+- 2026-08-18 : **phase 5 step two done.** `WireframeRenderer._blank` replaces the tuple `np.full`,
+  217 tests, ruff and pyright clean. The render stage at 1920x1080 drops **9.12 to 2.52 ms**, so the
+  loop is **16.85 ms and 59.4 fps rendering native**, with 16.5 ms of the camera's 33.3 left for the
+  window sink. Inference is now 75% of the loop and everything else together is 5 ms.
+  The 1.5 ms predicted in the plan was optimistic, and the reason is worth the line: it counted the
+  1.79 ms fill and forgot the 0.51 ms of lines it is added to. Left in the plan next to the measured
+  2.52 rather than quietly adjusted.
+  Both new tests were checked by mutation rather than trusted. The scalar shortcut fails **exactly
+  one** test, the intended one. Buffer reuse fails **three**: the intended one plus both parallax
+  tests, which hold two frames at once and were already covering it incidentally. So the explicit
+  test earns its place by naming the reason, not by being the only thing that catches it - and the
+  parallax tests turn out to have been load-bearing in a way nobody wrote down.
+  **Correcting yesterday's entry on 640x480.** It said the smaller capture "measured slower, in both
+  runs". A third run reversed the sign, which prompted counting properly: over six paired runs it is
+  slower in five, median 12.6 ms against 11.9, but the run-to-run spread at 720 alone is 11.5 to
+  12.8 ms, as wide as the gap. So the data supports "not faster" and does not support "slower". The
+  decision is unchanged - pin 1280x720, the mode the focal was measured at - but it now rests on
+  there being nothing to gain rather than on a penalty. Two runs agreeing looked like a measurement
+  and was a coin landing the same way twice.
+- 2026-08-19 : **phase 5 step three done.** `src/abyss/video/capture.py` with 10 tests, 227 in the
+  suite, ruff and pyright clean, and not one of the new tests needs a camera. The three calibration
+  findings are now code rather than log entries: MJPG before the frame size, `CAP_PROP_BUFFERSIZE`
+  of 1, and a frame checked for content rather than a return flag trusted.
+  Note `src/abyss/video/` existed on disk holding nothing but stale `__pycache__` from the modules
+  the 2026 reboot deleted. Untracked, so the package is genuinely new.
+  **"Check frame statistics" was underspecified and needed a second condition.** The measured dead
+  frames were mean 10.7 and standard deviation 2, and rejecting on darkness alone would reject a
+  viewer in a badly lit room - a live loop that refuses to run in the evening. Dark alone is a dim
+  room, flat alone is a blank wall in good light, a dead capture is both, so both are required
+  together. Mutating the `and` to an `or` fails exactly the two tests that pin it.
+  **Reading every pixel to answer "is anything there" would have cost 7.3 ms**, a fifth of the frame
+  budget. Sampling every 8th pixel costs 0.26 ms. Caught because the docstring claimed
+  "microseconds" and the claim was measured before being left in - it was wrong by two orders of
+  magnitude, and the real numbers are now in the file. This is the same shape of mistake as the
+  background fill two days ago: the obvious spelling of a trivial whole-frame operation is a fifth
+  of a frame, twice running. **Whole-frame numpy in a per-frame path is now a thing to measure on
+  sight**, not a thing to reason about.
+  `ok=False` and a black frame get distinct errors on purpose: one means the capture stopped, the
+  other means it did not stop and that is the whole problem.
+  `open_camera` is deliberately not unit tested - three `set` calls and a readback against real
+  hardware, where a mock would only assert that the lines were written in the order they were
+  written in. The checks are free functions over a frame so that everything else can be tested cold.
+- 2026-08-19 : **phase 5 steps four and five done, up to the point a person is required.**
+  `LiveScale`, the `sink/` package with `WindowSink`, `src/abyss/loop.py` and `scripts/live.py`.
+  245 tests, ruff and pyright clean, and **not one new test needs a camera, a display or a model**.
+  The loop ran end to end over `face01.mp4`: 250 frames, 32.4 fps including 1080p PNG encoding,
+  250 with a face, 29 calibrating, and the frames were inspected rather than counted - frame 5 is
+  the calibrating message, frame 120 carries the cyan marker and the orange cube.
+  **The loop takes its tracker as an argument as well as its source and sink.** The plan named two
+  seams and a third was needed for the same reason one level down: a landmarker built inside the
+  loop would make every test need a model file. `track_with_landmarker` builds the real one.
+  **Three states per frame, not two.** The plan had a face and no face; there is also *not yet
+  calibrated*, which cannot fold into either, because with no scale there is no correct depth to
+  render at and Q23 rules out carrying on at 1.0. The loop shows what it is waiting for and counts
+  those frames separately.
+  **Correcting the plan's offline equivalence test, which cannot hold as written.** It asked that
+  the loop over a clip produce the same frames as phase 4's track mode. It cannot: `LiveScale`
+  bootstraps from the first 30 front-facing samples while `estimate_head_scale` uses all 218, by
+  design. Measured: **0.939 against 0.941**, 0.2% apart. That is the entire cost of
+  bootstrap-and-freeze, against the 16% per-identity spread it corrects, and it is a good number to
+  have rather than a problem. Replaced by a `scale=` argument that starts `LiveScale` frozen, so a
+  controlled comparison is still possible, plus clip mode as the runbook pre-flight.
+  One test caught an off-by-one in its own expectation rather than in the code: the frame that
+  completes a bootstrap already renders, so a reset costs one extra calibrating frame and not two.
+  Rewritten to compare a run with the reset key against the same run without it, since the absolute
+  count was an off-by-one waiting to be asserted wrongly.
+  `sink.py` became `sink/` as phase 4 said it would, split as `base` / `file` / `window` rather than
+  by convenience: `window.py` is the only module in the repo that needs a display, and having it
+  named as one file is the whole reason the package earns its place. Import sites point at the
+  defining module; there is no re-export.
+  **Written the manual half**: `docs/guides/phase5_live_runbook.md`. Pre-flight on a clip,
+  measuring the viewer's interpupillary distance, the live run, the tape measure check with its
+  prediction table, seven known failure modes with the error each prints, and a fill-in template for
+  the log entry. Separate from the plan because it outlives the phase - it is what someone follows
+  at the desk the next time the camera moves or a different person sits down.
+  **What remains is the part that needs a person**, and it is only that: sitting in front of g7,
+  measuring an interpupillary distance, and holding a tape measure. Nothing else is blocked.
+- 2026-09-01 : first user run of the runbook, and it found three defects in one go - all in the
+  half that had never been executed rather than in the code paths the tests cover.
+  **`--viewer-ipd-mm` after the subcommand was rejected by argparse.** The shared options were
+  defined on the top-level parser, so `live.py camera --viewer-ipd-mm 60` failed while
+  `live.py --viewer-ipd-mm 60 camera` worked, which is the opposite of how anyone types it. Both
+  the script's own docstring and the runbook told the user to type the form that does not parse.
+  Fixed with a parent parser so the shared options hang off each subcommand. `tests/scripts/
+  test_live.py` now parses every documented invocation, **including the command lines extracted
+  from the runbook itself**, which is what would have caught it: documentation and code disagreed
+  and nothing compared them.
+  **The loop reported the depth nowhere.** The runbook's section 4 says to read the depth the loop
+  reports; there was nothing to read. The run is fullscreen so no terminal is visible, and logging
+  a position at 30 fps is unreadable. `annotate_position` now writes the eye position and the
+  apparent iris separation across the top left, so the frame carries both halves of the comparison.
+  The phase's stated exit criterion had been unmeasurable and the plan did not notice, because
+  every test asserted on frames rather than on being able to read one.
+  **The prediction table was written for 63 mm only.** Depth scales linearly with the viewer's
+  interpupillary distance, so at the user's 60 mm every row was 5% out. The table now gives both
+  columns and says plainly that the reported depth is what to trust and the interpupillary distance
+  is what to correct.
+  Verified end to end afterwards on `face01.mp4` at 60 mm: head scale 0.894, which is exactly
+  60/63 of the 0.939 at the default, and the frame reads `eye -0.018 -0.110 0.430 m, iris 123 px`
+  against `881 * 0.060 / 123 = 0.430`. The arithmetic closes.
+  The user also hit `uv run` rather than `uv run --no-sync`, which re-synced and rebuilt abyss. No
+  harm this time, but it is the documented way to silently revert an editable pose-tools install,
+  so the runbook now says so where the command is.
+  257 tests. **The lesson is about which half gets tested**: everything the tests covered worked
+  first time, and all three failures were in the seam between a document and a command line, which
+  no test touched until now.
+- 2026-09-01 : **the loop ran live on g7 and the tape measure check passed.** The user reports a
+  reasonable calibration scale and reported distances close to the truth at 50, 70 and 100 cm, with
+  the residual error attributed to positioning rather than to the model. That closes the phase's
+  real exit criterion: this is the first result in the initiative that is right against the world
+  rather than merely self-consistent. Exact numbers were not captured because the machine became
+  too laggy to copy the terminal, which turned into its own finding below.
+  **The lag was diagnosed and it was our own doing.** CPU was 93% idle, 25 GB of RAM free, the GPU
+  idle at 10%, no thread hog, and the load average already falling (41 to 33 to 24). What was
+  actually wrong: **swap was 100% full, 2032 MB of 2047, while 25.5 GB of RAM sat free**, with one
+  VS Code process alone holding 604 MB on disk. Every interaction was faulting pages back in.
+  The cause was `scripts/live.py clip`, which read the whole clip into memory: 250 frames of
+  1920x1080 is 1.55 GB. That was enough to evict an idle desktop into a 2 GB swapfile, and Linux
+  never pages anything back proactively, so the lag outlived the run by half an hour. The docstring
+  had called slurping "acceptable because the sample clips are seconds long", which was wrong in a
+  way no test could catch - the suite feeds the loop a list of small frames, so nothing measured the
+  real cost.
+  Fixed: `clip_frames` streams, holding one frame instead of all of them, reading the first eagerly
+  because the caller needs the frame size before the loop starts. Peak resident set drops from about
+  1.9 GB to **374 MB** with byte-identical behaviour - head scale 0.894, 250 frames, same log line.
+  The loop already took an iterable, so this cost nothing.
+  **The general lesson is about where memory gets measured.** Every performance number in this phase
+  came from the benchmark, which times stages and never looks at memory, and the one allocation that
+  actually hurt the user was in a manual script the benchmark does not cover. Wall clock was
+  measured to three decimal places and 1.55 GB went unnoticed.
+  Swap needs clearing to recover the machine (`swapoff -a && swapon -a`, safe with 25 GB free), which
+  is a privileged command and was handed to the user.

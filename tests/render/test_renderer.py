@@ -185,6 +185,46 @@ def test_backing_away_makes_the_cube_fill_more_of_the_window(
     assert cube_width(1.2) > cube_width(0.3) * 1.2
 
 
+def test_a_non_grey_background_is_rendered_in_that_colour(
+    screen: ScreenConfig,
+) -> None:
+    """Nothing varies this parameter today, which is why it is worth pinning.
+
+    The cheapest possible fill is `np.full(shape, background[0])`, which is
+    four times faster than the per-channel one and exactly equivalent while the
+    background stays grey. This is the test that fails when someone takes it,
+    rather than a viewer noticing the room came out blue.
+    """
+    background = (10, 60, 200)
+    renderer = WireframeRenderer(window_box(screen), background=background)
+    frame = render_frame(screen, centred_eye(screen), renderer, (WIDTH_PX, HEIGHT_PX))
+
+    # Not sampled at the corners: the box's corner connectors run right into
+    # them. The scene is forty lines on an otherwise empty frame, so the fill is
+    # almost all of it, and the scalar shortcut would leave none of it matching.
+    filled = np.all(frame == np.array(background, dtype=np.uint8), axis=2)
+    assert filled.mean() > 0.9
+
+
+def test_each_render_returns_its_own_frame(
+    screen: ScreenConfig,
+    renderer: WireframeRenderer,
+) -> None:
+    """Filling one reused buffer would be free, and would corrupt the caller.
+
+    `render` returns the frame and callers keep it: phase 4's `render_run`
+    holds selected frames for a contact sheet while writing the same frame to
+    two sinks. A shared buffer would rewrite what had already been handed over,
+    so this guards against it being reintroduced as an optimisation.
+    """
+    size = (WIDTH_PX, HEIGHT_PX)
+    first = render_frame(screen, centred_eye(screen), renderer, size)
+    kept = first.copy()
+    render_frame(screen, centred_eye(screen, right_m=0.12), renderer, size)
+
+    assert np.array_equal(first, kept)
+
+
 def test_the_real_g7_panel_passes_the_aspect_check() -> None:
     """0.26% off 16:9, which is why the check cannot be an equality."""
     check_aspect(get_screen("g7_internal"), 1280, 720)

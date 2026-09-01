@@ -12,10 +12,10 @@ import numpy as np
 import pytest
 
 from abyss.config.sink import SinkConfig
-from abyss.sink import FrameSizeMismatchError
-from abyss.sink import PngSink
-from abyss.sink import Sink
-from abyss.sink import VideoSink
+from abyss.sink.base import FrameSizeMismatchError
+from abyss.sink.base import Sink
+from abyss.sink.file import PngSink
+from abyss.sink.file import VideoSink
 
 WIDTH_PX, HEIGHT_PX = 64, 36
 

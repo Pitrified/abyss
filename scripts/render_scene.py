@@ -41,8 +41,8 @@ from abyss.render.frustum import view_projection_matrix
 from abyss.render.renderer import WireframeRenderer
 from abyss.render.renderer import render_frame
 from abyss.render.scene import window_box
-from abyss.sink import PngSink
-from abyss.sink import VideoSink
+from abyss.sink.file import PngSink
+from abyss.sink.file import VideoSink
 
 DEFAULT_SCREEN = "g7_internal"
 DEFAULT_SIZE = (1280, 720)

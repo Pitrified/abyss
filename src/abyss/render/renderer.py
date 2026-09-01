@@ -115,6 +115,40 @@ class WireframeRenderer:
         self.scene = scene
         self.background = background
 
+    def _blank(self, width_px: int, height_px: int) -> np.ndarray:
+        """Build a fresh frame filled with the background colour.
+
+        Its own method because the obvious spelling is a performance trap that
+        phase 5's benchmark caught. ``np.full(shape, (16, 16, 16), np.uint8)``
+        takes a **3-tuple**, which puts numpy on a broadcast assignment rather
+        than a memset: 8.24 ms at 1920x1080, against 1.79 ms for the per-channel
+        fill below and 0.20 ms for the scalar `np.full(shape, 16)`. A quarter of
+        a live frame budget, spent producing an identical array.
+
+        The scalar is not used even though it is cheaper again. It is equivalent
+        only while the background is grey, which would make correctness a
+        precondition on a constructor argument callers may change, and a
+        non-grey background would then render silently in the wrong colour.
+        Picking the scalar when all three channels agree is the named upgrade if
+        something ever needs the other 1.6 ms.
+
+        The frame is freshly allocated every call on purpose. Reusing one buffer
+        would take this to zero and would be wrong at this seam: `render`
+        returns the frame and callers keep it, so a reused buffer would rewrite
+        frames that had already been handed to a sink.
+
+        Args:
+            width_px: Frame width in pixels.
+            height_px: Frame height in pixels.
+
+        Returns:
+            A new BGR image of that size, filled with :attr:`background`.
+        """
+        frame = np.empty((height_px, width_px, 3), dtype=np.uint8)
+        for channel, value in enumerate(self.background):
+            frame[:, :, channel] = value
+        return frame
+
     def render(
         self,
         view_projection: np.ndarray,
@@ -132,7 +166,7 @@ class WireframeRenderer:
         Returns:
             A BGR image of that size.
         """
-        frame = np.full((height_px, width_px, 3), self.background, dtype=np.uint8)
+        frame = self._blank(width_px, height_px)
         if not len(self.scene):
             return frame
 

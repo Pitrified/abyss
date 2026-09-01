@@ -1,5 +1,5 @@
 ---
-status: planned
+status: in progress
 ---
 
 # Phase 5 - close the loop, live
@@ -88,15 +88,34 @@ the delegate is disabled in the wheel's build flags, and CPU inference is 11.2 m
 1920x1080 regardless. So inference is not where the time goes, and the benchmark's job is now to
 find out where it does.
 
+**Two size axes, not one, and no capture stage.** Both corrections came out of writing it:
+
 | Axis | Values |
 | ---- | ------ |
-| stage | capture, landmark, eye position, projection, render, sink |
-| frame size | 1280x720, and 640x480 as the cheap fallback |
+| tracker stage | decode, landmark, eye position - scale with the **capture** size |
+| render stage | projection, render, sink - scale with the **output** size |
+| capture size | 1280x720, and 640x480 as the cheap fallback |
+| output size | 1920x1080, and 1280x720 |
+
+The single frame-size axis does not survive contact. The two halves scale with different numbers -
+1280x720 in and 1920x1080 out in the live loop - and worse, 640x480 is 4:3, so rendering into it
+raises `AspectMismatchError` against a 16:9 panel. Splitting the axis is what makes both halves
+measurable.
+
+There is no capture stage here either. Timing an mp4 decode and calling it capture would be a proxy,
+and a bad one: a V4L2 MJPG read costs queue latency and JPEG decode that a seek-free file read does
+not. The decode is timed and named `decode`. Real capture timing arrives with `video/capture.py` in
+step two, where it can use the real opener rather than a second copy of it.
 
 Output is one row per configuration - median, p95 and the achievable frame rate - written to
 `cache/benchmark/` and pasted into the log per machine. Per machine matters: g4 is an old integrated
 GPU and g7 a Quadro, and while neither runs the inference on its GPU, the CPUs differ and the
 interesting result is the shape of the gap rather than either figure alone.
+
+The budget table **excludes the sink and prints the excluded figure beside it**. Only `PngSink`
+exists to time, and encoding a PNG to disk is not what the window sink will do, so folding it in
+would report a budget for a loop nobody is going to run. What is left is what both loops pay, so the
+remaining headroom is what the window sink has to fit into.
 
 The delegate axis is **dropped, not skipped**: `delegate=GPU` raises
 `GPU processing is disabled in build flags` on this wheel, so a GPU row would only ever record the
@@ -109,6 +128,121 @@ This also corrects a repo-wide claim rather than only informing this phase, so t
 which are g4's constraints presented as the environment's. On g7 there is a Quadro RTX 3000 with
 6 GB, OpenGL 4.6 and an X11 session on `:1`. Both machines' constraints stay written down, attached
 to the machine they belong to.
+
+## What step one measured
+
+g7, `face01.mp4`, 120 timed frames past a 5 frame warm-up, medians in milliseconds. Two runs at 60
+and 120 frames agree to about 1 ms on every stage.
+
+| path | stage | 1280x720 | 640x480 | | 1920x1080 | 1280x720 |
+| ---- | ----- | -------- | ------- | --- | --------- | -------- |
+| tracker | decode | 1.60 | 1.60 | | | |
+| tracker | landmark | **11.55** | **12.77** | | | |
+| tracker | eye position | 0.08 | 0.09 | | | |
+| render | projection | | | | 0.04 | 0.04 |
+| render | render | | | | **9.12** | 4.26 |
+| render | sink (`PngSink`) | | | | 14.41 | 6.88 |
+
+The render row is what step two then fixed: it reads **2.52** and **1.31** ms now.
+
+Budget, sink excluded, against the camera's 33.3 ms, before and after step two:
+
+| capture | output | loop, step one | loop, step two | headroom for the sink |
+| ------- | ------ | -------------- | -------------- | --------------------- |
+| 1280x720 | 1920x1080 | 22.39 ms, 44.7 fps | **16.85 ms, 59.4 fps** | +16.49 ms |
+| 1280x720 | 1280x720 | 17.52 ms, 57.1 fps | 15.63 ms, 64.0 fps | +17.70 ms |
+
+Three findings, each of which contradicts something that was written down before it was measured.
+
+**Shrinking the capture buys nothing, and 640x480 is not a cheap fallback.** MediaPipe resizes to a
+fixed model input, so the capture size does not change what the network sees. Over six paired runs
+the smaller frame was slower in five, median 12.6 ms against 11.9 - but the run-to-run spread,
+11.5 to 12.8 ms at 720, is as wide as the gap, so **"640x480 is slower" is not a claim this data
+supports**; "it is not faster" is. The first write-up said slower on the strength of two runs and a
+third contradicted it, which is what prompted counting properly.
+Either way the axis is settled, and on the stronger half: pin 1280x720, which is also the mode the
+focal length was measured at. 640x480 is not an escape hatch, because there is nothing to escape to.
+
+**The render stage is 9.1 ms at 1080p, and 8.2 ms of that is the background fill.** Decomposing it:
+the projection is 0.02 ms, drawing 36 anti-aliased lines is 0.51 ms, and
+`np.full((h, w, 3), (16, 16, 16), np.uint8)` is 8.2 ms. Passing a **3-tuple** rather than a scalar
+takes numpy off its memset path and onto a broadcast assignment, and at 1920x1080 that is a factor
+of **41**: the identical array from `np.full(..., 16)` costs 0.20 ms. `BACKGROUND_BGR` is grey, so
+the scalar is exactly equivalent today; for a background that is not grey, assigning per channel
+into `np.empty` costs 1.79 ms and is still 5x better. Raised as Q29 rather than fixed in passing.
+
+**Inference is confirmed as not the bottleneck, and the whole loop fits.** 11.6 ms at 1280x720, in
+line with the 11.2 ms the earlier probe measured at 1920x1080. With step two applied the loop costs
+**16.9 ms rendering native, 59.4 fps**, leaving 16.5 ms for the window sink - the one stage still
+unmeasured, because it does not exist yet. Inference is now 75% of the loop, and everything else
+together is 5 ms.
+
+## Step two: the background fill, 8 ms for nothing
+
+Q29 answered **a**: its own numbered step, before the loop is written. It is phase 4's code and a
+one-line defect, but it is a quarter of the live frame budget, and the budget is what the rest of
+this phase is designed against - so it goes in before anything depends on the wrong number, and it
+goes in as a step rather than folded silently into the loop, which would leave no record that it
+existed.
+
+Nothing about the *output* changes. This is a pure cost fix: for the grey background actually in
+use, every fill considered below produces a byte-identical frame. Phase 4's regression fixture is
+projected coordinates rather than pixels, so it is untouched by construction, and the nine existing
+renderer tests keep pinning the behaviour.
+
+### The fill to use, and the two that were rejected
+
+| | cost at 1920x1080 | correct for any background |
+| --- | --- | --- |
+| `np.full(shape, (16, 16, 16))` - today | 8.24 ms | yes |
+| `np.full(shape, 16)` - scalar | 0.20 ms | **no** |
+| per-channel assign into `np.empty` | 1.79 ms | yes |
+
+**Per-channel assign is what gets built**, single path, no branch:
+
+    frame = np.empty((height_px, width_px, 3), dtype=np.uint8)
+    for channel, value in enumerate(self.background):
+        frame[:, :, channel] = value
+
+The scalar is four times cheaper again and is exactly equivalent *while the background is grey*,
+which is a precondition on a constructor argument that callers are free to change. A non-grey
+background would then render silently in the wrong colour, which is a worse failure than 1.6 ms:
+wrong output that looks like output. Taking the scalar means either dropping the `background`
+parameter or asserting greyness, and neither is worth 1.6 ms of a 33 ms budget. The branch that
+picks the scalar when all three channels agree is the obvious third way and is **not** built: it is
+two code paths and a test matrix for a saving nothing needs yet. If the window sink turns out to eat
+the headroom, that branch is the named upgrade and it is three lines.
+
+**Reusing one buffer across frames is rejected outright**, not deferred. It would take the fill to
+zero, and it is wrong here: `render` returns the frame and the caller keeps it. Phase 4's
+`render_run` holds selected frames for the contact sheet while writing the same frame to two sinks,
+so a reused buffer would rewrite frames that had already been handed over, and the contact sheet
+would come out as nine copies of the last frame. A renderer that mutates what it already returned is
+not a renderer this seam can have.
+
+### Done when
+
+- `WireframeRenderer.render` no longer fills with a tuple, and the frame for the default background
+  is unchanged.
+- A test pins that a **non-grey** background is rendered in that colour. This is the test that fails
+  if someone later takes the scalar shortcut, which is exactly why it is worth writing for a
+  parameter nothing currently varies.
+- A test pins that two successive `render` calls return independent arrays, guarding the rejected
+  buffer reuse against being reintroduced as an optimisation.
+- The benchmark is re-run and the render stage at 1920x1080 has dropped from 9.1 ms to about 1.5 ms,
+  with the new loop total in the log. The benchmark is the instrument here: **no timing assertion
+  goes in the test suite**, since a wall-clock threshold on a shared machine is a flaky test that
+  measures the load average.
+- `make check` is green and phase 4's coordinate fixture is untouched.
+
+**Done.** The render stage is **2.52 ms** at 1920x1080 and 1.31 at 1280x720, so the loop is 16.85 ms
+and 59.4 fps rendering native. The 1.5 ms estimate above was optimistic and stayed in the plan
+rather than being quietly adjusted: it counted the 1.79 ms fill and forgot the 0.51 ms of lines it
+is added to, so 2.3 ms was the number to predict. Both new tests were checked by mutation. The
+scalar shortcut fails exactly one test, the intended one. Buffer reuse fails three: the intended one
+plus both parallax tests, which hold two frames at once and so were already covering it
+incidentally - the explicit test earns its place by naming the reason rather than by being the only
+thing that catches it.
 
 ## Capture, which has bitten this repo before
 
@@ -127,6 +261,28 @@ to build in than to rediscover:
   rendering a held position and looking merely boring rather than broken. The loop must check frame
   statistics, not the return flag, and say `CaptureIsBlackError` rather than shrugging.
 
+**Done as step three**, in `src/abyss/video/capture.py` with 10 tests and no camera involved. Three
+things it settled that the plan had left implicit.
+
+**"Check frame statistics" needed a second condition to be safe.** The measured dead frames were
+mean 10.7 and standard deviation 2, and rejecting on darkness alone would reject a viewer in a badly
+lit room - the failure mode being a live loop that refuses to run in the evening. Dark alone is a dim
+room, flat alone is a blank wall in good light, and a dead capture is both at once, so both are
+required together. Two tests pin exactly that, and flipping the `and` to an `or` fails both.
+
+**Reading every pixel would have cost 7.3 ms**, a fifth of the frame budget, to answer "is anything
+there". The check samples every 8th pixel instead and costs 0.26 ms. Measured, not assumed, and it
+is the same shape of mistake as the background fill Q29 removed - the second time in two days that
+the obvious spelling of a trivial operation was a fifth of a frame.
+
+**`ok=False` and a black frame get different errors.** Collapsing them would lose the distinction
+the module exists to draw: one means the capture stopped, the other means it did not stop and that is
+the whole problem.
+
+`open_camera` is deliberately not unit tested. It is three `set` calls and a readback against real
+hardware, and a mock of it would only assert that the lines were written in the order they were
+written in. The checks are free functions over a frame precisely so that everything else can be.
+
 ## Fullscreen is a geometric requirement
 
 `ScreenConfig` describes the whole panel: 344 by 193 mm, with the camera 100.5 mm above its centre.
@@ -140,14 +296,19 @@ fullscreen or the phase has not been done. Modelling a windowed rectangle is pos
 `ScreenConfig` with a smaller size and an offset - but it is a different thing to build and there is
 no case for it.
 
-Render at the panel's native 1920x1080 rather than at 720 and letting OpenCV upscale. The scene is
-about forty lines; the cost is nothing and the result is crisp.
+Render at the panel's native 1920x1080 rather than at 720 and letting OpenCV upscale.
+
+**"The cost is nothing" was wrong and the benchmark said so**: the render stage was 9.1 ms at
+1920x1080, a quarter of the frame budget, of which 8.2 ms was one avoidable line. Step two removed
+it, and native rendering now costs **2.5 ms** against 1.3 ms at 720. That is close enough to nothing
+to make the claim true, but it was not true when it was written and it was not free to fix.
 
 ## What gets built
 
 | Piece | Where | Role |
 | ----- | ----- | ---- |
 | `benchmark_landmarker.py` | `scripts/` | step one, and portable across the fleet |
+| the background fill | `src/abyss/render/renderer.py` | step two, returning 8 ms of the frame budget |
 | `WindowSink` | `src/abyss/sink.py` | fullscreen `cv.imshow`, reporting the panel's size as its own |
 | `CaptureIsBlackError` and friends | `src/abyss/video/capture.py` | opening a camera in a known mode, and noticing when it dies |
 | `LiveScale` | `src/abyss/viewer/eye_position.py` or beside it | the bootstrap-and-freeze scale estimator |
@@ -162,13 +323,57 @@ testable at all. The same loop run over a clip with a `PngSink` is phase 4's out
 camera and no display; run over device 0 with a `WindowSink` it is the live effect. If the loop can
 only be exercised through a window, the phase has been built wrong.
 
+## Steps four and five: the loop, and what only a person can do
+
+Built: `LiveScale` in `viewer/eye_position.py`, the `sink/` package with `WindowSink`,
+`src/abyss/loop.py` and `scripts/live.py`. 245 tests, and **none of them needs a camera, a display
+or a model file**.
+
+Three things came out of writing it.
+
+**The loop takes its tracker as an argument too**, not only its source and sink. The plan named two
+seams; a third was needed for the same reason one level down. A landmarker built inside the loop
+would make every test need a model file, and the loop's job is orchestration - what happens in what
+order, and what to do when a step declines to produce anything. `track_with_landmarker` builds the
+real one, and a stub tracker in a test exercises every path the live run takes.
+
+**There are three states per frame, not two.** The plan had a face and no face. There is also *not
+yet calibrated*, before the head scale has bootstrapped, and it cannot be folded into either: with
+no scale there is no correct depth to render at, and Q23 says explicitly that returning 1.0 and
+carrying on is the failure to avoid. So the loop shows what it is waiting for and counts those
+frames separately. The distinction between the other two is preserved on the frame itself: a held
+position is marked, because live there is nobody reading a log.
+
+**The plan's offline equivalence test cannot hold as written**, and this is a correction rather than
+an omission. It asked that the loop over a clip produce "the same frames as phase 4's track mode".
+It cannot: `LiveScale` bootstraps from the first 30 front-facing samples while `estimate_head_scale`
+uses the whole clip, **by design**. Measured on `face01`, the two give **0.939 and 0.941**, 0.2%
+apart - the entire cost of bootstrap-and-freeze, against the 16% per-identity spread it corrects.
+What replaces the test is a `scale=` argument that starts `LiveScale` frozen at a known value, so an
+offline run can be compared with a live one without the bootstrap being the difference between them,
+plus the clip mode in the runbook's pre-flight.
+
+## The manual half
+
+`docs/guides/phase5_live_runbook.md` holds everything a machine cannot do for itself: pre-flight on
+a clip, measuring the viewer's interpupillary distance, the live run, the tape measure check with
+its prediction table, the seven known failure modes with the error each one prints, and the template
+for the log entry.
+
+It is a separate document rather than a section here because it outlives the phase. The plan records
+why the loop has its shape; the runbook is what someone follows at the desk, including the next time
+the camera moves or a different person sits down.
+
 ## Tests
 
 The live path cannot be tested automatically here, and pretending otherwise would be the anti-pattern
 this repo keeps catching. What *can* be tested is everything that is not the window:
 
-- the loop over a recorded clip with a `PngSink` produces the same frames as phase 4's track mode,
-  which pins that the live wiring did not quietly change the offline behaviour
+- ~~the loop over a recorded clip with a `PngSink` produces the same frames as phase 4's track
+  mode~~. **Struck: it cannot hold, and the reason is the design rather than a defect.** `LiveScale`
+  bootstraps from the first 30 front-facing samples while `estimate_head_scale` uses the whole clip
+  (Q23), so the two runs differ by exactly the scale difference - 0.2% on `face01`. Replaced by
+  `LiveScale(scale=...)` for a controlled comparison, and by clip mode as the runbook's pre-flight.
 - `LiveScale` freezes after its bootstrap: the same samples in a different order give the same
   factor, and a later outlier does not move it
 - `LiveScale` before bootstrap reports that it is not ready, rather than returning 1.0 and silently
@@ -293,14 +498,35 @@ tape-measured distance and compare the reported depth against the table above.
   is the thinnest-served corner of it, narrow enough that a routine wheel build could drop GPU
   support and ship. Not a stale claim so much as one that was never about this target.
 
+- Q29: **Where does the background fill fix go?** `WireframeRenderer.render` builds its frame with
+  `np.full(shape, self.background, dtype=np.uint8)` where `background` is a 3-tuple, costing 8.2 ms
+  at 1920x1080 against 0.20 ms for the scalar form. It is phase 4's code and a real defect rather
+  than a preference: it is a quarter of the live frame budget, spent on nothing.
+  a. Its own numbered step in this phase, before the loop is written, since the loop's budget is
+     what made it visible and the fix changes that budget.
+  b. Fold it into phase 4 as a correction, since that is whose code it is.
+  c. Leave it. 22.4 ms already fits inside 33 ms.
+  Recommended: a, because the skill's rule is that a real defect gets its own step rather than being
+  fixed in passing, and because the headroom it returns is what the window sink has to fit into.
+  Note the general fix and the minimal one differ: a scalar `np.full` is exactly equivalent only
+  while the background is grey, so either the constant's greyness becomes a stated precondition or
+  the fill assigns per channel at 1.79 ms.
+  ANS: **a, its own numbered step, planned above as step two.** The fill assigns per channel, on the
+  argument that the scalar's 1.6 ms is not worth a correctness precondition on a constructor
+  argument callers can change: a non-grey background would render silently in the wrong colour.
+  The scalar-when-grey branch is named as the upgrade if the window sink turns out to need the
+  headroom, and buffer reuse is rejected outright rather than deferred, since `render` returns the
+  frame and phase 4's `render_run` holds it.
+
 ## Done when
 
 - The loop runs live on g7, fullscreen, and the scene moves with the viewer's head the way a window
   would.
 - The measured end-to-end rate and latency are written down in the log, whatever they turn out to be.
   A slow loop that is honestly measured closes this phase; an unmeasured fast one does not.
-- The benchmark has been run on g7, and on g4 if it is reachable, with both delegates, and the
-  numbers are in the log next to the machine they came from.
+- The benchmark has been run on g7, and on g4 if it is reachable, and the numbers are in the log next
+  to the machine they came from. CPU only: the delegate axis was dropped in Q24/Q28, since a GPU row
+  can only ever record the same build-flags failure.
 - The reported depth agrees with a tape measure to within a stated tolerance, and any constant offset
   is explained rather than tuned away.
 - The same loop, given a clip and a `PngSink`, reproduces phase 4's offline output.

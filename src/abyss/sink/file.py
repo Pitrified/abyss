@@ -1,30 +1,27 @@
-"""Where a finished frame goes.
+"""Sinks that write frames to disk.
 
-The second seam of phase 4, and the one Q13 argued for: a sink acts on a frame
-that already exists, so it knows nothing about screens, eyes or projections.
-
-Two implementations ship together on purpose. A Protocol with a single
+Two implementations shipped together on purpose. A Protocol with a single
 implementer is unvalidated - nothing proves the interface fits anything but the
-one class that shaped it - and phase 5's window sink is a bad place to discover
+one class that shaped it - and phase 5's window sink was a bad place to discover
 that ``write`` should have taken an index, or that ``size`` should have been a
 method. `PngSink` and `VideoSink` disagree enough to be a real test of the
 shape: one writes many files and counts them, the other holds an open handle
 that must be released.
 
-``size`` lives on the protocol rather than being passed alongside it because
-the sink is what knows how big a frame it accepts (Q20). `PngSink` reads it
-from its config; phase 5's window sink will read it from the window it opened.
+It worked: `WindowSink` arrived in phase 5 and needed no change to the seam.
+
+Everything here is safe on a headless box. The one sink that is not lives in
+`window.py`.
 """
 
 from pathlib import Path
-from typing import Protocol
-from typing import runtime_checkable
 
 import cv2 as cv
 from loguru import logger as lg
 import numpy as np
 
 from abyss.config.sink import SinkConfig
+from abyss.sink.base import check_size
 
 FRAME_STEM = "frame"
 """Prefix for the per-frame file names written by :class:`PngSink`."""
@@ -34,22 +31,6 @@ FRAME_DIGITS = 5
 
 VIDEO_FOURCC = "mp4v"
 """Codec for :class:`VideoSink`, the one already used elsewhere in the repo."""
-
-
-class FrameSizeMismatchError(ValueError):
-    """Raised when a frame handed to a sink is not the size it expects."""
-
-    def __init__(self, expected: tuple[int, int], actual: tuple[int, int]) -> None:
-        """Initialise with both sizes.
-
-        Args:
-            expected: The ``(width, height)`` the sink was configured for.
-            actual: The ``(width, height)`` of the offending frame.
-        """
-        super().__init__(
-            f"Sink expects {expected[0]}x{expected[1]} frames, got "
-            f"{actual[0]}x{actual[1]}"
-        )
 
 
 class VideoSinkOpenError(RuntimeError):
@@ -65,46 +46,6 @@ class VideoSinkOpenError(RuntimeError):
             f"Could not open a video writer for {path} with codec "
             f"{VIDEO_FOURCC!r}. The codec may be missing from this OpenCV build"
         )
-
-
-@runtime_checkable
-class Sink(Protocol):
-    """Somewhere finished frames go.
-
-    Implementations are not expected to be reusable after :meth:`close`.
-    """
-
-    @property
-    def size(self) -> tuple[int, int]:
-        """Frame size this sink accepts, as ``(width_px, height_px)``."""
-        ...
-
-    def write(self, frame: np.ndarray) -> None:
-        """Accept one finished frame.
-
-        Args:
-            frame: A BGR image of exactly :attr:`size`.
-        """
-        ...
-
-    def close(self) -> None:
-        """Release whatever the sink holds. Safe to call more than once."""
-        ...
-
-
-def _check_size(expected: tuple[int, int], frame: np.ndarray) -> None:
-    """Reject a frame that is not the size the sink was built for.
-
-    Args:
-        expected: The ``(width, height)`` the sink accepts.
-        frame: The frame handed in.
-
-    Raises:
-        FrameSizeMismatchError: If the frame is a different size.
-    """
-    height, width = frame.shape[:2]
-    if (width, height) != expected:
-        raise FrameSizeMismatchError(expected, (width, height))
 
 
 class PngSink:
@@ -136,7 +77,7 @@ class PngSink:
         Args:
             frame: A BGR image of exactly :attr:`size`.
         """
-        _check_size(self.size, frame)
+        check_size(self.size, frame)
         path = self.fol / f"{FRAME_STEM}_{self.count:0{FRAME_DIGITS}d}.png"
         cv.imwrite(str(path), frame)
         self.count += 1
@@ -190,7 +131,7 @@ class VideoSink:
         Args:
             frame: A BGR image of exactly :attr:`size`.
         """
-        _check_size(self.size, frame)
+        check_size(self.size, frame)
         self.writer.write(frame)
 
     def close(self) -> None:

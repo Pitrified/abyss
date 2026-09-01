@@ -164,6 +164,130 @@ def estimate_head_scale(
     return scale
 
 
+BOOTSTRAP_SAMPLES = 30
+"""Front-facing samples to collect before the live scale is frozen.
+
+One second at 30 fps, which is the rate the camera caps at. Front-facing is the
+binding constraint rather than the count: a viewer who is turned away supplies
+none of these, so the bootstrap takes as long as it takes to look at the screen.
+"""
+
+
+class HeadScaleNotReadyError(RuntimeError):
+    """Raised when a live scale is read before it has bootstrapped.
+
+    Deliberately an error rather than a default of 1.0. An unready scale that
+    quietly returns 1.0 renders the whole scene at the wrong depth and looks
+    like a working loop, which is the failure this class exists to prevent.
+    """
+
+    def __init__(self, have: int, need: int) -> None:
+        """Initialise with the progress so far.
+
+        Args:
+            have: Front-facing samples collected.
+            need: Front-facing samples required.
+        """
+        super().__init__(
+            f"Head scale is not ready: {have} of {need} front-facing samples"
+        )
+
+
+class LiveScale:
+    """The head scale estimator for a loop with no future frames.
+
+    `estimate_head_scale` consumes a whole clip, which live does not exist.
+    This collects front-facing samples until it has enough, freezes the answer,
+    and never moves it again (Q23). Freezing rather than rolling is the point: a
+    scale that drifts makes the entire scene breathe, which is worse than being
+    consistently a couple of percent off, and a frozen value is what the offline
+    path produces too, so the two agree.
+
+    The estimate itself is `estimate_head_scale`, called once on the collected
+    buffer, so live and offline cannot drift apart in how they compute it.
+
+    Args:
+        geometry: Frame geometry, supplying the focal length.
+        viewer: The person in front of the camera.
+        needed: Front-facing samples to collect before freezing.
+        scale: Start already frozen at this factor. For replaying a clip
+            against a scale measured over the whole of it, so an offline run
+            and a live one can be compared without the bootstrap being the
+            difference between them.
+    """
+
+    def __init__(
+        self,
+        geometry: FrameGeometry,
+        viewer: ViewerConfig,
+        needed: int = BOOTSTRAP_SAMPLES,
+        scale: float | None = None,
+    ) -> None:
+        """Initialise, empty and unfrozen unless a scale is supplied.
+
+        Args:
+            geometry: Frame geometry, supplying the focal length.
+            viewer: The person in front of the camera.
+            needed: Front-facing samples to collect before freezing.
+            scale: Start already frozen at this factor.
+        """
+        self.geometry = geometry
+        self.viewer = viewer
+        self.needed = needed
+        self._collected: list[EyeSample] = []
+        self._scale = scale
+
+    @property
+    def is_ready(self) -> bool:
+        """Whether the scale has been estimated and frozen."""
+        return self._scale is not None
+
+    @property
+    def progress(self) -> tuple[int, int]:
+        """Front-facing samples collected, and how many are needed."""
+        return len(self._collected), self.needed
+
+    @property
+    def scale(self) -> float:
+        """The frozen scale factor.
+
+        Returns:
+            The factor from :func:`estimate_head_scale`.
+
+        Raises:
+            HeadScaleNotReadyError: If the bootstrap has not finished.
+        """
+        if self._scale is None:
+            raise HeadScaleNotReadyError(len(self._collected), self.needed)
+        return self._scale
+
+    def update(self, sample: EyeSample) -> None:
+        """Offer one sample to the bootstrap.
+
+        Ignored once frozen, and ignored for a sample that is not front-facing,
+        since apparent interpupillary distance shrinks under yaw.
+
+        Args:
+            sample: One frame's measurements.
+        """
+        if self._scale is not None:
+            return
+        if abs(sample.yaw_deg) > FRONT_FACING_YAW_DEG:
+            return
+        self._collected.append(sample)
+        if len(self._collected) >= self.needed:
+            self._scale = estimate_head_scale(
+                self._collected, self.geometry, self.viewer
+            )
+            lg.info(f"Head scale frozen at {self._scale:.3f}")
+
+    def reset(self) -> None:
+        """Discard the estimate and bootstrap again."""
+        self._collected = []
+        self._scale = None
+        lg.info("Head scale reset, bootstrapping again")
+
+
 def eye_position_m(
     sample: EyeSample,
     geometry: FrameGeometry,
