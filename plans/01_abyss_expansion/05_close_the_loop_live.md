@@ -529,8 +529,36 @@ tape-measured distance and compare the reported depth against the table above.
   can only ever record the same build-flags failure.
 - The reported depth agrees with a tape measure to within a stated tolerance, and any constant offset
   is explained rather than tuned away.
-- The same loop, given a clip and a `PngSink`, reproduces phase 4's offline output.
+- The same loop, given a clip and a `PngSink`, runs the whole chain with no camera and no display.
+  **Not** "reproduces phase 4's offline output": that was struck as impossible by design, since
+  `LiveScale` bootstraps from the first 30 front-facing samples while `estimate_head_scale` uses the
+  whole clip (Q23). The two differ by 0.2% on `face01`, which is the cost of freezing.
 - A dead or blocked camera fails loudly, and holding a position through a missing face is visible on
   the frame.
 - `make check` is green, and the suite still passes with no camera, no display and no model present.
 - The phase 1 regression CSVs are untouched.
+
+## Where this stands
+
+Verified:
+
+- The loop runs live on g7, fullscreen, and the effect works. The tape measure agreed at 0.50, 0.70
+  and 1.00 m, with the residual attributed to positioning rather than to the model.
+- The clip path runs the whole chain with no camera and no display.
+- `make check` green at 259 tests, none of which needs a camera, a display or a model.
+- The phase 1 regression CSVs regenerate byte-identical against `~/abyss-baselines/g7-d7bd614/`,
+  checked by sha256 after `eye_position.py` gained `LiveScale`.
+- A dead camera and a held position both fail visibly, covered by tests rather than by a live
+  demonstration - locking the screen mid-run has not been tried.
+
+Outstanding, and none of it is code:
+
+- **The final rate is unmeasured.** Every live figure in the log predates the buffer fix: 8.3, then
+  14.8 with the exposure control cleared, then the fix the probe says is worth 2x. One run closes
+  this, and it is the criterion that says an unmeasured fast loop does not count.
+- **The tape measure numbers were never written down.** The check passed and the machine was too
+  laggy to copy the terminal, so the record has "pretty close" where it should have three pairs and
+  a stated tolerance. Worth one more pass now that the depth readout is on the frame.
+- **The benchmark has not run on g4.** It was built to be portable for exactly this and g4 has not
+  been touched since. Not blocking: the interesting comparison is the shape of the gap, and it can
+  be taken whenever g4 is next in use.

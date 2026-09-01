@@ -55,7 +55,7 @@ window onto a scene rather than a flat picture. Analysis and open questions in
 
 ## Phases
 
-Q1-Q27 are answered and the scope is settled. Every phase has a sub-plan. Phase 0 shipped as pose-tools v0.4.0 and
+Q1-Q29 are answered and the scope is settled. Every phase has a sub-plan. Phase 0 shipped as pose-tools v0.4.0 and
 is pinned here.
 
 | #  | Phase                          | Plan | Status |
@@ -1008,3 +1008,18 @@ Append-only. Newest at the bottom.
   inverted. **A setting justified by a measurement is only justified for the situation it was
   measured in.**
   Expect about 30 fps on the next run, capped by the camera, with capture around 8 ms.
+- 2026-09-01 : reviewed phase 5 against its own "Done when" before calling it finished, which found
+  two inconsistencies in the plan rather than in the code.
+  The criterion "the same loop reproduces phase 4's offline output" was still standing in "Done
+  when" after being struck in the Tests section as impossible by design. Corrected in place to what
+  it should always have said: the clip path runs the whole chain with no camera and no display.
+  A plan that contradicts itself in two sections is worse than one that is simply wrong in both.
+  The phases table still said Q1-Q27 with Q28 and Q29 both answered. Corrected.
+  **Verified now**: the phase 1 regression CSVs regenerate byte-identical against
+  `~/abyss-baselines/g7-d7bd614/` for all three clips, checked by sha256. Worth doing rather than
+  assuming, since `eye_position.py` gained `LiveScale` since the baseline was taken.
+  **Outstanding, and none of it is code.** The final frame rate is unmeasured - every live figure in
+  the log predates the buffer fix. The tape measure numbers were never written down, because the
+  machine was too laggy to copy the terminal at the time, so the record says "pretty close" where it
+  should carry three pairs and a tolerance. And the benchmark has not run on g4, which is not
+  blocking but is the comparison it was built portable for.
