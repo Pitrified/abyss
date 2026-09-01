@@ -921,3 +921,29 @@ Append-only. Newest at the bottom.
   measured to three decimal places and 1.55 GB went unnoticed.
   Swap needs clearing to recover the machine (`swapoff -a && swapon -a`, safe with 25 GB free), which
   is a privileged command and was handed to the user.
+- 2026-09-01 : first live run's numbers, and the swap reset fixed the machine.
+  `558 frames in 67.6 s, 8.3 fps: 472 with a face, 86 held, 29 calibrating`, head scale frozen at
+  1.496 from an implied interpupillary distance of 40.1 mm.
+  **The 40.1 mm is correct and is not a broken measurement**, which is worth writing down because
+  it reads like one. MediaPipe assumes a 63 degree vertical field of view, so 587.5 px of focal at
+  720 tall, where g7 really is 945: a factor of 1.609. Its head model divided by our real focal
+  gives 64.5 * 587.5 / 945 = 40.1 mm, and 60 / 40.1 = 1.496. Both reproduce to the decimal. The
+  final depth is unaffected because MediaPipe's own depth cancels out, which the tape measure
+  confirmed independently.
+  **8.3 fps against a predicted 44 is a real problem**: 120 ms per frame with 104 ms unaccounted
+  for. The suspect is the one stage the benchmark never measured, the window sink, because only
+  `PngSink` exists to time offline and a window is not a file. That gap was named in the plan and
+  it is exactly where the time went.
+  So the loop now measures itself: `LoopStats.stage_ms` reports a median per stage and the report
+  line says how much of the actual frame time the stages account for. **Capture is timed too**,
+  pulled out of the iterator, because the camera read happens between stages and would otherwise
+  show up as unaccounted. Offline on `face01`: capture 1.7, track 14.8, render 4.0, sink 20.2,
+  measured 40.7 of 42.5 actual.
+  The eye conversion is folded into `render` rather than given its own stage: the benchmark measured
+  it at 0.09 ms, and a stage that cannot be the bottleneck is noise in the report.
+  `frame_for` extracted while doing it, which is a better shape anyway - the loop's three states are
+  one function returning the frame and which state produced it, rather than a branch threaded
+  through the timing code.
+  **The general lesson matches the memory one from an hour earlier**: everything measured was fine
+  and the answer was in the stage nobody could measure. The plan even said the window sink was
+  unmeasured and moved on.

@@ -63,6 +63,26 @@ MESSAGE_THICKNESS = 2
 
 MS_PER_S = 1000.0
 
+STAGE_NAMES = ("capture", "track", "render", "sink")
+"""Stages timed inside the loop, in the order they run.
+
+The benchmark times everything except the sink, because only `PngSink` exists
+to time offline and a window is not a file. That gap is exactly where the first
+live run lost its time - 120 ms per frame against a predicted 17 - so the loop
+now measures itself and says so on exit. A stage nobody can measure is a stage
+that will be the bottleneck.
+
+The eye conversion is inside `render` rather than a stage of its own. The
+benchmark measured it at 0.09 ms, so it will never be the answer, and a stage
+that cannot be the bottleneck is noise in the report.
+
+`capture` is pulling the next frame from the source, which for a camera is the
+blocking `read`. It is timed here rather than in the source because the source
+is an iterable and the loop is what waits on it. Expect it to be large and for
+that to be correct: a loop running faster than 30 fps spends the remainder
+waiting for the camera, which is the pacing, not a cost.
+"""
+
 
 def track_with_landmarker(
     landmarker: FaceLandmarkerFrame,
@@ -120,6 +140,7 @@ class LoopStats:
     held: int
     calibrating: int
     seconds: float
+    stage_ms: dict[str, float]
 
     @property
     def fps(self) -> float:
@@ -132,6 +153,16 @@ class LoopStats:
             f"{self.frames} frames in {self.seconds:.1f} s, {self.fps:.1f} fps: "
             f"{self.faces} with a face, {self.held} held, "
             f"{self.calibrating} calibrating"
+        )
+        timed = " ".join(
+            f"{name} {self.stage_ms[name]:.1f}" for name in STAGE_NAMES
+            if name in self.stage_ms
+        )
+        accounted = sum(self.stage_ms.values())
+        per_frame = self.seconds * MS_PER_S / self.frames if self.frames else 0.0
+        lg.info(
+            f"median ms per frame: {timed} | measured {accounted:.1f} of "
+            f"{per_frame:.1f} actual"
         )
 
 
@@ -224,6 +255,93 @@ def mark_held(frame: np.ndarray) -> None:
     )
 
 
+def draw_scene(
+    screen: ScreenConfig,
+    renderer: Renderer,
+    size: tuple[int, int],
+    smoothed: np.ndarray,
+    sample: EyeSample | None,
+) -> np.ndarray:
+    """Render one frame and put the readouts on it.
+
+    Args:
+        screen: The panel being looked through.
+        renderer: What draws the scene.
+        size: Output ``(width_px, height_px)``.
+        smoothed: Smoothed eye position in the camera frame, metres.
+        sample: This frame's measurements, or ``None`` when the position is
+            held rather than measured.
+
+    Returns:
+        A BGR image of that size.
+    """
+    out = render_frame(screen, smoothed, renderer, size)
+    annotate_position(out, smoothed, sample.ipd_px if sample is not None else None)
+    if sample is None:
+        mark_held(out)
+    return out
+
+
+def frame_for(
+    sample: EyeSample | None,
+    live_scale: LiveScale,
+    smoother: PositionSmoother,
+    screen: ScreenConfig,
+    renderer: Renderer,
+    geometry: FrameGeometry,
+    size: tuple[int, int],
+) -> tuple[np.ndarray, str]:
+    """Decide what this frame should show, and draw it.
+
+    The three states of the loop live here, which is why they are one function
+    rather than a branch in the middle of the timing code: a face, no face but
+    a position to hold, and no scale yet to render at.
+
+    Args:
+        sample: This frame's measurements, or ``None`` when no face was found.
+        live_scale: The head scale estimator.
+        smoother: The position smoother.
+        screen: The panel being looked through.
+        renderer: What draws the scene.
+        geometry: Frame geometry of the source.
+        size: Output ``(width_px, height_px)``.
+
+    Returns:
+        The frame, and which state produced it: ``"calibrating"``, ``"held"``
+        or ``"tracked"``.
+    """
+    if not live_scale.is_ready:
+        have, need = live_scale.progress
+        return message_frame(size, f"Look at the camera: {have}/{need}"), "calibrating"
+
+    position = (
+        eye_position_m(sample, geometry, live_scale.scale)
+        if sample is not None
+        else None
+    )
+    smoothed = smoother.update(position) if position is not None else smoother.hold()
+    if smoothed is None:
+        # Nothing has ever been seen, so there is no position to hold.
+        return message_frame(size, "Waiting for a face"), "calibrating"
+
+    kind = "tracked" if sample is not None else "held"
+    return draw_scene(screen, renderer, size, smoothed, sample), kind
+
+
+def stage_medians(timings: dict[str, list[float]]) -> dict[str, float]:
+    """Reduce the per-frame timings to one median per stage.
+
+    Args:
+        timings: Durations in milliseconds, per stage.
+
+    Returns:
+        The median for each stage that ran at all.
+    """
+    return {
+        name: float(np.median(values)) for name, values in timings.items() if values
+    }
+
+
 def run_loop(
     frames: Iterable[np.ndarray],
     sink: Sink,
@@ -261,43 +379,40 @@ def run_loop(
     counts = {"frames": 0, "faces": 0, "held": 0, "calibrating": 0}
     started = time.perf_counter()
 
-    for idx, frame in enumerate(frames):
+    timings: dict[str, list[float]] = {name: [] for name in STAGE_NAMES}
+    source = iter(frames)
+    idx = -1
+
+    while True:
+        mark = time.perf_counter()
+        frame = next(source, None)
+        capture_ms = (time.perf_counter() - mark) * MS_PER_S
+        if frame is None:
+            break
+        idx += 1
+        timings["capture"].append(capture_ms)
         counts["frames"] += 1
         msec = (time.perf_counter() - started) * MS_PER_S
+
+        mark = time.perf_counter()
         sample = track(frame, idx, msec)
+        timings["track"].append((time.perf_counter() - mark) * MS_PER_S)
 
         if sample is not None:
             counts["faces"] += 1
             live_scale.update(sample)
 
-        if not live_scale.is_ready:
-            counts["calibrating"] += 1
-            have, need = live_scale.progress
-            sink.write(
-                message_frame(sink.size, f"Look at the camera: {have}/{need}")
-            )
-        else:
-            position = (
-                eye_position_m(sample, geometry, live_scale.scale)
-                if sample is not None
-                else None
-            )
-            smoothed = (
-                smoother.update(position) if position is not None else smoother.hold()
-            )
-            if smoothed is None:
-                # Nothing has ever been seen, so there is no position to hold.
-                counts["calibrating"] += 1
-                sink.write(message_frame(sink.size, "Waiting for a face"))
-            else:
-                out = render_frame(screen, smoothed, renderer, sink.size)
-                annotate_position(
-                    out, smoothed, sample.ipd_px if sample is not None else None
-                )
-                if sample is None:
-                    counts["held"] += 1
-                    mark_held(out)
-                sink.write(out)
+        mark = time.perf_counter()
+        out, kind = frame_for(
+            sample, live_scale, smoother, screen, renderer, geometry, sink.size
+        )
+        timings["render"].append((time.perf_counter() - mark) * MS_PER_S)
+        if kind in counts:
+            counts[kind] += 1
+
+        mark = time.perf_counter()
+        sink.write(out)
+        timings["sink"].append((time.perf_counter() - mark) * MS_PER_S)
 
         if reset is not None and reset():
             live_scale.reset()
@@ -311,6 +426,7 @@ def run_loop(
         held=counts["held"],
         calibrating=counts["calibrating"],
         seconds=time.perf_counter() - started,
+        stage_ms=stage_medians(timings),
     )
     stats.report()
     return stats

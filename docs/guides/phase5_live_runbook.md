@@ -104,8 +104,28 @@ What should happen, in order:
 Keys: `q` or escape to quit, `r` to re-run the bootstrap (use it if someone else sat down, or if
 you bootstrapped while turned away).
 
-**Record**: the line the loop prints on exit - frames, seconds, fps, faces, held, calibrating.
-Whatever it says. A slow loop honestly measured closes this phase; an unmeasured fast one does not.
+**Record**: both lines the loop prints on exit. The second one is the important one:
+
+    250 frames in 10.6 s, 23.5 fps: 250 with a face, 0 held, 29 calibrating
+    median ms per frame: capture 1.7 track 14.8 render 4.0 sink 20.2 | measured 40.7 of 42.5 actual
+
+`capture` is waiting for the source, `track` is the landmarker, `render` is the projection and the
+drawing, `sink` is the display. **If `measured` is much less than `actual`, the time is going
+somewhere none of these stages covers** and that is worth reporting rather than living with.
+
+Expect `capture` to be large in a fast loop and for that to be correct: a loop running quicker than
+30 fps spends the remainder waiting for the camera, which is the pacing rather than a cost.
+
+A slow loop honestly measured closes this phase; an unmeasured fast one does not.
+
+If the rate is poor, the one-line experiment is to render smaller:
+
+```bash
+uv run --no-sync python scripts/live.py camera --viewer-ipd-mm <yours> --width 1280 --height 720
+```
+
+The geometry stays correct - the panel's aspect is what matters, not its pixel count - so if the
+rate jumps, the cost is resolution-dependent and lives in the display path.
 
 ## 4. The tape measure check
 
