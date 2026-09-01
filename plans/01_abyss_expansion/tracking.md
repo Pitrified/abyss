@@ -991,3 +991,20 @@ Append-only. Newest at the bottom.
   work time and reports what arrives - camera needed, no display, no model, no face. It decides
   whether one line fixes this or whether the loop needs the capture thread the plan already names as
   the upgrade.
+- 2026-09-01 : **the buffer size was it, and one is exactly half.** `probe_capture_rate.py` on g7,
+  25 ms of simulated work against a 30 fps camera: 1 buffer gives a 42.9 ms read and 14.9 fps, 50%
+  of the camera; 2 gives 8.0 ms and 29.7 fps, 99%; 3 and 4 are identical to 2. So two is the whole
+  fix and three buys nothing, which also makes two the right choice on latency - the smallest queue
+  that reaches full rate.
+  The 8.0 ms read is the loop waiting out the remainder of the camera's interval after 25 ms of
+  work, which is what a loop that keeps up looks like from the inside.
+  `CAPTURE_BUFFERS` is now 2, with the table in its docstring.
+  **The interesting part is why one was chosen.** The four-frame queue and this are the same
+  setting pulling opposite ways for two different access patterns. A reader that goes idle and comes
+  back wants the queue short, and that is where the finding came from - four identical calibration
+  stills. A reader that works between reads wants a spare buffer for the driver to fill, or the
+  frame arriving during that work is dropped. One satisfies the first and starves the second, and it
+  was carried from the calibration script into the live loop without noticing the access pattern had
+  inverted. **A setting justified by a measurement is only justified for the situation it was
+  measured in.**
+  Expect about 30 fps on the next run, capped by the camera, with capture around 8 ms.

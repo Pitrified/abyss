@@ -103,7 +103,7 @@ And the shared options go **after** the subcommand, which is where argparse now 
 
 What should happen, in order:
 
-1. A log line `Opened 0 at 1280x720 MJPG, buffer size 1`.
+1. A log line `Opened 0 at 1280x720 MJPG, 2 buffers`.
 2. A grey screen reading `Look at the camera: n/30`. Look straight at the camera, above the screen.
    Turned-away frames do not count towards the bootstrap, so this waits for you rather than timing
    out.
@@ -195,6 +195,8 @@ Each of these has already happened once on this hardware. The error message is t
 | Scene renders but the marker drifts with your head | The projection is wrong | Stop and report it - this is a real defect, not a setup problem |
 | The window is not fullscreen, or is letterboxed | Render size does not match the panel | Pass `--width`/`--height` to match your desktop resolution |
 | A warning that `capture` is pacing the run | The camera is delivering fewer frames than it advertises | `v4l2-ctl -d /dev/video0 -c exposure_dynamic_framerate=0`, and add light |
+| Exactly half the camera's rate | Driver buffer starvation | `scripts/probe_capture_rate.py` sweeps it. Two buffers is the fix, one halves the rate |
+| Tracking keeps losing your face | Too little light for the landmarker | Add a lamp. Measured: face loss went from 19% to 0.7% with one more light, at the same frame rate |
 | Low frame rate with a small `capture` | The loop really is the bottleneck | Read the stage line: whichever number is largest is the answer |
 
 ## 6. What to append to the log

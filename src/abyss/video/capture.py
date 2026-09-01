@@ -9,11 +9,12 @@ here rather than left to be rediscovered, and each one cost real time to learn
   larger, returning 640x480 while reporting success. MJPG reaches 1280x720,
   which is the mode the focal length was measured at. The fourcc must be set
   **before** the frame size or the size is clamped back.
-- **The queue is four frames deep.** Offline that produced four identical
-  calibration views; live it is 160 ms between the viewer moving and the camera
-  admitting it. `CAP_PROP_BUFFERSIZE` of 1 is the fix for a loop that reads
-  continuously. A reader that goes idle and comes back still needs an explicit
-  flush, which is `calibrate_camera.py`'s problem and not this module's.
+- **The queue is four frames deep**, which offline produced four identical
+  calibration views and live is 160 ms of latency. `CAP_PROP_BUFFERSIZE` caps
+  it - but **at 2, not at 1**, and that distinction cost a day. See
+  :data:`CAPTURE_BUFFERS`. A reader that goes idle and comes back still needs an
+  explicit flush, which is `calibrate_camera.py`'s problem and not this
+  module's.
 - **A dead camera claims success.** With the session locked, `read()` returned
   ``ok=True`` and black frames: mean 10.7 of 255, standard deviation 2, flat
   across 90 consecutive frames. Downstream that is indistinguishable from "no
@@ -34,6 +35,36 @@ import numpy as np
 
 MJPG_FOURCC = "MJPG"
 """The only mode on the g7 webcam that reaches 1280x720."""
+
+CAPTURE_BUFFERS = 2
+"""Driver buffers to allow. Two, and the difference from one is a factor of two.
+
+One buffer is the intuitive choice for low latency and it **halves the frame
+rate** of any loop that does work between reads. With a single buffer the driver
+has nowhere to put a frame that arrives while userspace is busy, so that frame is
+dropped and the next read waits for the one after it. The loop then lands on two
+camera intervals however fast it is.
+
+Measured on g7 with `scripts/probe_capture_rate.py`, 25 ms of simulated work
+against a 30 fps camera:
+
+| buffers | median read | achieved |
+| ------- | ----------- | -------- |
+| 1 | 42.9 ms | 14.9 fps, 50% |
+| 2 | 8.0 ms | 29.7 fps, 99% |
+| 3 | 7.9 ms | 29.7 fps, 99% |
+| 4 | 7.7 ms | 29.7 fps, 99% |
+
+Two is the whole fix and three buys nothing, so two it is: the smallest queue
+that reaches full rate, and therefore the least staleness. The 8 ms read is the
+loop waiting out the rest of the camera's interval, which is what a loop that
+keeps up looks like.
+
+The trap is that the four-frame queue and this are the same setting pulling in
+opposite directions for two different access patterns. Idle then read wants the
+queue short. Read continuously wants a spare buffer for the driver to fill. One
+satisfies the first and starves the second.
+"""
 
 BLACK_MEAN_MAX = 16.0
 """Mean intensity at or below which a frame is a candidate for being dead.
@@ -198,7 +229,7 @@ def open_camera(source: int | Path, size: tuple[int, int]) -> cv.VideoCapture:
     capture.set(cv.CAP_PROP_FOURCC, cv.VideoWriter.fourcc(*MJPG_FOURCC))
     capture.set(cv.CAP_PROP_FRAME_WIDTH, width)
     capture.set(cv.CAP_PROP_FRAME_HEIGHT, height)
-    capture.set(cv.CAP_PROP_BUFFERSIZE, 1)
+    capture.set(cv.CAP_PROP_BUFFERSIZE, CAPTURE_BUFFERS)
 
     got = (
         int(capture.get(cv.CAP_PROP_FRAME_WIDTH)),
@@ -208,7 +239,10 @@ def open_camera(source: int | Path, size: tuple[int, int]) -> cv.VideoCapture:
         capture.release()
         raise CaptureModeError(size, got)
 
-    lg.info(f"Opened {source!r} at {width}x{height} {MJPG_FOURCC}, buffer size 1")
+    lg.info(
+        f"Opened {source!r} at {width}x{height} {MJPG_FOURCC}, "
+        f"{CAPTURE_BUFFERS} buffers"
+    )
     return capture
 
 
