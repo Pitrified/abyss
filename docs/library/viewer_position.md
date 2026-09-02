@@ -112,7 +112,7 @@ and its centimetres are converted to metres once, here.
 
 The head yaw is read off the same rotation matrix:
 
-$$\psi = \operatorname{atan2}(-R_{20},\ R_{00})$$
+$$\psi = \mathrm{atan2}(-R_{20},\ R_{00})$$
 
 Exact under yaw composed with pitch, since neither leaves the first column's $X$ and $Z$ entries
 alone, and approximate under roll, which is small for a seated viewer.
@@ -129,7 +129,7 @@ to one unknown scalar per person.
 `estimate_head_scale` recovers that scalar. Over front-facing samples only
 ($|\psi| \le 10^\circ$), it computes the interpupillary distance the pipeline *implies*,
 
-$$I_{\text{implied}} = \operatorname{median}\left( i \cdot \frac{Z_{\text{mp}}}{f_{\text{true}}} \right)$$
+$$I_{\text{implied}} = \mathrm{median}\left( i \cdot \frac{Z_{\text{mp}}}{f_{\text{true}}} \right)$$
 
 and compares it against the viewer's real one:
 

@@ -39,7 +39,7 @@ the camera*.
 `eye_in_screen_frame` is, as its docstring says, the one interesting function in the module.
 Given the eye in the camera frame and the camera-to-panel-centre offset $c$ from `ScreenConfig`:
 
-$$e_{\text{screen}} = M\,(e_{\text{camera}} - c), \qquad M = \operatorname{diag}(-1, -1, 1)$$
+$$e_{\text{screen}} = M\,(e_{\text{camera}} - c), \qquad M = \mathrm{diag}(-1, -1, 1)$$
 
 Two things about $M$.
 
@@ -49,9 +49,9 @@ left, so the viewer's right is the image's left. Both are flips of the same kind
 subtraction happens in the camera frame, before them, which is why a camera mounted **above** a
 panel is stored with a **positive** Y offset.
 
-**Why it must be both.** $\det \operatorname{diag}(-1,-1,1) = +1$, so $M$ is a rotation: 180 degrees
+**Why it must be both.** $\mathrm{det}\,\mathrm{diag}(-1,-1,1) = +1$, so $M$ is a rotation: 180 degrees
 about $Z$, which is the right shape for two frames that face each other.
-Flipping one axis alone would give $\det = -1$, a reflection, and would silently mirror the world.
+Flipping one axis alone would give $\mathrm{det} = -1$, a reflection, and would silently mirror the world.
 A mirrored head-coupled scene still moves with the head and still has parallax; it is inside out and
 looks fine. This is why the conversion is pinned by directional tests
 (`test_moving_the_eye_right_shifts_the_frustum_left`) and not only by the corner test below, which
@@ -196,7 +196,7 @@ $x_{\text{eye}} = w/2 - e_x$ and $z_{\text{eye}} = -e_z$. Then
 $$x' = -n\,\frac{x_{\text{eye}}}{z_{\text{eye}}} = (w/2 - e_x)\frac{n}{e_z} = r$$
 
 by the construction of $r$, so $x_{\text{ndc}} = +1$ and $u = W$. The same holds for the other three
-corners and for $y$. $\square$
+corners and for $y$. ∎
 
 $n$ cancels, which is the formal reason the near plane need not be the panel plane
 (`test_the_near_plane_is_not_the_screen_plane`).
@@ -218,7 +218,9 @@ the eye's lateral movement, in the same direction.**
 Proof. The point's image on the panel is where the segment from the eye to the point crosses
 $z = 0$. With the eye at $(e_x, e_y, e_z)$ and the point at $(0, 0, -D)$, linear interpolation gives
 
-$$x_{\text{panel}} = e_x + (0 - e_x)\frac{e_z}{e_z + D} = e_x\,\frac{D}{e_z + D} \qquad \square$$
+$$x_{\text{panel}} = e_x + (0 - e_x)\frac{e_z}{e_z + D} = e_x\,\frac{D}{e_z + D}$$
+
+∎
 
 The gain runs from 0 at the panel plane to 1 at infinity, so anything drawn *at* the window does not
 move and distant things track the head almost one for one. It is the quantity the whole effect is
