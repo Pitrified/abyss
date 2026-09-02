@@ -10,6 +10,7 @@ Step 1 is pose tracking, which comes from [`pose-tools`](https://github.com/Pitr
 Steps 2 and 3 are what abyss is for.
 
 How it works, with the mathematics: [`docs/library/geometry_overview.md`](docs/library/geometry_overview.md).
+Everything else that is written down is indexed in [`docs/README.md`](docs/README.md).
 
 ## Installation
 
