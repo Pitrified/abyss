@@ -47,8 +47,8 @@ CAMERAS: dict[str, CameraConfig] = {
     "g4_internal": CameraConfig(
         name="g4_internal",
         provenance=(
-            "HP HD Camera, USB 04ca:7063. Present but unusable in practice: g4 is "
-            "reached over ssh, so nobody is sitting in front of it"
+            "HP HD Camera, USB 04ca:7063. Unmeasured: g4 was reached over ssh when "
+            "this was registered. It is now the daily driver, so it can be measured"
         ),
     ),
     "g7_webcam": CameraConfig(
@@ -92,7 +92,7 @@ SCREENS: dict[str, ScreenConfig] = {
         provenance=(
             "size from the panel's own EDID, exact. Offset is PROVISIONAL: half the "
             "panel height plus a 10 mm bezel guess, since measuring it needs a ruler "
-            "held against a machine reached over ssh"
+            "held against a machine that was then reached over ssh"
         ),
     ),
     "g7_internal": ScreenConfig(

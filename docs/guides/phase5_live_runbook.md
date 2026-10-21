@@ -2,7 +2,8 @@
 
 Everything in phase 5 that a machine cannot do for itself, in the order to do it.
 
-Run all of this **on g7**: it is the machine with a camera, a display and a person in front of it.
+Run all of this **on g7**: it is the machine with the measured camera and the measured panel. It is
+normally unattended, so a live run means someone sitting at it for the duration.
 Sections 1 and 2 also run anywhere, deliberately, so a failure can be localised before the camera is
 involved at all.
 

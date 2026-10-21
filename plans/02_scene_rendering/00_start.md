@@ -29,7 +29,7 @@ here rather than there:
 
 - **OpenGL** via a Python binding. The natural fit, since the phase 3 projection matrix is exactly
   what a GL pipeline consumes. Open question whether offscreen rendering (EGL / OSMesa) works well
-  enough to develop any of it on the headless box.
+  enough to develop any of it unattended: g7 has the GPU but usually nobody watching its display.
 - **Gaussian splatting** (or NeRF, which it has largely displaced for real-time work) to render
   novel views of a captured real place. Heavier: training needs the GPU, and only splatting renders
   fast enough for an interactive loop.

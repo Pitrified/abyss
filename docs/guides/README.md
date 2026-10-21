@@ -18,7 +18,8 @@ interrupted by shell commands is harder to read.
 ## Notes
 
 `manual_measurements.md` and `phase5_live_runbook.md` both need physical access to the machine
-holding the camera, which on this fleet means g7. Everything else runs anywhere.
+holding the camera, which on this fleet means g7. g7 is now an unattended home server, so either one
+means going and sitting at it. Everything else runs anywhere.
 
 `phase5_live_runbook.md` was written for a phase that is now complete
 ([`plans/01_abyss_expansion/`](../../plans/01_abyss_expansion/tracking.md)). It is kept as a guide

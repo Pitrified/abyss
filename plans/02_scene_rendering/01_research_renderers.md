@@ -50,7 +50,9 @@ candidates are worth effort, not which ones exist.
   several renderers is itself the answer: a headless-capable one can stay as the testable path
   while a g7-only one is developed beside it. Still worth recording per candidate, because a
   renderer that runs on g4 keeps the file-output regression tests meaningful, and one that cannot
-  makes this phase the repo's first stated exception to "write for the weaker machine".
+  is acceptable on g7 alone, which is now the stated rule rather than an exception.
+  Headless also describes g7 in normal use: it is an unattended home server, so offscreen
+  rendering is the everyday mode there, not only the test path.
 - **C5 packaging.** FOSS, and installable under **Python 3.14** through uv.
   Partly relaxed: **new libraries, system packages and drivers may be installed on g7**, so a
   candidate needing a Vulkan loader, an EGL library or a newer driver is not thereby excluded.
@@ -142,7 +144,8 @@ rather than competing with it.
 - Pro: no compiled dependencies, and it is the window layer several of these assume.
 - Pro: owns the event loop, which is the thing `cv.waitKey` is currently doing badly.
 - Con: not a renderer by itself for this purpose; its own graphics API is 2D-leaning.
-- Con: requires a display, so it is a g7-only component whichever renderer it wraps.
+- Con: requires a display, so it only runs where someone is watching one: g7 when someone is at
+  it, or g4. Never the headless path, whichever renderer it wraps.
 
 ## Scene graphs and engines
 
