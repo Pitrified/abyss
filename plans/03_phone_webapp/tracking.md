@@ -29,7 +29,7 @@ dev harness pattern and the probe that shaped it in
 
 | #  | Phase                                   | Plan | Status  |
 | -- | --------------------------------------- | ---- | ------- |
-| 1  | harness and skeleton page               | [`02_harness_skeleton.md`](02_harness_skeleton.md) | planned |
+| 1  | harness and skeleton page               | [`02_harness_skeleton.md`](02_harness_skeleton.md) | done, g7 run pending |
 | 2  | tracking in the page                    | [`03_tracking_in_page.md`](03_tracking_in_page.md) | planned |
 | 3  | frustum and scene in the page           | [`04_frustum_and_scene.md`](04_frustum_and_scene.md) | planned |
 | 4  | real clients: g4, then the Pixel        | [`05_real_clients.md`](05_real_clients.md) | planned |
@@ -58,3 +58,8 @@ Append-only. Newest at the bottom.
   at 80 px/s at exactly 80 px/s, and found nothing when the face was 130 px across in 1280x720.
 - 2026-10-22 : Q1-Q7 answered. Q4 b, Q5 separate target, Q6 modular, Q7 c with a+b deferred.
   Four phases planned.
+- 2026-10-22 : **phase 1 done**, in a cloud session. `make e2e` green from a clean clone, 5 tests in
+  about 5 s. MJPEG from OpenCV instead of `.y4m` from ffmpeg; the face model served from
+  `ModelManager` rather than pinned twice; tasks-vision held at 1.0.1 and found to post usage logs
+  to Google, now blocked by a CSP and checked by a test. Still to do: run `make e2e` on g7 once,
+  after `uv run --no-sync playwright install chromium`.

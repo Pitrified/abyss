@@ -1,5 +1,5 @@
 ---
-status: planned
+status: done
 ---
 
 # Phase 1 - harness and skeleton page
@@ -80,3 +80,51 @@ Tracking, the scene, HTTPS, any device but headless Chromium.
 - `scripts/drive_ui.py` produces a screenshot of the page showing the synthetic clip.
 - `docs/guides/` has a page for `make vendor`, `make serve` and `make e2e`, and
   `.github/copilot-instructions.md` mentions the harness, so the next session finds it.
+
+## What the implementation found
+
+Done on 2026-10-22 in a cloud session, and verified there from a clean clone: `make sync`,
+`make check` (288 passed, the 5 browser tests deselected), `make e2e` (5 passed in about 5 s).
+**Not yet run on g7**, which needs `uv run --no-sync playwright install chromium` once; that run
+is carried in the tracking log rather than holding the phase open.
+
+Where the build differs from the plan above, and why:
+
+- **MJPEG, not `.y4m`, and OpenCV, not ffmpeg.** Chromium's fake device plays a file of
+  concatenated JPEGs, and OpenCV writes one, so the clip needs nothing g7 might not have. 17 MB for
+  four seconds at 720x1280, against about 165 MB for the same as `.y4m`. The page can split the same
+  file into frames for `?source=` in phase 2, so one format serves both modes.
+- **The minimum face is 250 px, not 400.** 400 was a guess from the probe. Measured as the width of
+  the landmark box: no face found at about 110 px, every frame found at about 270 px. The clip's
+  narrowest face is 288 px and a unit test holds it above 250.
+- **The face model is not in the manifest.** The server hands out the file the Python pipeline
+  loads, through pose-tools' `ModelManager`, so the two implementations can never run different
+  models. That matters more for phase 2's comparison than a second pin would.
+- **Python fetches, not npm.** About 300 lines with its tests, no Node anywhere, and the same
+  behaviour in a cloud session and on g7.
+- **Versions held back.** `@mediapipe/tasks-vision` is 1.0.1, not 1.1.1, and Playwright is capped
+  below 1.64: both newer releases were under two weeks old. 1.0.1 is also the closest web build to
+  the Python side's `mediapipe` 1.0.0.
+- **tasks-vision phones home.** Every version checked posts usage logs (task type, timings,
+  platform) to `odml.pa.googleapis.com` once a minute with an embedded API key. Every response from
+  the server carries a Content-Security-Policy with `connect-src 'self'`, and `make e2e` fails if
+  the page requests anything from another host. Shown both ways: with the rule removed the test
+  caught a stray `fetch`, with it restored the same `fetch` never left the browser.
+- **The policy breaks `wait_for_function`.** Playwright evaluates its predicate with `eval` in the
+  page, which the policy refuses. `abyss.ui.browser.wait_until` polls through DevTools instead, so
+  the policy stays strict.
+- **Browser tests live in `tests/e2e/`**, and `tests/ui/` holds the unit tests of `src/abyss/ui/`,
+  which keeps `tests/` mirroring `src/`. A pytest marker keeps the browser tests out of `make test`.
+- **Chromium is found, not installed.** Playwright's own if present, else the one under
+  `PLAYWRIGHT_BROWSERS_PATH`, which is how cloud sessions ship it at a revision Playwright's
+  version does not expect.
+- **The clip is regenerated on every run**, about a second, so it cannot disagree with
+  `face_path` after the path changes.
+
+Every browser test was seen failing before it counted: the frame counter frozen, the error path
+removed, the stray request above. The clip check against the Python landmarker was tightened from
+4 px to 2 px after measuring a worst residual of 0.81 px.
+
+Found on the way and left alone: the venv resolves ruff 0.16.2 while pre-commit pins 0.15.2, and
+0.16.2 reformats eight files the hook accepts. `make check` only lints, so nothing fails today.
+
