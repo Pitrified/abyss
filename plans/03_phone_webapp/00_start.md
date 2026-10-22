@@ -51,11 +51,40 @@ Numbering is local to this folder.
 - Q1: **Where does the split land - frames or landmarks?** Sending camera frames to the server and
   rendered frames back is the obvious shape and the most bandwidth. Running the landmarker on the
   phone and sending only an eye position is far lighter, and MediaPipe has a web build.
-  ANS: ...
+  ANS: landmarks, and they never leave the phone. Tracking, the frustum and the drawing all run on the
+  phone, so nothing per frame crosses the network and the round trip is not on the path from a head
+  movement to the picture moving, which is the latency the effect is judged by. g7 serves the page and
+  the assets and is otherwise out of the loop. The cost is a second implementation of the frustum
+  maths, a few dozen lines, held to the Python one by a check (see
+  [`01_research_dev_harness.md`](01_research_dev_harness.md)). Sending frames was rejected for that
+  latency, and splitting tracking from drawing across the network keeps a hop on the path for no gain.
 - Q2: **Does the browser render, or does the server?** If the browser renders (three.js), the server
   only sends a viewer position and the phone GPU does the work. If the server renders, it sends
   video. This mostly follows from Q1.
-  ANS: ...
+  ANS: the browser, with three.js. A native app (Flutter or Unity) was considered: Flutter is weak at
+  3D and awkward for MediaPipe, and Unity is the upgrade path if the browser runs out of performance,
+  not the starting point, because of its build cycle and licence. The page also runs unchanged on g4
+  and in a headless Chromium, which is what makes it testable at all.
 - Q3: **Is a phone even needed for a first version?** A laptop browser on the same network exercises
   the whole path with none of the phone-specific unknowns. g4 is that laptop, on the same tailnet.
+  ANS: no. Order: headless Chromium with a recorded face fed in as the camera, then g4's browser,
+  then the same page on the Pixel. Each step adds one unknown.
+
+The second batch comes out of [`01_research_dev_harness.md`](01_research_dev_harness.md): how an
+agent runs the page for real, with a recorded face standing in for the camera.
+
+- Q4: **No-Node page, or Vite?** ES modules and an import map over files vendored from npm, served
+  and tested from Python, against Vite plus `@playwright/test`. The first keeps abyss on one
+  toolchain and needs nothing on g7 that is not there today.
+  Recommended: no Node, until a dependency forces a bundler.
+  ANS: ...
+- Q5: **Is `make e2e` part of `make check`?** The probe ran a fake-camera session in seconds, but
+  MediaPipe's WASM path was around 90 ms a frame there, so a frame-exact run over a whole clip is not.
+  Recommended: separate target first, folded in if it turns out fast enough.
+  ANS: ...
+- Q6: **Where does the webapp live?** `webapp/` at the root beside `src/`, with its server and the
+  golden-vector export in `src/abyss/webapp/`.
+  ANS: ...
+- Q7: **Record a phone clip first?** None of the existing clips is the Pixel's front camera at phone
+  distance in portrait. One recording gives the fixture and the focal length measurement.
   ANS: ...
