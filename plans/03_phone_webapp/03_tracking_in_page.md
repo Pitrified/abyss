@@ -1,5 +1,5 @@
 ---
-status: planned
+status: done
 ---
 
 # Phase 2 - tracking in the page
@@ -54,9 +54,48 @@ The frustum and the scene. Performance on the phone, which is phase 4's to measu
 - Q1: **Does the WASM build disagree with the Python build enough to matter?** Measured by the first
   test. If it does, the fix is in the comparison's tolerance and in understanding why, not in
   tuning either side to match.
-  ANS: ...
+  ANS: no. Over the 120 frames of the synthetic clip, tasks-vision 1.0.1 against mediapipe 1.0.0,
+  both on the CPU in VIDEO mode, the worst per-frame differences were 0.20 px on the iris midpoint,
+  0.26 px on apparent IPD, 0.30 mm on depth and 0.054 deg on yaw, and both found the face in every
+  frame. Measured 2026-10-22.
 
 ## Done when
 
 - The cross-implementation and path tests are green under `make e2e`, with the tolerance recorded.
 - `scripts/drive_ui.py` shows the clip with the eye position overlaid.
+
+## What the implementation found
+
+Done on 2026-10-22 in a cloud session. `make e2e` runs 20 tests in about 27 s; `make check` is
+unchanged in what it runs.
+
+- **`?source=` reads the MJPEG itself**, not through a `<video>` element. The page fetches the clip,
+  splits it at JPEG start markers and decodes each frame with `createImageBitmap`, so every frame is
+  seen once and in order, and the bytes are the ones Python decodes. `requestVideoFrameCallback`
+  stays for the camera path.
+- **The page retypes no number.** `/config.json` carries the device configs and every constant the
+  port needs (MediaPipe's assumed field of view, the eye offset in the face model, the iris landmark
+  indices, the bootstrap length, the filter width), read from the modules that define them.
+- **The matrix is column-major.** tasks-vision returns the facial transformation matrix as a flat
+  array without saying its order. Read column-major, the clip agrees with Python to 0.3 mm in depth;
+  read row-major, five tests fail.
+- **VIDEO mode lags fast motion, in both builds.** At peak speed the clip moves 22 px a frame and
+  the tracked iris trails it by up to 10.5 px, against 0.81 px in IMAGE mode on single frames
+  (phase 1). The two builds lag identically, so this is MediaPipe's tracking and not the port. The
+  path test checks pixels only where the clip is still, and direction and depth everywhere.
+- **Tolerances** are about twice the worst value seen: 0.5 px, 1 mm, 0.15 deg against Python;
+  2 mm on positions; 2 px on the still frames; 6% on depth against the path, where 3.5% was seen.
+- **Golden cases instead of a JS test runner.** `tests/e2e/test_port.py` builds inputs in Python,
+  computes the expected outputs with the real Python functions, and runs the page's modules on the
+  same inputs through DevTools. It covers the branches the clip never reaches: the mirrored Pixel
+  camera, a measured focal length, a field of view, viewers turned away, a frame with no face.
+- **The usage log is now seen being refused.** Closing the landmarker at the end of a clip flushes
+  tasks-vision's log; the page's console shows the CSP refusing `odml.pa.googleapis.com`, and a test
+  requires both the attempt and the refusal, so a green request check means something.
+- **A config detail found by the tests:** `model_dump()` keeps tuples, which JSON returns as lists.
+  The page config uses `model_dump(mode="json")`.
+
+Every new check was seen failing: matrix order (five tests), the mirror flip, the even-count median.
+The page tracks at roughly 55 ms a frame headless on the container's CPU, which says nothing about
+the phone.
+

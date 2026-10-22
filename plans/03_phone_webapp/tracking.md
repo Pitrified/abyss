@@ -30,7 +30,7 @@ dev harness pattern and the probe that shaped it in
 | #  | Phase                                   | Plan | Status  |
 | -- | --------------------------------------- | ---- | ------- |
 | 1  | harness and skeleton page               | [`02_harness_skeleton.md`](02_harness_skeleton.md) | done, g7 run pending |
-| 2  | tracking in the page                    | [`03_tracking_in_page.md`](03_tracking_in_page.md) | planned |
+| 2  | tracking in the page                    | [`03_tracking_in_page.md`](03_tracking_in_page.md) | done    |
 | 3  | frustum and scene in the page           | [`04_frustum_and_scene.md`](04_frustum_and_scene.md) | planned |
 | 4  | real clients: g4, then the Pixel        | [`05_real_clients.md`](05_real_clients.md) | planned |
 
@@ -63,3 +63,8 @@ Append-only. Newest at the bottom.
   `ModelManager` rather than pinned twice; tasks-vision held at 1.0.1 and found to post usage logs
   to Google, now blocked by a CSP and checked by a test. Still to do: run `make e2e` on g7 once,
   after `uv run --no-sync playwright install chromium`.
+- 2026-10-22 : **phase 2 done.** The page tracks the face and computes the eye position with a port
+  of the Python modules, and agrees with Python on every frame of the clip to 0.20 px, 0.30 mm and
+  0.054 deg. The JS matrix is column-major. VIDEO mode lags fast motion by up to 10.5 px in both
+  builds alike. tasks-vision's usage log is now seen attempted and refused.
+
