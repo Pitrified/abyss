@@ -133,3 +133,12 @@ def test_config_route_serves_json_and_names_unknown_devices(base: str) -> None:
     assert response.status == 200
     assert response.getheader("Content-Type") == "application/json"
     assert get(base, "/config.json?camera=nope").status == 404
+
+
+def test_scene_route_needs_a_known_screen(base: str) -> None:
+    """The scene is per panel: no screen is a 400, an unknown one a 404."""
+    response = get(base, "/scene.json?screen=g7_internal")
+    assert response.status == 200
+    assert response.getheader("Content-Type") == "application/json"
+    assert get(base, "/scene.json").status == 400
+    assert get(base, "/scene.json?screen=nope").status == 404

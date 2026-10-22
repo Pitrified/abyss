@@ -28,3 +28,16 @@ def test_document_is_json() -> None:
     """Everything in it survives a JSON round trip unchanged."""
     config = page_config("g7_webcam", screen="g7_internal")
     assert json.loads(json.dumps(config)) == config
+
+
+def test_scene_document_is_the_python_scene() -> None:
+    """Segments and colours are window_box's, unchanged, for the named panel."""
+    from abyss.params.abyss_devices import get_screen
+    from abyss.render.scene import window_box
+    from abyss.ui.page_config import scene_document
+
+    document = scene_document("g7_internal")
+    scene = window_box(get_screen("g7_internal"))
+    assert document["segments"] == scene.segments.tolist()
+    assert document["colours"] == scene.colours.tolist()
+    assert json.loads(json.dumps(document)) == document

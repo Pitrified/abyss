@@ -13,3 +13,13 @@ export async function loadConfig({ camera, viewer, screen } = {}) {
   }
   return response.json();
 }
+
+export async function loadScene(screen) {
+  const response = await fetch(`/scene.json?screen=${encodeURIComponent(screen)}`);
+  if (!response.ok) {
+    const err = new Error(`scene: ${response.status} ${await response.text()}`);
+    err.name = "ConfigError";
+    throw err;
+  }
+  return response.json();
+}

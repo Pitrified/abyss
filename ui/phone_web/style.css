@@ -24,3 +24,21 @@ html, body {
   padding: 0.2em 0.5em;
   background: rgb(0 0 0 / 60%);
 }
+
+/* With a scene, the scene is the picture, centred and letterboxed to the
+   panel's shape, and the camera view shrinks to an inset for checking. */
+#scene {
+  position: fixed;
+  inset: 0;
+  margin: auto;
+}
+
+.with-scene #camera,
+.with-scene #view {
+  inset: auto 0.5em 2.5em auto;
+  width: auto;
+  height: 30%;
+  z-index: 1;
+  opacity: 0.8;
+}
+

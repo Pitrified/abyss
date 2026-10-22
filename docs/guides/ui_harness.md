@@ -30,6 +30,7 @@ uv run --no-sync playwright install chromium
 | `/models/face_landmarker.task` | the model the Python pipeline loads, through pose-tools' `ModelManager` |
 | `/clips/<name>` | `build/clips/` |
 | `/config.json?camera=&viewer=&screen=` | device configs from `abyss_devices.py` and the constants of the maths |
+| `/scene.json?screen=` | the scene for that panel, as segments from `abyss.render.scene.window_box` |
 
 `ui/vendor.toml` is the only third-party thing in git. Each npm package is pinned by version and by
 the integrity hash the registry publishes; `make vendor` checks every tarball against it and records
@@ -54,12 +55,21 @@ length, the filter width) come from `/config.json`, built from the Python module
 | `source=/clips/<name>.mjpeg` | read the clip instead of the camera, one inference per frame, in order |
 | `camera=<key>` | camera registry key; default `pixel7pro_front`. Use `unknown_clip` for the synthetic clip |
 | `viewer=<key>` | viewer registry key |
+| `screen=<key>` | screen registry key; draws the scene for that panel through the off-axis projection |
+| `eye=<x,y,z>` | no tracking: draw one frame for this camera-frame eye, in metres; needs `screen=` |
+| `size=<WxH>` | output size in pixels; default is the largest with the panel's aspect that fits the window |
 | `scale=<float>` | freeze the head scale instead of bootstrapping it |
 | `delegate=GPU` | MediaPipe delegate; CPU by default |
 | `fps=<float>` | the clip's frame rate, for VIDEO-mode timestamps; default 30, which `make clip` writes |
 
 With `source=`, the page publishes one entry per frame on `window.abyss.track` and sets
 `window.abyss.status` to `done` at the end. With the camera it keeps `window.abyss.latest` current.
+With `screen=`, each entry also carries the view projection `matrix` it drew with, row-major.
+
+The scene is drawn by three.js from the served segments. three.js's own cameras cannot express an
+off-axis frustum, so a bare `THREE.Camera` at the origin carries abyss's whole view projection as
+its projection matrix. `Matrix4.set` takes row-major arguments; passing the matrix to `fromArray`
+instead transposes it, and only the picture tests in `tests/e2e/test_page_scene.py` notice.
 
 ## The camera
 

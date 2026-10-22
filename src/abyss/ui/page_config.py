@@ -7,8 +7,13 @@ in Python reaches the page on its next load, and nothing in JavaScript can
 quietly disagree with it.
 
 The query string picks the devices by registry key:
-``/config.json?camera=pixel7pro_front&viewer=default``. ``screen`` is optional
-until phase 3 needs it.
+``/config.json?camera=pixel7pro_front&viewer=default&screen=g7_internal``.
+``screen`` is optional: without it the page tracks and draws no scene.
+
+The scene is served the same way, at ``/scene.json?screen=<key>``: the segments
+and colours :func:`abyss.render.scene.window_box` builds for that panel. The
+page draws what it is given, so its geometry cannot drift from Python's, and a
+different scene is a different document rather than a change to the page.
 """
 
 from typing import Any
@@ -20,6 +25,12 @@ from abyss.config.camera import MEDIAPIPE_VERTICAL_FOV_DEG
 from abyss.params.abyss_devices import get_camera
 from abyss.params.abyss_devices import get_screen
 from abyss.params.abyss_devices import get_viewer
+from abyss.render.frustum import CAMERA_TO_SCREEN
+from abyss.render.frustum import DEFAULT_FAR_M
+from abyss.render.frustum import DEFAULT_NEAR_M
+from abyss.render.renderer import ASPECT_TOLERANCE
+from abyss.render.renderer import BACKGROUND_BGR
+from abyss.render.scene import window_box
 from abyss.viewer.eye_position import BOOTSTRAP_SAMPLES
 from abyss.viewer.eye_position import CM_TO_M
 from abyss.viewer.eye_position import EYE_IN_MODEL_CM
@@ -45,6 +56,10 @@ def constants() -> dict[str, object]:
         "filter_size": DEFAULT_FILTER_SIZE,
         "right_iris_center": FACE_RIGHT_IRIS_CENTER,
         "left_iris_center": FACE_LEFT_IRIS_CENTER,
+        "near_m": DEFAULT_NEAR_M,
+        "far_m": DEFAULT_FAR_M,
+        "camera_to_screen": CAMERA_TO_SCREEN.tolist(),
+        "aspect_tolerance": ASPECT_TOLERANCE,
     }
 
 
@@ -73,4 +88,25 @@ def page_config(
         if screen is None
         else get_screen(screen).model_dump(mode="json"),
         "constants": constants(),
+    }
+
+
+def scene_document(screen: str) -> dict[str, Any]:
+    """Build the document served at ``/scene.json``.
+
+    Args:
+        screen: Screen registry key; the scene's mouth is that panel.
+
+    Returns:
+        ``segments`` as ``(N, 2, 3)`` nested lists in the screen frame, metres;
+        ``colours`` as ``(N, 3)`` BGR, 0 to 255; ``background`` BGR.
+
+    Raises:
+        UnknownDeviceError: If the key is not registered.
+    """
+    scene = window_box(get_screen(screen))
+    return {
+        "segments": scene.segments.tolist(),
+        "colours": scene.colours.tolist(),
+        "background": list(BACKGROUND_BGR),
     }

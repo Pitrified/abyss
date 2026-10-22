@@ -10,7 +10,8 @@ One static server for every UI under ``ui/``, standard library only. Routes:
 - ``/models/face_landmarker.task``: the same model file the Python pipeline
   loads, through pose-tools' ``ModelManager``.
 - ``/clips/<name>``: generated clips from ``build/clips/``.
-- ``/config.json?camera=&viewer=&screen=``: device configs and constants, see
+- ``/config.json?camera=&viewer=&screen=``: device configs and constants, and
+  ``/scene.json?screen=``: the scene for that panel. See
   :mod:`abyss.ui.page_config`.
 
 Every response carries a Content-Security-Policy whose ``connect-src 'self'``
@@ -46,6 +47,7 @@ from abyss.params.abyss_params import get_abyss_paths
 from abyss.ui.page_config import DEFAULT_CAMERA
 from abyss.ui.page_config import DEFAULT_VIEWER
 from abyss.ui.page_config import page_config
+from abyss.ui.page_config import scene_document
 from abyss.ui.vendor import Manifest
 from abyss.ui.vendor import VendorFileMissingError
 from abyss.ui.vendor import VendorIntegrityError
@@ -159,6 +161,8 @@ class UiRequestHandler(BaseHTTPRequestHandler):
             self.send_model()
         elif path == "/config.json":
             self.send_config(urlsplit(self.path).query)
+        elif path == "/scene.json":
+            self.send_scene(urlsplit(self.path).query)
         elif path.startswith("/clips/"):
             self.send_inside(self.config.clips_dir, path.removeprefix("/clips/"))
         else:
@@ -215,6 +219,23 @@ class UiRequestHandler(BaseHTTPRequestHandler):
             self.send_error(HTTPStatus.NOT_FOUND, str(exc))
             return
         self.send_bytes(json.dumps(config).encode(), CONTENT_TYPES[".json"])
+
+    def send_scene(self, query: str) -> None:
+        """Send the scene for the panel named in the query string.
+
+        Args:
+            query: The raw query string.
+        """
+        params = {key: values[-1] for key, values in parse_qs(query).items()}
+        if "screen" not in params:
+            self.send_error(HTTPStatus.BAD_REQUEST, "scene.json needs ?screen=<key>")
+            return
+        try:
+            document = scene_document(params["screen"])
+        except UnknownDeviceError as exc:
+            self.send_error(HTTPStatus.NOT_FOUND, str(exc))
+            return
+        self.send_bytes(json.dumps(document).encode(), CONTENT_TYPES[".json"])
 
     def send_model(self) -> None:
         """Send the face landmarker model the Python pipeline uses."""
