@@ -125,3 +125,11 @@ def test_split_vendor_path() -> None:
     )
     assert split_vendor_path("@a/b/c/d.js") == ("@a/b", "c/d.js")
     assert split_vendor_path("@a/b") is None
+
+
+def test_config_route_serves_json_and_names_unknown_devices(base: str) -> None:
+    """Known devices give the document, an unknown one a 404, never a default."""
+    response = get(base, "/config.json?camera=g7_webcam")
+    assert response.status == 200
+    assert response.getheader("Content-Type") == "application/json"
+    assert get(base, "/config.json?camera=nope").status == 404

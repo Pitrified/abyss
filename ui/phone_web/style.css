@@ -7,7 +7,8 @@ html, body {
   overflow: hidden;
 }
 
-#camera {
+#camera,
+#view {
   position: fixed;
   inset: 0;
   width: 100%;

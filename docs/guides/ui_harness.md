@@ -29,6 +29,7 @@ uv run --no-sync playwright install chromium
 | `/vendor/<npm name>/<path>` | `cache/vendor/`, at the version `ui/vendor.toml` pins |
 | `/models/face_landmarker.task` | the model the Python pipeline loads, through pose-tools' `ModelManager` |
 | `/clips/<name>` | `build/clips/` |
+| `/config.json?camera=&viewer=&screen=` | device configs from `abyss_devices.py` and the constants of the maths |
 
 `ui/vendor.toml` is the only third-party thing in git. Each npm package is pinned by version and by
 the integrity hash the registry publishes; `make vendor` checks every tarball against it and records
@@ -41,6 +42,24 @@ Every response carries a Content-Security-Policy. `connect-src 'self'` is the li
 `@mediapipe/tasks-vision` posts usage logs to `odml.pa.googleapis.com` every minute, and the
 policy is what stops it. The page cannot load or send anything to any host but the one serving it,
 and `make e2e` fails if it tries.
+
+The page ports the eye position maths to JavaScript, but none of its numbers: device configs and
+constants (MediaPipe's assumed field of view, the eye offset in the face model, the bootstrap
+length, the filter width) come from `/config.json`, built from the Python modules that define them.
+
+## Page parameters
+
+| Parameter | Effect |
+| --- | --- |
+| `source=/clips/<name>.mjpeg` | read the clip instead of the camera, one inference per frame, in order |
+| `camera=<key>` | camera registry key; default `pixel7pro_front`. Use `unknown_clip` for the synthetic clip |
+| `viewer=<key>` | viewer registry key |
+| `scale=<float>` | freeze the head scale instead of bootstrapping it |
+| `delegate=GPU` | MediaPipe delegate; CPU by default |
+| `fps=<float>` | the clip's frame rate, for VIDEO-mode timestamps; default 30, which `make clip` writes |
+
+With `source=`, the page publishes one entry per frame on `window.abyss.track` and sets
+`window.abyss.status` to `done` at the end. With the camera it keeps `window.abyss.latest` current.
 
 ## The camera
 
