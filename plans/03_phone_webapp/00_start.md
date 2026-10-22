@@ -1,5 +1,5 @@
 ---
-status: draft
+status: done
 ---
 
 # Phone webapp - capture and display over the network
@@ -88,7 +88,8 @@ agent runs the page for real, with a recorded face standing in for the camera.
   `npm ci` if g7 has Node, or a short Python fetcher over the registry if not.
   Recommended: b. c is fine for a throwaway prototype, and `cdn.jsdelivr.net` is allowed in the cloud
   environment since 2026-10-22.
-  ANS: ...
+  ANS: b. A manifest in git, a fetched and hash-checked gitignored cache, served by g7. Who fetches is
+  settled in phase 1.
 - Q5: **Is `make e2e` part of `make check`?** The probe ran a fake-camera session in seconds, but
   MediaPipe's WASM path was around 90 ms a frame there, so a frame-exact run over a whole clip is not.
   ANS: no, `make e2e` is a separate target.
@@ -113,4 +114,5 @@ agent runs the page for real, with a recorded face standing in for the camera.
      Cloudflare tunnel with an access token. Only needed if a cloud session must run the real clip.
   Recommended: a plus b plus c. c is the fixture every run has, a is the real-world check on g7,
   b carries what a needs into places a cannot go. d only if that turns out not to be enough.
-  ANS: ...
+  ANS: c now. a plus b is wanted and deferred: it needs a recording session with the Pixel, and
+  nothing in the first phases waits on it. d is not planned.
