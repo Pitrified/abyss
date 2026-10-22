@@ -31,7 +31,7 @@ dev harness pattern and the probe that shaped it in
 | -- | --------------------------------------- | ---- | ------- |
 | 1  | harness and skeleton page               | [`02_harness_skeleton.md`](02_harness_skeleton.md) | done, g7 run pending |
 | 2  | tracking in the page                    | [`03_tracking_in_page.md`](03_tracking_in_page.md) | done    |
-| 3  | frustum and scene in the page           | [`04_frustum_and_scene.md`](04_frustum_and_scene.md) | planned |
+| 3  | frustum and scene in the page           | [`04_frustum_and_scene.md`](04_frustum_and_scene.md) | done    |
 | 4  | real clients: g4, then the Pixel        | [`05_real_clients.md`](05_real_clients.md) | planned |
 
 Status values: draft / planned / in progress / done / superseded / discarded.
@@ -67,4 +67,9 @@ Append-only. Newest at the bottom.
   of the Python modules, and agrees with Python on every frame of the clip to 0.20 px, 0.30 mm and
   0.054 deg. The JS matrix is column-major. VIDEO mode lags fast motion by up to 10.5 px in both
   builds alike. tasks-vision's usage log is now seen attempted and refused.
+- 2026-10-22 : **phase 3 done.** The page builds the off-axis frustum from the smoothed eye and
+  three.js draws the minimal scene through it, served as segments from `window_box` rather than
+  ported. Matrices agree with Python to 1e-9 relative; the drawn frame is read back and checked at
+  Python-projected points, which is the only check that catches a transposed handoff. Phases 1-3
+  are done in a cloud session; `make e2e` on g7 and phase 4 (g4, then the Pixel, by hand) remain.
 
