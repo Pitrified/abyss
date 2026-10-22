@@ -31,6 +31,12 @@ dev = [
     { include-group = "lint" },
     { include-group = "notebook" },
     { include-group = "test" },
+    { include-group = "e2e" },
+]
+e2e = [
+    # 1.64 was nine days old when this was pinned; the cap is supply-chain
+    # caution, lift it once a release has been out a few weeks.
+    "playwright>=1.63,<1.64",
 ]
 test = [
     "pytest>=8.3.4",
@@ -56,3 +62,9 @@ venv = ".venv"
 pythonVersion = "3.14"
 # remember to adjust include paths as needed (eg scripts folder)
 include = ["src", "tests"]
+
+[tool.pytest.ini_options]
+# The browser tests need Chromium and take tens of seconds, so `make test` skips
+# them and `make e2e` runs only them. See docs/guides/ui_harness.md.
+markers = ["e2e: drives a real browser; run with `make e2e`"]
+addopts = "-m 'not e2e'"

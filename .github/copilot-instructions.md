@@ -43,7 +43,13 @@ make sync        # uv sync --all-extras --all-groups
 make check       # lint + typecheck + test
 make test        # uv run --no-sync pytest
 make nbstrip     # strip notebook outputs (the hook only verifies)
+make e2e         # browser tests: Chromium, a synthetic face clip as the camera
 ```
+
+**The browser UIs are checked by running them.** `make e2e` serves `ui/`, opens it in headless
+Chromium with a recorded face playing as the webcam, and reads the page's state; `scripts/drive_ui.py`
+does the same by hand and prints one log stream. Use them before calling UI work done. Details in
+`docs/guides/ui_harness.md`.
 
 **Always run project code through `make`, or through `uv run --no-sync`.** A bare `uv run`
 re-syncs the environment from `uv.lock` first, which silently reverts a local editable install of
@@ -141,6 +147,9 @@ trailing colon.
 
 - `tests/` mirrors `src/abyss/`.
 - `scripts/` holds manual scripts, run directly and never collected by pytest.
+- `ui/` holds the browser UIs, one folder each, plus `vendor.toml`, the manifest of their
+  third-party files. `src/abyss/ui/` is what serves and tests them. `tests/e2e/` holds the browser
+  tests, skipped by `make test`.
 - `scratch_space/` is for throwaway prototyping notebooks.
 - `plans/` holds the planning record: one folder per initiative, `tracking.md` first.
 - `docs/` is plain markdown, read in the repo. `docs/guides/` for tooling and conventions,

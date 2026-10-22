@@ -10,8 +10,14 @@ make help        # list every target with its description
 make sync        # install all dependencies (extras and groups)
 make check       # lint, typecheck and test
 make nbstrip     # strip notebook outputs
+make vendor      # fetch the browser UIs' third-party files
+make clip        # write the synthetic face clip
+make serve       # serve the browser UIs on localhost
+make e2e         # browser tests, kept out of `make check`
 make undev       # revert a local editable override
 ```
+
+The four UI targets are explained in [`ui_harness.md`](ui_harness.md).
 
 ## Adding a target
 

@@ -1,0 +1,38 @@
+# Third-party files the UIs load, fetched on demand by `make vendor` into
+# cache/vendor/ (gitignored) and served from there. Nothing here is committed
+# but this manifest. See docs/guides/ui_harness.md.
+#
+# npm packages are pinned by exact version and by the integrity hash the npm
+# registry publishes for the tarball; only the listed files are extracted.
+# Plain files are pinned by URL and sha256.
+#
+# The face landmarker model is not listed: the server hands out the same file
+# the Python pipeline loads, through pose-tools' ModelManager, so the two
+# implementations can never run different models.
+
+[npm."@mediapipe/tasks-vision"]
+# 1.0.1 rather than the newer 1.1.x: the Python side runs mediapipe 1.0.0, and
+# the closer the two builds are, the less a cross-implementation difference
+# has to be explained by the version.
+version = "1.0.1"
+integrity = "sha512-rvRE2FmAZ6ZxKSw7wq+e+jQDpN3t1B/tD2mJz9SmAzb1msoDkd4dMoE4wAh8Z30Um0PQwLiHr9QtomhmXk3aUQ=="
+files = [
+    "vision_bundle.mjs",
+    "wasm/vision_wasm_internal.js",
+    "wasm/vision_wasm_internal.wasm",
+]
+
+[npm.three]
+version = "0.186.1"
+integrity = "sha512-blFeqb49wRCSGUGj7gtpfnSGHy2lwDk94RhUmS1c/hTby70kvChbWpkJ4Pm1390LqzzvTmzgXKHPEafJwCb8jA=="
+files = [
+    "build/three.module.js",
+    "build/three.core.js",
+]
+
+[file.portrait]
+# The official 2012 White House portrait of Barack Obama, a work of the US
+# federal government and so in the public domain. Hosted by MediaPipe as a test
+# asset. The synthetic test clip is built from it.
+url = "https://storage.googleapis.com/mediapipe-assets/portrait.jpg"
+sha256 = "a6f11efaa834706db23f275b6115058fa87fc7f14362681e6abe14e82749de3e"
