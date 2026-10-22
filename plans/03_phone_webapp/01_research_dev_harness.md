@@ -157,18 +157,19 @@ alternative Chromium also accepts.
 
 ## Shape in abyss
 
-A proposal, to be confirmed through the questions in `00_start.md`.
+A proposal. Q6 in `00_start.md` asks for room for more than one UI and more than one renderer, so the
+names below are placeholders for the first of several, not the layout of the only one.
 
 ```text
-webapp/                      the page: index.html, ES modules, vendored three.js and tasks-vision
-  vendor/                    pinned copies from npm, with the versions in one manifest
-src/abyss/webapp/            serve.py: static server for dev and tests; golden-vector export
-tests/webapp/                Playwright tests, marked so `make test` can skip them
-scripts/drive_webapp.py      the klide-style instrument: one log stream, screenshots to build/
+ui/phone_web/                the page: index.html and ES modules
+  vendor/                    gitignored; third-party files fetched by manifest (Q4)
+src/abyss/ui/                what serves a UI, plus the golden-vector export
+tests/ui/                    Playwright tests, run by `make e2e` and not by `make test`
+scripts/drive_ui.py          the klide-style instrument: one log stream, screenshots to build/
 ```
 
-Make targets: `make serve` (local), `make e2e` (the Playwright tests, headless, fake camera and
-`?source=`), kept out of `make check` unless it turns out fast enough to belong there.
+Make targets: `make serve` (local) and `make e2e` (the Playwright tests, headless, fake camera and
+`?source=`). `make e2e` is not part of `make check` (Q5).
 
 What `make e2e` would prove, in order of value:
 
