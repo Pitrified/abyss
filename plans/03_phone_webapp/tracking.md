@@ -142,5 +142,13 @@ Append-only. Newest at the bottom.
   its left edge, as it should. The effect looks natural and correct, the cyan frame stable on the
   glass's edge. CPU delegate 29.9 to 30 fps, GPU delegate works and holds 30: the camera's 30 fps is
   the ceiling either way, so the 15 fps floor holds with room. Stage split and depth not yet read.
+- 2026-10-23 : **phase 4, Pixel 7 Pro, stage split**, from the log button, GPU delegate, version
+  `ui d8177758` as served. Medians in ms: landmarker 28.3, eye 0.0, matrix 0.0, draw 0.1, interval
+  33.3, 30.0 fps. The landmarker takes 85% of the camera's 33 ms frame, so 30 fps holds with about
+  5 ms to spare and a 60 fps stream would not keep up. First GPU frame 931 ms, a one-off warm-up.
+  The run was not fullscreen (no tap): picture 366x793 CSS, letterboxed. Depth reads about 14.5 cm
+  held in the hand, which looks too close by about half or more: with a 1280x720 upright crop the
+  frame's vertical field of view is likely far narrower than the 63 deg MediaPipe assumes, so `z`
+  comes out short. To confirm with a tape.
 - 2026-10-23 : asked for after the Pixel run: a version label (`/version.js`, a hash of `ui/`) to rule
   out a stale page, and a log button that copies `window.abyss.log` for pasting into a chat.
