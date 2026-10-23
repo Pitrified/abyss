@@ -124,3 +124,11 @@ Append-only. Newest at the bottom.
   runs on the fake camera at 30 fps, landmarker median 25.6 ms, the rest under 0.3 ms, nothing
   off-server; the probe reports a secure context and a 720x1280 stream. Undo with
   `tailscale serve --https=443 off`, as root.
+- 2026-10-23 : **phase 4, Pixel 7 Pro, probe** (runbook section 2), over the tailnet. Android 17,
+  Chrome 155, Mali-G710. Stream **1280x720, landscape, with the phone upright**, 30 fps (60 max),
+  `crop-and-scale`, label "camera 1, facing front": whether the content is upright-but-wide or
+  rotated is not yet known. Screen 412x892 CSS at a pixel ratio of 2.625, so 1082x2342 drawn: the
+  phone is on its 1080x2340 resolution setting, not the 1440x3120 maximum. The registry's sizes are
+  in metres, so `pixel7pro` holds either way; only sharpness changes. Fullscreen and lock: inner
+  window 411x794 before the tap, 411x891 after, `locked`, bottom safe area 24 px gone, so the page
+  gets the whole panel, at an aspect within 0.05% of the panel's.

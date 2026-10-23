@@ -46,8 +46,9 @@ asks for it. Read these out of it:
   If it is landscape, the iris pixels are in a rotated frame and the focal length belongs to the
   other axis: the depth and the sideways numbers are both wrong, and nothing later in this page is
   worth recording until that is fixed. Stop and record it.
-- **`screen.physical`**: should be 1440x3120 on the Pixel, the panel `pixel7pro` was built from.
-  Anything else means the browser is not reporting the panel, or the registry is wrong.
+- **`screen.physical`**: 1440x3120 on the Pixel at its maximum resolution setting, or 1082x2342 at
+  its default 1080p one (seen 2026-10-23). Either is the same glass: `pixel7pro` is in metres, so
+  only sharpness differs. Anything else means the browser is not reporting the panel.
 - **`afterTap.lock`**: `"locked"` on the Pixel. An error name means the page cannot hold the
   phone in portrait, and turning it will reflow the picture.
 - **`afterTap.window.inner`** times `screen.devicePixelRatio` should be close to `screen.physical`:
