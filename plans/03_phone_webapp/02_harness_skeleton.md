@@ -85,8 +85,8 @@ Tracking, the scene, HTTPS, any device but headless Chromium.
 
 Done on 2026-10-22 in a cloud session, and verified there from a clean clone: `make sync`,
 `make check` (288 passed, the 5 browser tests deselected), `make e2e` (5 passed in about 5 s).
-**Not yet run on g7**, which needs `uv run --no-sync playwright install chromium` once; that run
-is carried in the tracking log rather than holding the phase open.
+Run on g7 on 2026-10-23: green after one test fix, since g7's real camera makes the no-camera
+browser fail with `NotSupportedError` rather than `NotFoundError`. Details in the tracking log.
 
 Where the build differs from the plan above, and why:
 

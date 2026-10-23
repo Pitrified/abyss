@@ -29,7 +29,7 @@ dev harness pattern and the probe that shaped it in
 
 | #  | Phase                                   | Plan | Status  |
 | -- | --------------------------------------- | ---- | ------- |
-| 1  | harness and skeleton page               | [`02_harness_skeleton.md`](02_harness_skeleton.md) | done, g7 run pending |
+| 1  | harness and skeleton page               | [`02_harness_skeleton.md`](02_harness_skeleton.md) | done    |
 | 2  | tracking in the page                    | [`03_tracking_in_page.md`](03_tracking_in_page.md) | done    |
 | 3  | frustum and scene in the page           | [`04_frustum_and_scene.md`](04_frustum_and_scene.md) | done    |
 | 4  | real clients: g4, then the Pixel        | [`05_real_clients.md`](05_real_clients.md) | planned |
@@ -93,3 +93,10 @@ Append-only. Newest at the bottom.
 - 2026-10-23 : handover written for a g7 session: "Next steps" above, and the items phases 1-3 left
   for phase 4 listed in `05_real_clients.md`, including the stage timings phase 3 did not build.
 
+- 2026-10-23 : **first run on g7.** `make check` green, 294 unit tests. `make e2e` 28 of 29: the
+  no-camera test assumed that no fake device means no camera, which holds in the cloud but not on g7,
+  where the Chicony is on `/dev/video0`. Headless Chromium then refuses the request with
+  `NotSupportedError` (the permission prompt cannot be shown) instead of `NotFoundError`.
+  `--deny-permission-prompts` changes nothing. The page reported the error correctly; the test now
+  accepts that name too, and 29 of 29 pass in about 17 s. Playwright's Chromium 1243 was already
+  installed. Closes phase 1's pending item.

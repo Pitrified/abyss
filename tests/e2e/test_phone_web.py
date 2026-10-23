@@ -65,5 +65,12 @@ def test_no_camera_is_reported_not_hung(
     page, _ = open_page(browser_without_camera, f"{base_url}/phone_web/")
     wait_for_status(page, "error")
     error = page.evaluate("window.abyss.error")
-    assert error["name"] in {"NotFoundError", "NotAllowedError", "NotReadableError"}
+    # NotSupportedError is headless Chromium on a machine with a real camera:
+    # the permission prompt cannot be shown, so the request is refused as such.
+    assert error["name"] in {
+        "NotFoundError",
+        "NotAllowedError",
+        "NotReadableError",
+        "NotSupportedError",
+    }
     page.context.close()

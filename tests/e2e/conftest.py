@@ -62,7 +62,11 @@ def browser(playwright: Playwright, clip: Path) -> Iterator[Browser]:
 
 @pytest.fixture(scope="session")
 def browser_without_camera(playwright: Playwright) -> Iterator[Browser]:
-    """Chromium with no fake device, so the page finds no camera."""
+    """Chromium with no fake device, so the camera request fails.
+
+    It fails as no device where the machine has none, and as an unanswerable
+    permission prompt where it has a real camera, as g7 does.
+    """
     chromium = start_chromium(playwright, None)
     yield chromium
     chromium.close()
