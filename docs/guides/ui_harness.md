@@ -75,8 +75,8 @@ in `interval`. With the camera, the status line shows the fps. A tap anywhere en
 tries the portrait lock; `window.abyss.display` says whether it is fullscreen and what the lock did
 (`"locked"` or the error name; desktop Chromium refuses it).
 
-The top-right corner shows the served UI's version, `ui <hash>`, from `/version.js`. Every response
-is `no-store`, and files are revalidated by `ETag` on every load, so it should always match
+The top-right corner shows the served UI's version, `ui <hash>`, from `/version.js`. That route is
+`no-store` and files are revalidated by `ETag` on every load, so it should always match
 `curl -s <server>/version.js`; an older hash on a device
 means it is running a stale copy. Next to it, the **log** button copies a header (version, URL,
 user agent, camera, output, display, median timings) and `window.abyss.log` to the clipboard: the

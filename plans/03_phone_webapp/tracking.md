@@ -171,3 +171,12 @@ Append-only. Newest at the bottom.
   focal ratio, not the focal itself, which still awaits a tape. The camera opened 100 s after load
   and fullscreen dropped at 85 s, consistent with a permission prompt pulling Chrome out of
   fullscreen; a second tap restored it.
+- 2026-10-23 : **why the Pixel loads slowly.** Away from home the phone reaches g7 only through
+  Tailscale's Frankfurt relay (`Relay: fra`, no direct address; g7's NAT varies its mapping by
+  destination), measured at 70 to 140 kB/s from the server's request times, and every load fetched
+  about 18 MB again because every response was `no-store`: up to 85 s on the 11.8 MB `.wasm` alone.
+  Not the GPU, and not the fullscreen drop, which was the user leaving at 85 s. Now: a loading
+  counter by phase (`boot.js`), download times in the log, ETag revalidation with `no-cache`, and
+  gzip (first load about 7.5 MB, a reload a few kB). Found on the way: Chromium does not revalidate a
+  `fetch()` by ETag on an HTTP/1.0 response, which is how tasks-vision loads its `.wasm` and model,
+  so the server now speaks HTTP/1.1. Checked through `tailscale serve`: gzip passes, 304s come back.
