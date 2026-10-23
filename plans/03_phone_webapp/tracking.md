@@ -48,6 +48,24 @@ Deferred, not phased:
   Useful in phase 4 if the manual check keeps needing a second look; not built before that.
 - An Android emulator, Unity, Gaussian splats.
 
+## Next steps
+
+Where to pick up, as of 2026-10-23. Phases 1-3 were built and verified in a cloud session; nothing
+has run on g7, g4 or the phone yet. In order:
+
+1. **g7: `make e2e` once.** `make sync`, then `uv run --no-sync playwright install chromium` (the
+   cloud sessions find a preinstalled Chromium; g7 has to fetch Playwright's own), then `make check`
+   and `make e2e`. Expect 29 browser tests in well under a minute. Closes phase 1's pending item. If
+   anything differs from the cloud run, the drive script (`scripts/drive_ui.py`) is the first tool.
+2. **Phase 4 prerequisites that need no person**, on g7: the per-stage timings phase 3 promised and
+   did not build, fullscreen and the canvas pixel ratio, and a provisional Pixel screen entry. The
+   list, with reasons, is "Carried in from phases 1-3" in [`05_real_clients.md`](05_real_clients.md).
+3. **`tailscale serve`** on g7 in front of `make serve`, and the page loaded from g4 by a person.
+4. **The Pixel**, by a person, following a runbook written before the run.
+
+Open housekeeping, not blocking: the branch is not merged to `main`; the venv resolves ruff 0.16.2
+while pre-commit pins 0.15.2 (format new files with `uvx ruff@0.15.2 format`, or settle the pin).
+
 ## Log
 
 Append-only. Newest at the bottom.
@@ -72,4 +90,6 @@ Append-only. Newest at the bottom.
   ported. Matrices agree with Python to 1e-9 relative; the drawn frame is read back and checked at
   Python-projected points, which is the only check that catches a transposed handoff. Phases 1-3
   are done in a cloud session; `make e2e` on g7 and phase 4 (g4, then the Pixel, by hand) remain.
+- 2026-10-23 : handover written for a g7 session: "Next steps" above, and the items phases 1-3 left
+  for phase 4 listed in `05_real_clients.md`, including the stage timings phase 3 did not build.
 
