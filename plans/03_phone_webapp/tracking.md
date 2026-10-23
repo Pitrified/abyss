@@ -152,3 +152,13 @@ Append-only. Newest at the bottom.
   held in the hand, which looks too close by about half or more: with a 1280x720 upright crop the
   frame's vertical field of view is likely far narrower than the 63 deg MediaPipe assumes, so `z`
   comes out short. To confirm with a tape.
+- 2026-10-23 : **phase 4, Pixel 7 Pro, camera sweep** (probe `ui 2e2afa93`, ten requests, phone held
+  still). Android Chrome reads width and height in landscape terms and swaps them for an upright
+  phone: asked 720x1280, it cropped 1280x720 out of the middle (5.10 x 2.87 iris spacings across and
+  down); asked 1920x1440, it gives 1440x1920 uncropped (7.29 x 9.72), the sensor's full width (the
+  2448x3440 readout is 7.31 x 10.27). Asked 1280x720 it gives 720x1280 at 60 fps, a 16:9 mode that
+  crops the width (5.74). The page now asks 1920x1440. `pixel7pro_front` gets a focal length
+  derived from the published 92.8 deg diagonal over a 4:3 frame, 1143 px at 1920 high, marked
+  PROVISIONAL (3.5% longer if the diagonal is of the full readout). The iris spacings carry it to
+  the old crop: 1451 px at 720 against the 587 MediaPipe assumes, so the 14.5 cm readings were
+  about 36 cm.

@@ -1,5 +1,7 @@
 """Test the device registry."""
 
+import math
+
 import pytest
 
 from abyss.params.abyss_devices import CAMERAS
@@ -61,6 +63,17 @@ def test_the_g7_webcam_focal_rescales_with_height() -> None:
     camera = get_camera("g7_webcam")
     assert camera.focal_px_for_height(1440) == pytest.approx(1890.0)
     assert camera.focal_px_for_height(360) == pytest.approx(472.5)
+
+
+def test_the_phone_focal_follows_its_spec_diagonal() -> None:
+    """92.8 deg across the diagonal of a 4:3 frame, 1440x1920 portrait."""
+    camera = get_camera("pixel7pro_front")
+    half_diagonal = math.tan(math.radians(92.8 / 2))
+    assert camera.focal_px_for_height(1920) == pytest.approx(
+        720 / (0.6 * half_diagonal), rel=1e-3
+    )
+    assert camera.focal_px_for_height(640) == pytest.approx(381, abs=1)
+    assert "PROVISIONAL" in camera.provenance
 
 
 def test_the_phone_camera_is_not_mirrored() -> None:

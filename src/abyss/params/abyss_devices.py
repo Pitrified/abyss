@@ -76,15 +76,26 @@ CAMERAS: dict[str, CameraConfig] = {
     ),
     "pixel7pro_front": CameraConfig(
         name="pixel7pro_front",
+        # The 1440x1920 portrait stream the page asks for: 92.8 deg diagonal
+        # on a 4:3 frame, so tan(46.4 deg) * 0.6 = 0.630 across the 1440 side.
+        focal_px=1143.0,
+        focal_measured_at_height=1920,
         mirrored=False,
         provenance=(
-            "Intrinsics unmeasured. Not mirrored, seen 2026-10-23 in Chrome 155 on "
+            "Focal length PROVISIONAL, derived from specs, not measured: the "
+            "front camera's published 92.8 deg diagonal field of view (Google, "
+            "DXOMARK; 21 mm equivalent agrees) taken over a 4:3 frame. The probe "
+            "sweep of 2026-10-23 found 1440x1920 shares its width with the "
+            "sensor's full 2448x3440 readout to 0.3%, so the stream is uncropped "
+            "across. If the 92.8 deg is instead the diagonal of that 1:1.41 "
+            "readout, the focal is 3.5% longer. Valid for 3:4 portrait streams "
+            "only: 16:9 modes crop the width. Not mirrored, seen 2026-10-23 in "
+            "Chrome 155 on "
             "Android 17: with the flag set, moving the head 10 cm to the viewer's "
             "right took x from 0 to +10 cm, where it must go negative, and in the "
             "page's unflipped view the face left by the image's left edge. "
             "getUserMedia delivers the sensor image and leaves mirroring to the "
-            "preview. The stream is 1280x720, landscape and upright, with the "
-            "phone held upright"
+            "preview. Upright with the phone held upright"
         ),
     ),
 }
