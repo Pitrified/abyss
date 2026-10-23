@@ -32,7 +32,7 @@ dev harness pattern and the probe that shaped it in
 | 1  | harness and skeleton page               | [`02_harness_skeleton.md`](02_harness_skeleton.md) | done    |
 | 2  | tracking in the page                    | [`03_tracking_in_page.md`](03_tracking_in_page.md) | done    |
 | 3  | frustum and scene in the page           | [`04_frustum_and_scene.md`](04_frustum_and_scene.md) | done    |
-| 4  | real clients: g4, then the Pixel        | [`05_real_clients.md`](05_real_clients.md) | planned |
+| 4  | real clients: g4, then the Pixel        | [`05_real_clients.md`](05_real_clients.md) | done    |
 
 Status values: draft / planned / in progress / done / superseded / discarded.
 File numbers run one ahead of phase numbers because `01_` is the research file.
@@ -43,28 +43,20 @@ the phone, the way the expansion's phase 5 ended with a person at g7.
 Deferred, not phased:
 
 - A clip recorded on the Pixel's front camera, kept on g7, and numbers extracted from it committed
-  (Q7 a+b). Also how the Pixel's focal length gets measured.
+  (Q7 a+b). Also how the Pixel's focal length gets measured. Dropped 2026-10-23: the focal comes
+  from the spec, and its imprecision was accepted.
 - Driving the page on the cabled Pixel over CDP from g7 (`adb forward ... chrome_devtools_remote`).
-  Useful in phase 4 if the manual check keeps needing a second look; not built before that.
+  Not needed in phase 4: the log button and the probe page covered every look.
+- The g4 run, runbook section 4. Not blocking, by the user's decision; for whenever a person is at
+  g4.
 - An Android emulator, Unity, Gaussian splats.
 
 ## Next steps
 
-Where to pick up, as of 2026-10-23. Phases 1-3 were built and verified in a cloud session; nothing
-has run on g7, g4 or the phone yet. In order:
-
-1. **g7: `make e2e` once.** `make sync`, then `uv run --no-sync playwright install chromium` (the
-   cloud sessions find a preinstalled Chromium; g7 has to fetch Playwright's own), then `make check`
-   and `make e2e`. Expect 29 browser tests in well under a minute. Closes phase 1's pending item. If
-   anything differs from the cloud run, the drive script (`scripts/drive_ui.py`) is the first tool.
-2. **Phase 4 prerequisites that need no person**, on g7: the per-stage timings phase 3 promised and
-   did not build, fullscreen and the canvas pixel ratio, and a provisional Pixel screen entry. The
-   list, with reasons, is "Carried in from phases 1-3" in [`05_real_clients.md`](05_real_clients.md).
-3. **`tailscale serve`** on g7 in front of `make serve`, and the page loaded from g4 by a person.
-4. **The Pixel**, by a person, following a runbook written before the run.
-
-Open housekeeping, not blocking: the branch is not merged to `main`. Ruff is pinned to the same
-exact version in `pyproject.toml` and `.pre-commit-config.yaml`; bump both together.
+As of 2026-10-23 all four phases are done; the Pixel ran the runbook and g4 is left optional (see
+Deferred). The branch `feat/phone-webapp` is pushed and not merged to `main`; merging waits for the
+user. Ruff and pyright are pinned to the same exact versions in `pyproject.toml` and
+`.pre-commit-config.yaml`; bump each pair together.
 
 ## Log
 
@@ -187,3 +179,8 @@ Append-only. Newest at the bottom.
   the direct path; over the relay 7.7 MB would still be about 55 to 110 s. The model only started
   once the `.wasm` had finished (9.63 s against 9.49 s), so the page now preloads both from the
   head. Scale 0.741 and 0.753, consistent with 0.735; 30 fps, landmarker about 29 ms.
+- 2026-10-23 : **phase 4 done.** Decided with the user: g4 not blocking, no tape check (the
+  spec focal's few percent accepted), no Pixel recording, no CDP driving, the cube left where it
+  is. Built last: a log warning when the stream is not the shape the focal is for (`CameraConfig`
+  gains `focal_measured_at_width`), and the runbook brought up to what the Pixel showed. `make
+  check` 303, `make e2e` 47. Findings in [`05_real_clients.md`](05_real_clients.md).
