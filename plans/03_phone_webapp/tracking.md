@@ -137,3 +137,10 @@ Append-only. Newest at the bottom.
   upright, not rotated, and it is unmirrored: the face left the unflipped view by its left edge.
   `pixel7pro_front` was `mirrored=True` and double-flipped x, as the carried-in list feared; now
   `False`, with that provenance. 295 unit and 37 browser tests green.
+- 2026-10-23 : **phase 4, Pixel 7 Pro, the effect** (runbook section 5), held in the hand, with the
+  corrected flag. Head to the right now gives negative x; the face still leaves the unflipped view by
+  its left edge, as it should. The effect looks natural and correct, the cyan frame stable on the
+  glass's edge. CPU delegate 29.9 to 30 fps, GPU delegate works and holds 30: the camera's 30 fps is
+  the ceiling either way, so the 15 fps floor holds with room. Stage split and depth not yet read.
+- 2026-10-23 : asked for after the Pixel run: a version label (`/version.js`, a hash of `ui/`) to rule
+  out a stale page, and a log button that copies `window.abyss.log` for pasting into a chat.
