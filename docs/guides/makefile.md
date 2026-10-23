@@ -64,7 +64,11 @@ Only `make` targets pass `--no-sync`. These still revert an editable install:
 
 - a bare `uv run ...` in a terminal,
 - the editor's test runner or language server, if it invokes `uv run`,
-- `pre-commit`, and any `uv sync`.
+- any `uv sync`, including `make sync` and `make undev`.
+
+The pre-commit hooks are safe. Their only uv hook, `uv-lock`, runs `uv lock`, which rewrites
+`uv.lock` and never touches `.venv`; the editable install is not in the lock to begin with. The
+other hooks run in pre-commit's own environments, and pyright only reads `.venv`.
 
 So treat a local override as short-lived. `make undev` is the deliberate way back to the pinned
 versions, and re-running `make dev-<lib>` is cheap when something has clobbered it.
