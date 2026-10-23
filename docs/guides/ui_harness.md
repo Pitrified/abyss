@@ -26,6 +26,7 @@ uv run --no-sync playwright install chromium
 | URL | From |
 | --- | --- |
 | `/phone_web/` | `ui/phone_web/`, the page itself |
+| `/probe/` | `ui/probe/`, what a device reports about itself, as JSON to copy |
 | `/vendor/<npm name>/<path>` | `cache/vendor/`, at the version `ui/vendor.toml` pins |
 | `/models/face_landmarker.task` | the model the Python pipeline loads, through pose-tools' `ModelManager` |
 | `/clips/<name>` | `build/clips/` |
@@ -57,7 +58,7 @@ length, the filter width) come from `/config.json`, built from the Python module
 | `viewer=<key>` | viewer registry key |
 | `screen=<key>` | screen registry key; draws the scene for that panel through the off-axis projection |
 | `eye=<x,y,z>` | no tracking: draw one frame for this camera-frame eye, in metres; needs `screen=` |
-| `size=<WxH>` | output size in pixels; default is the largest with the panel's aspect that fits the window |
+| `size=<WxH>` | output size, one drawn pixel per CSS pixel, for tests that read frames back; by default the picture is the largest with the panel's aspect that fits the window, refits when the window changes, and draws at `devicePixelRatio` |
 | `scale=<float>` | freeze the head scale instead of bootstrapping it |
 | `delegate=GPU` | MediaPipe delegate; CPU by default |
 | `fps=<float>` | the clip's frame rate, for VIDEO-mode timestamps; default 30, which `make clip` writes |
@@ -65,6 +66,13 @@ length, the filter width) come from `/config.json`, built from the Python module
 With `source=`, the page publishes one entry per frame on `window.abyss.track` and sets
 `window.abyss.status` to `done` at the end. With the camera it keeps `window.abyss.latest` current.
 With `screen=`, each entry also carries the view projection `matrix` it drew with, row-major.
+
+Every frame also updates `window.abyss.timing`: `last` and a rolling `median` over 60 frames of
+`landmarker`, `eye`, `matrix` and `draw` in milliseconds, their `total`, the frame `interval`, and
+`fps`. A stage a frame skipped is absent, not zero. `draw` is the WebGL calls only; a slow GPU shows
+in `interval`. With the camera, the status line shows the fps. A tap anywhere enters fullscreen and
+tries the portrait lock; `window.abyss.display` says whether it is fullscreen and what the lock did
+(`"locked"` or the error name; desktop Chromium refuses it).
 
 The scene is drawn by three.js from the served segments. three.js's own cameras cannot express an
 off-axis frustum, so a bare `THREE.Camera` at the origin carries abyss's whole view projection as

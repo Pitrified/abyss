@@ -35,7 +35,8 @@ good result looks like, what to record, for g4 and then for the phone.
 Found while building the page headless, and not checkable there. Each is small; each would make the
 first run on the phone look broken for a reason that is not the maths.
 
-- **Stage timings were not built.** Phase 3's plan published frame time and each stage's share on
+- **Stage timings were not built.** Built 2026-10-23 on g7: `window.abyss.timing`, see the harness
+  guide. Phase 3's plan published frame time and each stage's share on
   `window.abyss`, as the Python loop's benchmark does; the implementation did not. Phase 4's own
   measurement (frame times, the 15 fps floor) needs it, so it comes first: landmarker, eye position,
   matrix and draw, per frame, plus a rolling median, readable by the drive script.
@@ -47,25 +48,29 @@ first run on the phone look broken for a reason that is not the maths.
   right and read the sign of x on the status line (it should go negative, camera-frame left for an
   unmirrored image), then set the registry entry to what was seen, with provenance. The picture
   tests cover the frame chain, not this flag's value.
-- **The stream's orientation is unverified.** The page asks for 720x1280 and reads back whatever it
+- **The stream's orientation is unverified.** The probe page (`/probe/`) reads it, with the same
+  constraints as the phone page, alongside screen size, pixel ratio and safe area. The page asks for 720x1280 and reads back whatever it
   gets. A phone held upright may still deliver landscape frames, in which case the iris pixels are in
   a rotated frame and the focal length belongs to the other axis. Read `window.abyss.camera` on the
   device first.
-- **The picture must fill the panel.** The frustum is built for the physical panel, but in a browser
+- **The picture must fill the panel.** Built 2026-10-23: a tap enters fullscreen and tries the lock,
+  reported on `window.abyss.display`, and the picture refits when the window changes. The frustum is built for the physical panel, but in a browser
   tab the address bar and navigation bar take part of it, so the page letterboxes into what is left
   and the scene is drawn at the wrong scale for the glass it sits behind. Needs the Fullscreen API
   (on a tap, since it requires a user gesture) and `screen.orientation.lock("portrait")`, which only
   works in fullscreen. Until then, expect the effect to look slightly off in depth.
-- **The canvas renders at one pixel per CSS pixel.** `SceneView` calls `setPixelRatio(1)` so tests
+- **The canvas renders at one pixel per CSS pixel.** Built 2026-10-23: `devicePixelRatio` unless
+  `size=` is given. `SceneView` calls `setPixelRatio(1)` so tests
   read back a frame of the requested size. On the Pixel, with a device pixel ratio around 3.5, that
   is a blurry picture. Use `devicePixelRatio` when `size=` is not given.
 - **The delegate is CPU by default.** Headless in the cloud a frame took about 55 ms on the CPU path.
   `delegate=GPU` exists and has never been tried; on the phone it is the first thing to compare.
-- **A Pixel screen entry does not exist.** Spec sheet, as a provisional starting point to be
-  replaced by a ruler: 6.7 in diagonal at 1440x3120 is about 71.3 x 154.6 mm. The panel curves at
-  its long edges, so the flat width is less than that; measure the flat part. The front camera is a
-  centred punch hole near the top edge; its offset to the panel centre is half the height minus the
-  hole's distance from the top, measured. Mark both provisional until measured, as `g4_internal` is.
+- **A Pixel screen entry does not exist.** Added 2026-10-23 as `pixel7pro`, from specs and not a
+  ruler, which would be less precise (decided by the user): 1440x3120 at 512 ppi, 71.4 x 154.8 mm,
+  and the camera hole from AOSP's display cutout for the device, centred 72 px below the top edge,
+  so 73.8 mm above the panel centre. Not marked provisional. The panel's curved long edges are not
+  modelled. The scene's cube sits at +8 cm, beyond this panel's 3.6 cm half width, so it is barely
+  in view on the phone; the scene may need laying out for a narrow panel.
 - **Serving needs no code change.** `tailscale serve` on g7 terminates HTTPS on the tailnet name
   and proxies to `make serve` on `127.0.0.1:8000`, so the server keeps binding loopback. The CSP is
   same-origin, so it holds behind the proxy unchanged.

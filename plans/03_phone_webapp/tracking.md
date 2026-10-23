@@ -63,8 +63,8 @@ has run on g7, g4 or the phone yet. In order:
 3. **`tailscale serve`** on g7 in front of `make serve`, and the page loaded from g4 by a person.
 4. **The Pixel**, by a person, following a runbook written before the run.
 
-Open housekeeping, not blocking: the branch is not merged to `main`; the venv resolves ruff 0.16.2
-while pre-commit pins 0.15.2 (format new files with `uvx ruff@0.15.2 format`, or settle the pin).
+Open housekeeping, not blocking: the branch is not merged to `main`. Ruff is pinned to the same
+exact version in `pyproject.toml` and `.pre-commit-config.yaml`; bump both together.
 
 ## Log
 
@@ -100,3 +100,13 @@ Append-only. Newest at the bottom.
   `--deny-permission-prompts` changes nothing. The page reported the error correctly; the test now
   accepts that name too, and 29 of 29 pass in about 17 s. Playwright's Chromium 1243 was already
   installed. Closes phase 1's pending item.
+- 2026-10-23 : ruff pinned to 0.17.2 exactly, in `pyproject.toml` and pre-commit alike, and the
+  repo reformatted with it. `pre-commit run --all-files` also flags trailing blank lines in three
+  plan files and `style.css`, and three vendor hashes in `ui/vendor.toml` as secrets; the hooks are
+  not installed in this clone, which is how those got in. Left as found.
+- 2026-10-23 : **phase 4 prerequisites built on g7**, each test seen failing first:
+  `window.abyss.timing` (landmarker, eye, matrix, draw, total, interval, fps, rolling median of 60),
+  fullscreen and the portrait lock on a tap, the scene refitting to the window and drawing at
+  `devicePixelRatio`, a `pixel7pro` screen from the spec sheet and AOSP's cutout path, and a probe
+  page at `/probe/` that reports what the device says, ready to copy. 295 unit tests, 37 browser
+  tests.
