@@ -162,3 +162,12 @@ Append-only. Newest at the bottom.
   PROVISIONAL (3.5% longer if the diagonal is of the full readout). The iris spacings carry it to
   the old crop: 1451 px at 720 against the 587 MediaPipe assumes, so the 14.5 cm readings were
   about 36 cm.
+- 2026-10-23 : **phase 4, Pixel 7 Pro, full-width stream** (`ui 361bdd41`, GPU, fullscreen, locked).
+  Stream 1440x1920 as asked. Still 30 fps: landmarker median 27.9 ms, the same as on the 1280x720
+  crop, so the larger frame costs nothing visible. Depth now 32 to 40 cm held in the hand, where it
+  read 14.5 before; x ranged -7 to +10 cm. Head scale froze at 0.735, against 0.73 predicted:
+  MediaPipe's 63 deg over 1920 px implies 1567 px, and 1143 / 1567 = 0.73, while on the old crop
+  its assumption matched the 587 px and the scale was 0.98 and 0.91. That agreement checks the
+  focal ratio, not the focal itself, which still awaits a tape. The camera opened 100 s after load
+  and fullscreen dropped at 85 s, consistent with a permission prompt pulling Chrome out of
+  fullscreen; a second tap restored it.
