@@ -76,8 +76,16 @@ CAMERAS: dict[str, CameraConfig] = {
     ),
     "pixel7pro_front": CameraConfig(
         name="pixel7pro_front",
-        mirrored=True,
-        provenance="unmeasured; front cameras mirror their preview",
+        mirrored=False,
+        provenance=(
+            "Intrinsics unmeasured. Not mirrored, seen 2026-10-23 in Chrome 155 on "
+            "Android 17: with the flag set, moving the head 10 cm to the viewer's "
+            "right took x from 0 to +10 cm, where it must go negative, and in the "
+            "page's unflipped view the face left by the image's left edge. "
+            "getUserMedia delivers the sensor image and leaves mirroring to the "
+            "preview. The stream is 1280x720, landscape and upright, with the "
+            "phone held upright"
+        ),
     ),
 }
 """Capture devices."""

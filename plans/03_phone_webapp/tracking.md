@@ -132,3 +132,8 @@ Append-only. Newest at the bottom.
   in metres, so `pixel7pro` holds either way; only sharpness changes. Fullscreen and lock: inner
   window 411x794 before the tap, 411x891 after, `locked`, bottom safe area 24 px gone, so the page
   gets the whole panel, at an aspect within 0.05% of the panel's.
+- 2026-10-23 : **phase 4, Pixel 7 Pro, mirroring** (runbook section 3). Head 10 cm to the viewer's
+  right: x went 0 to +10 cm, y did not move, face upright in the view. So the landscape stream is
+  upright, not rotated, and it is unmirrored: the face left the unflipped view by its left edge.
+  `pixel7pro_front` was `mirrored=True` and double-flipped x, as the carried-in list feared; now
+  `False`, with that provenance. 295 unit and 37 browser tests green.

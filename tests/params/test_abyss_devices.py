@@ -63,9 +63,9 @@ def test_the_g7_webcam_focal_rescales_with_height() -> None:
     assert camera.focal_px_for_height(360) == pytest.approx(472.5)
 
 
-def test_the_phone_camera_is_mirrored() -> None:
-    """A front-facing phone camera mirrors its preview."""
-    assert get_camera("pixel7pro_front").mirrored is True
+def test_the_phone_camera_is_not_mirrored() -> None:
+    """Chrome delivers the Pixel's front camera unmirrored, seen on the device."""
+    assert get_camera("pixel7pro_front").mirrored is False
 
 
 def test_this_box_screen_matches_its_edid() -> None:
