@@ -14,7 +14,6 @@ export class SceneView {
   constructor(canvas, sceneDoc) {
     // preserveDrawingBuffer so a test can read the frame back after drawing.
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true });
-    this.renderer.setPixelRatio(1);
     this.renderer.outputColorSpace = THREE.LinearSRGBColorSpace;
     this.renderer.setClearColor(rgb(sceneDoc.background));
     this.scene = new THREE.Scene();
@@ -33,8 +32,11 @@ export class SceneView {
     this.camera.matrixAutoUpdate = false;
   }
 
-  setSize(widthPx, heightPx) {
-    this.renderer.setSize(widthPx, heightPx, false);
+  // Width and height in CSS pixels; the canvas holds `pixelRatio` drawn pixels
+  // per CSS pixel, so a test passes 1 to read back a frame of the size it asked.
+  setSize(widthPx, heightPx, pixelRatio = 1) {
+    this.renderer.setPixelRatio(pixelRatio);
+    this.renderer.setSize(widthPx, heightPx);
   }
 
   // `matrix` is four rows, row-major; Matrix4.set takes row-major arguments.

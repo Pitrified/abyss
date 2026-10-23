@@ -9,6 +9,9 @@
 // latest:  { sample, position, smoothed } for the newest frame with a face
 // scale:   { ready, collected, needed, value }
 // track:   clip mode only: one { idx, msec, sample, position, smoothed } per frame
+// timing:  per-stage frame times in ms, last and rolling median; see timing.js
+// output:  { width, height, pixelRatio } of the scene, with a screen
+// display: { fullscreen, lock }; see display.js
 
 export const state = {
   status: "starting",

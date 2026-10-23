@@ -30,6 +30,7 @@ from playwright.sync_api import Error as PlaywrightError
 from playwright.sync_api import Page
 from playwright.sync_api import Playwright
 from playwright.sync_api import Request
+from playwright.sync_api import ViewportSize
 from playwright.sync_api import sync_playwright
 
 PAGE_TIMEOUT_MS = 30_000
@@ -164,18 +165,29 @@ class PageLog:
         return [u for u in self.requests if urlsplit(u).netloc not in {own, ""}]
 
 
-def open_page(browser: Browser, url: str) -> tuple[Page, PageLog]:
+def open_page(
+    browser: Browser,
+    url: str,
+    *,
+    viewport: ViewportSize | None = None,
+    device_scale_factor: float = 1,
+) -> tuple[Page, PageLog]:
     """Open a page in a fresh context, recording what it does.
 
     Args:
         browser: The browser.
         url: Where to go.
+        viewport: CSS pixels, or None for Playwright's default.
+        device_scale_factor: The page's ``devicePixelRatio``.
 
     Returns:
         The page and its log.
     """
     log = PageLog()
-    page = browser.new_context().new_page()
+    context = browser.new_context(
+        viewport=viewport, device_scale_factor=device_scale_factor
+    )
+    page = context.new_page()
     page.set_default_timeout(PAGE_TIMEOUT_MS)
 
     def on_console(message: ConsoleMessage) -> None:
