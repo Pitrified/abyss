@@ -83,6 +83,13 @@ newest 500 lines of events (config, camera, output size, scale ready, fullscreen
 one summary line a second with the eye, fps and stage medians. If the clipboard is refused it shows
 the text selected instead. The button does not count as the fullscreen tap.
 
+While the page loads, the status line counts seconds and names the phase (`modules`, `config`,
+`scene`, `landmarker`, `camera`); `js/boot.js` runs it, a classic script loaded before the modules,
+since nothing in `app.js` runs until three.js and tasks-vision have arrived. Log times are seconds
+since navigation, so the first line's stamp is how long the modules took. After `landmarker ready`
+the log lists every download over 50 kB with its size, start and duration: the time between the
+`.wasm` finishing and `landmarker ready` is compiling and setup, not the network.
+
 The scene is drawn by three.js from the served segments. three.js's own cameras cannot express an
 off-axis frustum, so a bare `THREE.Camera` at the origin carries abyss's whole view projection as
 its projection matrix. `Matrix4.set` takes row-major arguments; passing the matrix to `fromArray`

@@ -26,7 +26,7 @@ import { frameGeometry } from "./geometry.js";
 import { logButton } from "./log_button.js";
 import { SceneView } from "./scene.js";
 import { PositionSmoother } from "./smoothing.js";
-import { fail, log, setStatus, state } from "./state.js";
+import { fail, loading, log, logDownloads, setStatus, state } from "./state.js";
 import { StageTimer } from "./timing.js";
 import { createLandmarker, monotonicClock } from "./tracker.js";
 
@@ -150,6 +150,7 @@ async function runClip(url, config, draw, landmarker) {
   const canvas = document.getElementById("view");
   const fps = Number(params.get("fps") ?? 30);
   let ctx = null;
+  loading(null);
   state.status = "running";
   for (let idx = 0; idx < frames.length; idx++) {
     const bitmap = await decodeFrame(frames[idx]);
@@ -175,12 +176,14 @@ async function runClip(url, config, draw, landmarker) {
 async function runCamera(config, draw, landmarker) {
   state.source = "camera";
   const video = document.getElementById("camera");
+  loading("camera");
   state.camera = await openCamera(video);
   log(`camera ${state.camera.label} ${state.camera.width}x${state.camera.height}`);
   const ctx = context(config, draw, state.camera.width, state.camera.height);
   const canvas = document.getElementById("view");
   const clock = monotonicClock();
   let summarized = -Infinity;
+  loading(null);
   state.status = "running";
   eachFrame(video, (now) => {
     const msec = clock(now);
@@ -213,22 +216,29 @@ function runFixedEye(config, draw) {
 }
 
 async function main() {
-  setStatus("loading");
   state.version = VERSION;
   document.getElementById("version").textContent = VERSION;
   logButton();
   log(`version ${VERSION}`);
   log(`page ${location.href}`);
   const screen = params.get("screen");
+  loading("config");
   const config = await loadConfig({ camera: params.get("camera"), viewer: params.get("viewer"), screen });
   state.config = config;
   const { camera } = config;
   log(`config camera ${camera.name} mirrored ${camera.mirrored} screen ${config.screen?.name ?? "none"}`);
+  if (screen) loading("scene");
   const draw = makeDrawer(config, screen ? await loadScene(screen) : null);
   if (draw) document.body.classList.add("with-scene");
   fullscreenOnTap();
-  if (params.has("eye")) return runFixedEye(config, draw);
+  if (params.has("eye")) {
+    loading(null);
+    return runFixedEye(config, draw);
+  }
+  loading("landmarker");
   const landmarker = await createLandmarker({ delegate: params.get("delegate") ?? "CPU" });
+  log("landmarker ready");
+  logDownloads();
   const source = params.get("source");
   if (source) await runClip(source, config, draw, landmarker);
   else await runCamera(config, draw, landmarker);

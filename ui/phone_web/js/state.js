@@ -28,7 +28,6 @@ export const state = {
 };
 
 const LOG_LINES = 500;
-const started = performance.now();
 
 window.abyss = state;
 
@@ -38,14 +37,34 @@ export function setStatus(text) {
 }
 
 // One line of the log a person copies off the device: events as they happen,
-// and a summary a second from the camera loop. Seconds since the page loaded.
+// and a summary a second from the camera loop. Seconds since navigation, so
+// the time the modules took to arrive shows as the first line's stamp.
 export function log(text) {
-  const seconds = ((performance.now() - started) / 1000).toFixed(2);
+  const seconds = (performance.now() / 1000).toFixed(2);
   state.log.push(`${seconds} ${text}`);
   if (state.log.length > LOG_LINES) state.log.shift();
 }
 
+// Name the load phase for boot.js's counter and log it; null stops the counter.
+export function loading(phase) {
+  window.abyssLoading = phase;
+  if (phase) log(`loading ${phase}`);
+}
+
+// Every download over 50 kB, with its size and how long it took: on a slow
+// link, which file the wait is in.
+export function logDownloads() {
+  for (const entry of performance.getEntriesByType("resource")) {
+    if (entry.encodedBodySize < 50_000) continue;
+    const kb = (entry.encodedBodySize / 1000).toFixed(0);
+    const start = (entry.startTime / 1000).toFixed(2);
+    const took = (entry.duration / 1000).toFixed(2);
+    log(`fetched ${new URL(entry.name).pathname} ${kb} kB, started ${start} s, took ${took} s`);
+  }
+}
+
 export function fail(err) {
+  loading(null);
   state.status = "error";
   state.error = { name: err?.name ?? "Error", message: err?.message ?? String(err) };
   setStatus(`${state.error.name}: ${state.error.message}`);

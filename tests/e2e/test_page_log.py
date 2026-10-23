@@ -47,3 +47,34 @@ def test_log_button_copies_header_and_lines(browser: Browser, base_url: str) -> 
     assert page.evaluate("window.abyss.display.fullscreen") is False
     assert not log.errors
     page.context.close()
+
+
+def test_log_times_each_load_phase_and_large_file(
+    browser: Browser, base_url: str
+) -> None:
+    """Phases and large downloads are logged, timed from navigation."""
+    page, log = open_page(browser, f"{base_url}/phone_web/?screen=g7_internal")
+    wait_until(page, "window.abyss.status === 'running'")
+    wait_until(page, "window.abyssLoading === null")
+    lines = page.evaluate("window.abyss.log")
+    text = "\n".join(lines)
+    for phase in ("config", "scene", "landmarker", "camera"):
+        assert f"loading {phase}" in text, phase
+    assert "landmarker ready" in text
+    fetched = [line for line in lines if " fetched /" in line]
+    for name in ("vision_wasm_internal.wasm", "face_landmarker.task", "three.core.js"):
+        assert any(name in line for line in fetched), name
+    assert not log.errors
+    page.context.close()
+
+
+def test_loading_counter_stops_on_error(
+    browser_without_camera: Browser, base_url: str
+) -> None:
+    """An error stops the counter, so the error stays on the status line."""
+    page, _ = open_page(browser_without_camera, f"{base_url}/phone_web/")
+    wait_until(page, "window.abyss.status === 'error'")
+    page.wait_for_timeout(600)
+    assert page.evaluate("window.abyssLoading === null") is True
+    assert "Error" in page.inner_text("#status")
+    page.context.close()
