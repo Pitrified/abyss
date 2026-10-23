@@ -106,6 +106,11 @@ measured at 70 to 140 kB/s. The generated routes, `/config.json`, `/scene.json` 
 stay `no-store`. The server speaks HTTP/1.1 for this: on an HTTP/1.0 response Chromium does not
 revalidate a `fetch()` by `ETag`, and tasks-vision fetches its `.wasm` and the model that way.
 
+`phone_web/index.html` preloads those two files, so they download from the start alongside the
+modules rather than one after the other once tasks-vision runs. The preloads must match how
+tasks-vision fetches (same origin, `credentials: "same-origin"`, hence `as="fetch" crossorigin`),
+or the browser downloads each file twice; `test_large_files_are_preloaded_once` checks that.
+
 ## The camera
 
 Chromium's fake capture device plays a file as the webcam, through the same `getUserMedia` path a

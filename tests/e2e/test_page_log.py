@@ -70,6 +70,23 @@ def test_log_times_each_load_phase_and_large_file(
     page.context.close()
 
 
+def test_large_files_are_preloaded_once(browser: Browser, base_url: str) -> None:
+    """The preloads start at page load, and tasks-vision reuses them."""
+    page, log = open_page(browser, f"{base_url}/phone_web/?screen=g7_internal")
+    wait_until(page, "window.abyss.status === 'running'")
+    entries = page.evaluate(
+        "performance.getEntriesByType('resource')"
+        ".map(e => [new URL(e.name).pathname, e.initiatorType])"
+    )
+    page.context.close()
+    for path in (
+        "/vendor/@mediapipe/tasks-vision/wasm/vision_wasm_internal.wasm",
+        "/models/face_landmarker.task",
+    ):
+        assert [kind for name, kind in entries if name == path] == ["link"], path
+    assert not log.errors
+
+
 def test_loading_counter_stops_on_error(
     browser_without_camera: Browser, base_url: str
 ) -> None:

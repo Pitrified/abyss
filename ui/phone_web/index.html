@@ -6,6 +6,11 @@
   <title>abyss</title>
   <link rel="icon" href="data:,">
   <link rel="stylesheet" href="style.css">
+  <!-- The two large files, started now rather than once the modules have run.
+       tasks-vision fetches them same-origin with credentials, as these do, so
+       its own fetches are served from these instead of downloading again. -->
+  <link rel="preload" href="/vendor/@mediapipe/tasks-vision/wasm/vision_wasm_internal.wasm" as="fetch" crossorigin>
+  <link rel="preload" href="/models/face_landmarker.task" as="fetch" crossorigin>
   <script src="js/boot.js"></script>
   <script type="module" src="js/app.js"></script>
 </head>

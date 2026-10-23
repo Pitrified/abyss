@@ -180,3 +180,10 @@ Append-only. Newest at the bottom.
   gzip (first load about 7.5 MB, a reload a few kB). Found on the way: Chromium does not revalidate a
   `fetch()` by ETag on an HTTP/1.0 response, which is how tasks-vision loads its `.wasm` and model,
   so the server now speaks HTTP/1.1. Checked through `tailscale serve`: gzip passes, 304s come back.
+- 2026-10-23 : **Pixel load times after the fix** (`ui 19f32ab3`, GPU, now `direct` to g7, not
+  relayed). First load: 7.7 MB on the wire, the `.wasm` 3433 kB for 11757, landmarker ready at
+  13.7 s, first frame at 14.9 s. Reload: every large file a 304 with 0 kB, landmarker ready at 1.65 s,
+  first frame at 2.2 s. The link ran at 650 to 950 kB/s, so the first-load gain is part gzip, part
+  the direct path; over the relay 7.7 MB would still be about 55 to 110 s. The model only started
+  once the `.wasm` had finished (9.63 s against 9.49 s), so the page now preloads both from the
+  head. Scale 0.741 and 0.753, consistent with 0.735; 30 fps, landmarker about 29 ms.
