@@ -1,5 +1,7 @@
 """The version label and the log a person copies off the phone."""
 
+import re
+
 from playwright.sync_api import Browser
 
 from abyss.ui.browser import open_page
@@ -78,3 +80,35 @@ def test_loading_counter_stops_on_error(
     assert page.evaluate("window.abyssLoading === null") is True
     assert "Error" in page.inner_text("#status")
     page.context.close()
+
+
+def test_a_reload_revalidates_instead_of_downloading(
+    browser: Browser, base_url: str
+) -> None:
+    """Second load: the large files come back as 304s, almost nothing on the wire."""
+    page, log = open_page(browser, f"{base_url}/phone_web/?screen=g7_internal")
+    wait_until(page, "window.abyss.status === 'running'")
+    first = [
+        line
+        for line in page.evaluate("window.abyss.log")
+        if "wasm_internal.wasm" in line
+    ]
+    page.reload()
+    wait_until(page, "window.abyss && window.abyss.status === 'running'")
+    second = [
+        line
+        for line in page.evaluate("window.abyss.log")
+        if "wasm_internal.wasm" in line
+    ]
+    page.context.close()
+    assert wire_kb(first[0]) < 3600  # gzipped from 11757
+    assert wire_kb(second[0]) < 2  # a 304: headers only
+    assert " 11757 kB," in second[0]
+    assert not log.errors
+
+
+def wire_kb(line: str) -> int:
+    """Read the on-the-wire size out of a ``fetched`` log line."""
+    match = re.search(r"(\d+) kB on the wire", line)
+    assert match, line
+    return int(match.group(1))

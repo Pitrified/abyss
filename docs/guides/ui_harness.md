@@ -76,7 +76,8 @@ tries the portrait lock; `window.abyss.display` says whether it is fullscreen an
 (`"locked"` or the error name; desktop Chromium refuses it).
 
 The top-right corner shows the served UI's version, `ui <hash>`, from `/version.js`. Every response
-is `no-store`, so it should always match `curl -s <server>/version.js`; an older hash on a device
+is `no-store`, and files are revalidated by `ETag` on every load, so it should always match
+`curl -s <server>/version.js`; an older hash on a device
 means it is running a stale copy. Next to it, the **log** button copies a header (version, URL,
 user agent, camera, output, display, median timings) and `window.abyss.log` to the clipboard: the
 newest 500 lines of events (config, camera, output size, scale ready, fullscreen, lock, errors) and
@@ -94,6 +95,16 @@ The scene is drawn by three.js from the served segments. three.js's own cameras 
 off-axis frustum, so a bare `THREE.Camera` at the origin carries abyss's whole view projection as
 its projection matrix. `Matrix4.set` takes row-major arguments; passing the matrix to `fromArray`
 instead transposes it, and only the picture tests in `tests/e2e/test_page_scene.py` notice.
+
+## Caching and compression
+
+Files go out with an `ETag`, their content hash, and `Cache-Control: no-cache`: the browser keeps
+them and asks on every load, and the server answers a bodyless 304 when nothing changed. Text and
+WebAssembly over 1 kB are gzipped when the client accepts it. Together that takes a first load from
+about 18 MB to about 7.5 MB and a reload to a few kB, which matters over a relayed tailnet link,
+measured at 70 to 140 kB/s. The generated routes, `/config.json`, `/scene.json` and `/version.js`,
+stay `no-store`. The server speaks HTTP/1.1 for this: on an HTTP/1.0 response Chromium does not
+revalidate a `fetch()` by `ETag`, and tasks-vision fetches its `.wasm` and the model that way.
 
 ## The camera
 

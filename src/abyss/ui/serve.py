@@ -17,6 +17,13 @@ One static server for every UI under ``ui/``, standard library only. Routes:
   ``/scene.json?screen=``: the scene for that panel. See
   :mod:`abyss.ui.page_config`.
 
+Files are sent with an ``ETag``, their content hash, and ``Cache-Control:
+no-cache``: a browser may keep them but asks every time, and gets a bodyless
+304 when nothing changed. Over a slow link that is the difference between 18 MB
+per load and almost nothing. Text and WebAssembly over ``GZIP_MIN_BYTES`` are
+gzipped when the client accepts it, which takes the WebAssembly from 11.8 to 3.4
+MB. The generated routes stay ``no-store``.
+
 Every response carries a Content-Security-Policy whose ``connect-src 'self'``
 keeps the page from reaching any host but this one. That is not hygiene for its
 own sake: ``@mediapipe/tasks-vision`` posts usage logs to
@@ -31,6 +38,7 @@ import argparse
 from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
+import gzip
 import hashlib
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler
@@ -72,6 +80,15 @@ CSP_DIRECTIVES = (
     "style-src 'self'",
 )
 CONTENT_SECURITY_POLICY = "; ".join(CSP_DIRECTIVES)
+
+COMPRESSIBLE = frozenset({".html", ".js", ".mjs", ".css", ".json", ".wasm"})
+"""Suffixes worth gzipping. Images, clips and the model are compressed already."""
+
+GZIP_MIN_BYTES = 1024
+"""Smaller files gain less than the header costs."""
+
+_gzipped: dict[str, bytes] = {}
+"""Compressed bodies by ETag: the WebAssembly takes half a second to gzip."""
 
 CONTENT_TYPES = {
     ".html": "text/html; charset=utf-8",
@@ -140,6 +157,37 @@ def ui_version(root: Path) -> str:
     return f"ui {digest.hexdigest()[:8]}"
 
 
+def accepts_gzip(header: str | None) -> bool:
+    """Whether an ``Accept-Encoding`` header allows gzip.
+
+    Args:
+        header: The header's value, or None if absent.
+
+    Returns:
+        True if ``gzip`` is listed without ``q=0``.
+    """
+    for item in (header or "").split(","):
+        name, _, params = item.strip().partition(";")
+        if name.strip().lower() != "gzip":
+            continue
+        quality = params.strip().removeprefix("q=").strip()
+        return not params or float(quality or 1) > 0
+    return False
+
+
+def etag_matches(header: str | None, etag: str) -> bool:
+    """Whether an ``If-None-Match`` header names this ETag.
+
+    Args:
+        header: The header's value, or None if absent.
+        etag: The current ETag, quoted.
+
+    Returns:
+        True if the client's copy is current.
+    """
+    return header is not None and (header.strip() == "*" or etag in header.split(","))
+
+
 def split_vendor_path(rest: str) -> tuple[str, str] | None:
     """Split ``<npm name>/<member>``, where a scoped name has two segments.
 
@@ -160,6 +208,12 @@ class UiRequestHandler(BaseHTTPRequestHandler):
     """Routes requests to the folders in :attr:`config`."""
 
     config: ClassVar[ServeConfig]
+
+    # Chromium does not revalidate a fetch() by ETag on an HTTP/1.0 response,
+    # so tasks-vision's .wasm and model came over in full on every load; on
+    # 1.1 they come back as 304s. Every response sends a Content-Length, as
+    # keeping the connection open requires.
+    protocol_version = "HTTP/1.1"
 
     def log_message(self, format: str, *args: object) -> None:  # noqa: A002 - name fixed by the base class
         """Send the base class's access log to loguru instead of stderr.
@@ -287,25 +341,49 @@ class UiRequestHandler(BaseHTTPRequestHandler):
         self.send_file(target)
 
     def send_file(self, path: Path) -> None:
-        """Send a file with its content type and no caching.
+        """Send a file to be revalidated by ETag, gzipped where it helps.
 
         Args:
             path: A file that exists.
         """
         content_type = CONTENT_TYPES.get(path.suffix, "application/octet-stream")
-        self.send_bytes(path.read_bytes(), content_type)
+        data = path.read_bytes()
+        compressible = path.suffix in COMPRESSIBLE and len(data) >= GZIP_MIN_BYTES
+        zipped = compressible and accepts_gzip(self.headers.get("Accept-Encoding"))
+        digest = hashlib.sha256(data).hexdigest()[:32]
+        etag = f'"{digest}-gz"' if zipped else f'"{digest}"'
+        headers = {"Cache-Control": "no-cache", "ETag": etag}
+        if compressible:
+            headers["Vary"] = "Accept-Encoding"
+        if etag_matches(self.headers.get("If-None-Match"), etag):
+            self.send_response(HTTPStatus.NOT_MODIFIED)
+            for name, value in headers.items():
+                self.send_header(name, value)
+            self.end_headers()
+            return
+        if zipped:
+            if etag not in _gzipped:
+                _gzipped[etag] = gzip.compress(data, compresslevel=6, mtime=0)
+            data = _gzipped[etag]
+            headers["Content-Encoding"] = "gzip"
+        self.send_bytes(data, content_type, headers)
 
-    def send_bytes(self, data: bytes, content_type: str) -> None:
-        """Send a body with its content type and no caching.
+    def send_bytes(
+        self, data: bytes, content_type: str, headers: dict[str, str] | None = None
+    ) -> None:
+        """Send a body with its content type, never cached unless headers say so.
 
         Args:
             data: The body.
             content_type: Its MIME type.
+            headers: Extra headers; a ``Cache-Control`` here replaces ``no-store``.
         """
+        headers = {"Cache-Control": "no-store", **(headers or {})}
         self.send_response(HTTPStatus.OK)
         self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(data)))
-        self.send_header("Cache-Control", "no-store")
+        for name, value in headers.items():
+            self.send_header(name, value)
         self.end_headers()
         self.wfile.write(data)
 

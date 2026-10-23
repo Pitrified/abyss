@@ -51,15 +51,17 @@ export function loading(phase) {
   if (phase) log(`loading ${phase}`);
 }
 
-// Every download over 50 kB, with its size and how long it took: on a slow
-// link, which file the wait is in.
+// Every file over 50 kB, with its size, what crossed the network (less when
+// gzipped, headers only when the browser's copy was still current), and how
+// long it took: on a slow link, which file the wait is in.
 export function logDownloads() {
+  const kb = (bytes) => (bytes / 1000).toFixed(0);
   for (const entry of performance.getEntriesByType("resource")) {
-    if (entry.encodedBodySize < 50_000) continue;
-    const kb = (entry.encodedBodySize / 1000).toFixed(0);
+    if (entry.decodedBodySize < 50_000) continue;
     const start = (entry.startTime / 1000).toFixed(2);
     const took = (entry.duration / 1000).toFixed(2);
-    log(`fetched ${new URL(entry.name).pathname} ${kb} kB, started ${start} s, took ${took} s`);
+    const size = `${kb(entry.decodedBodySize)} kB, ${kb(entry.transferSize)} kB on the wire`;
+    log(`fetched ${new URL(entry.name).pathname} ${size}, started ${start} s, took ${took} s`);
   }
 }
 

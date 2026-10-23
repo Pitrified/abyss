@@ -1,6 +1,7 @@
 """Test the UI server's routes, headers and refusals, against temporary folders."""
 
 from collections.abc import Iterator
+import gzip
 import http.client
 from pathlib import Path
 import re
@@ -59,12 +60,13 @@ def test_root_redirects_to_the_phone_ui(base: str) -> None:
 
 
 def test_ui_folder_serves_index_with_csp(base: str) -> None:
-    """A UI folder serves its index, with the policy and no caching."""
+    """A UI folder serves its index, with the policy, revalidated every load."""
     response = get(base, "/phone_web/")
     assert response.status == 200
     assert response.getheader("Content-Type", "").startswith("text/html")
     assert response.getheader("Content-Security-Policy") == CONTENT_SECURITY_POLICY
-    assert response.getheader("Cache-Control") == "no-store"
+    assert response.getheader("Cache-Control") == "no-cache"
+    assert response.getheader("ETag")
 
 
 def test_csp_blocks_other_hosts() -> None:
@@ -166,3 +168,69 @@ def test_version_follows_the_ui_files(base: str, config: ServeConfig) -> None:
     assert read_version(base) == before
     (config.ui_root / "phone_web" / "index.html").write_text("<!doctype html><p>bye")
     assert read_version(base) != before
+
+
+def fetch(
+    base: str, path: str, headers: dict[str, str] | None = None
+) -> tuple[http.client.HTTPResponse, bytes]:
+    """Send a GET with headers and return the response with its body."""
+    parts = urlsplit(base)
+    conn = http.client.HTTPConnection(parts.hostname or "", parts.port)
+    conn.request("GET", path, headers=headers or {})
+    response = conn.getresponse()
+    return response, response.read()
+
+
+@pytest.fixture
+def big_script(config: ServeConfig) -> bytes:
+    """Write a script large enough to be compressed."""
+    data = ("export const x = 1;\n" * 500).encode()
+    (config.ui_root / "phone_web" / "big.js").write_bytes(data)
+    return data
+
+
+def test_files_revalidate_with_an_etag(base: str, big_script: bytes) -> None:
+    """A file carries an ETag and no-cache; asked again with it, the answer is 304."""
+    response, body = fetch(base, "/phone_web/big.js")
+    assert body == big_script
+    assert response.getheader("Cache-Control") == "no-cache"
+    etag = response.getheader("ETag")
+    assert etag
+    again, empty = fetch(base, "/phone_web/big.js", {"If-None-Match": etag})
+    assert again.status == 304
+    assert empty == b""
+    assert again.getheader("ETag") == etag
+
+
+def test_a_changed_file_is_sent_again(
+    base: str, config: ServeConfig, big_script: bytes
+) -> None:
+    """The ETag is the content: an edit makes the old one stale."""
+    etag = fetch(base, "/phone_web/big.js")[0].getheader("ETag") or ""
+    (config.ui_root / "phone_web" / "big.js").write_bytes(big_script + b"// edit\n")
+    response, body = fetch(base, "/phone_web/big.js", {"If-None-Match": etag})
+    assert response.status == 200
+    assert body.endswith(b"// edit\n")
+
+
+def test_text_is_gzipped_when_accepted(base: str, big_script: bytes) -> None:
+    """Gzip on request, with its own ETag; plain bytes otherwise."""
+    zipped, body = fetch(base, "/phone_web/big.js", {"Accept-Encoding": "gzip, br"})
+    assert zipped.getheader("Content-Encoding") == "gzip"
+    assert zipped.getheader("Vary") == "Accept-Encoding"
+    assert gzip.decompress(body) == big_script
+    assert len(body) < len(big_script) / 10
+    plain, raw = fetch(base, "/phone_web/big.js")
+    assert plain.getheader("Content-Encoding") is None
+    assert raw == big_script
+    assert zipped.getheader("ETag") != plain.getheader("ETag")
+    refused, _ = fetch(base, "/phone_web/big.js", {"Accept-Encoding": "gzip;q=0"})
+    assert refused.getheader("Content-Encoding") is None
+
+
+def test_generated_routes_are_never_cached(base: str) -> None:
+    """Config, scene and version are built per request, so no-store, no ETag."""
+    for path in ("/config.json", "/scene.json?screen=g7_internal", "/version.js"):
+        response, _ = fetch(base, path)
+        assert response.getheader("Cache-Control") == "no-store", path
+        assert response.getheader("ETag") is None, path
