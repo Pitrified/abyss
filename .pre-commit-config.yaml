@@ -16,8 +16,8 @@ repos:
     hooks:
       - id: uv-lock
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    # uv run ruff --version
-    rev: v0.15.2
+    # Same version as the ruff pin in pyproject.toml; bump both together.
+    rev: v0.17.2
     hooks:
       # Run the linter.
       - id: ruff-check
