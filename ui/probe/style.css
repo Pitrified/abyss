@@ -28,3 +28,14 @@ button {
   padding: env(safe-area-inset-top) env(safe-area-inset-right)
     env(safe-area-inset-bottom) env(safe-area-inset-left);
 }
+
+#thumbs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5em;
+}
+
+#thumbs figure {
+  margin: 0;
+  font-size: 10px;
+}

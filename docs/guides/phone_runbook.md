@@ -63,6 +63,14 @@ asks for it. Read these out of it:
 The same numbers on the phone page are on `window.abyss.camera`, which on g4 is one F12 away; the
 probe is for the Pixel, where there is no console without a cable.
 
+**Camera sweep.** Once the camera is open, the probe counts down three seconds, then opens the
+front camera with ten different requests in turn, tracking the face in each; no tap needed. Hold
+the phone still, at one distance, square to your face, until the status reads done (about 15 s).
+`sweep.variants` lists what each request delivered and `widthPerIpd` / `heightPerIpd`, the frame's
+size in iris spacings: larger is a wider view. `sweep.widest` is the widest across. Two streams'
+`ipdPx` ratio is the ratio of their focal lengths, which carries the published 92.8 deg diagonal
+from a full-sensor stream to any other.
+
 ## 3. The mirroring check, on each device
 
 **Do this before anything else on the phone page.** It decides whether every sideways number has

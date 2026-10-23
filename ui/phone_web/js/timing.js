@@ -9,7 +9,7 @@
 // summary(): { last: { <stage>: ms, total }, median: { <stage>: ms, total,
 //   interval }, fps }, where `interval` is the time between frames.
 
-const median = (values) => {
+export const median = (values) => {
   const sorted = [...values].sort((a, b) => a - b);
   const mid = Math.floor(sorted.length / 2);
   return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
