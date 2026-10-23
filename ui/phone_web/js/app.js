@@ -17,14 +17,16 @@
 import { eachFrame, openCamera } from "./camera.js";
 import { decodeFrame, loadClip } from "./clip_source.js";
 import { loadConfig, loadScene } from "./config.js";
+import { VERSION } from "/version.js";
 import { fullscreenOnTap } from "./display.js";
 import { drawEye, drawFrame } from "./draw.js";
 import { extractEyeSample, eyePositionM, LiveScale } from "./eye_position.js";
 import { checkAspect, viewProjectionMatrix } from "./frustum.js";
 import { frameGeometry } from "./geometry.js";
+import { logButton } from "./log_button.js";
 import { SceneView } from "./scene.js";
 import { PositionSmoother } from "./smoothing.js";
-import { fail, setStatus, state } from "./state.js";
+import { fail, log, setStatus, state } from "./state.js";
 import { StageTimer } from "./timing.js";
 import { createLandmarker, monotonicClock } from "./tracker.js";
 
@@ -55,6 +57,7 @@ function makeDrawer(config, sceneDoc) {
     checkAspect(config.screen, width, height, config.constants);
     view.setSize(width, height, pixelRatio);
     state.output = { width, height, pixelRatio };
+    log(`output ${width}x${height} css at ${pixelRatio}`);
     if (last) view.render(last);
   };
   resize();
@@ -89,6 +92,10 @@ function process(ctx, detect, idx, msec, now) {
     needed,
     value: ctx.scale.isReady ? ctx.scale.scale : null,
   };
+  if (state.scale.ready && !ctx.scaleLogged) {
+    log(`scale ready ${state.scale.value.toFixed(4)}`);
+    ctx.scaleLogged = true;
+  }
   state.frames += 1;
   return { idx, msec, sample, position, smoothed, matrix };
 }
@@ -118,6 +125,16 @@ function context(config, draw, width, height) {
     smoother: new PositionSmoother(config.constants.filter_size),
     timer: new StageTimer(),
   };
+}
+
+// One line a second for the log: where the eye is and where the time goes.
+function summarize(entry) {
+  const { fps, median } = state.timing;
+  const ms = ["landmarker", "eye", "matrix", "draw"]
+    .filter((stage) => stage in median)
+    .map((stage) => `${stage} ${median[stage].toFixed(1)}`)
+    .join(" ");
+  return `${describe(entry)} | ${fps ? fps.toFixed(1) : "-"} fps | ms ${ms}`;
 }
 
 function describe(entry) {
@@ -159,9 +176,11 @@ async function runCamera(config, draw, landmarker) {
   state.source = "camera";
   const video = document.getElementById("camera");
   state.camera = await openCamera(video);
+  log(`camera ${state.camera.label} ${state.camera.width}x${state.camera.height}`);
   const ctx = context(config, draw, state.camera.width, state.camera.height);
   const canvas = document.getElementById("view");
   const clock = monotonicClock();
+  let summarized = -Infinity;
   state.status = "running";
   eachFrame(video, (now) => {
     const msec = clock(now);
@@ -169,6 +188,10 @@ async function runCamera(config, draw, landmarker) {
     drawEye(canvas, entry.sample, state.camera);
     const fps = state.timing.fps ? ` | ${state.timing.fps.toFixed(1)} fps` : "";
     setStatus(describe(entry) + fps);
+    if (now - summarized >= 1000) {
+      log(summarize(entry));
+      summarized = now;
+    }
   });
 }
 
@@ -191,9 +214,16 @@ function runFixedEye(config, draw) {
 
 async function main() {
   setStatus("loading");
+  state.version = VERSION;
+  document.getElementById("version").textContent = VERSION;
+  logButton();
+  log(`version ${VERSION}`);
+  log(`page ${location.href}`);
   const screen = params.get("screen");
   const config = await loadConfig({ camera: params.get("camera"), viewer: params.get("viewer"), screen });
   state.config = config;
+  const { camera } = config;
+  log(`config camera ${camera.name} mirrored ${camera.mirrored} screen ${config.screen?.name ?? "none"}`);
   const draw = makeDrawer(config, screen ? await loadScene(screen) : null);
   if (draw) document.body.classList.add("with-scene");
   fullscreenOnTap();

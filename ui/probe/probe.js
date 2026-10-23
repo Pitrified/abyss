@@ -9,10 +9,11 @@
 // status: "starting" | "done" | "error"; a part that fails carries { error }
 // instead of failing the probe.
 
+import { VERSION } from "/version.js";
 import { CONSTRAINTS } from "/phone_web/js/camera.js";
 import { enterFullscreen } from "/phone_web/js/display.js";
 
-const probe = { status: "starting", when: new Date().toISOString() };
+const probe = { status: "starting", version: VERSION, when: new Date().toISOString() };
 window.probe = probe;
 
 const out = document.getElementById("out");

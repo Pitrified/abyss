@@ -5,7 +5,7 @@
 // Publishes state.display: { fullscreen, lock }, where `lock` is null until
 // tried, then "locked" or the name of the error that refused it.
 
-import { state } from "./state.js";
+import { log, state } from "./state.js";
 
 export async function enterFullscreen(target = document.documentElement) {
   if (document.fullscreenElement) return { fullscreen: true, lock: "already fullscreen" };
@@ -26,10 +26,12 @@ export function fullscreenOnTap() {
   state.display = { fullscreen: false, lock: null };
   document.addEventListener("fullscreenchange", () => {
     state.display.fullscreen = Boolean(document.fullscreenElement);
+    log(`fullscreen ${state.display.fullscreen}`);
   });
   document.addEventListener("click", async () => {
     if (document.fullscreenElement) return;
     const { lock } = await enterFullscreen();
     state.display.lock = lock;
+    log(`lock ${lock}`);
   });
 }

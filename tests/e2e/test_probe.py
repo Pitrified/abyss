@@ -15,6 +15,7 @@ def test_probe_reads_the_device_and_prints_it(browser: Browser, base_url: str) -
     page, log = open_page(browser, f"{base_url}/probe/", device_scale_factor=2)
     wait_until(page, "window.probe && window.probe.status === 'done'")
     probe = page.evaluate("window.probe")
+    assert probe["version"].startswith("ui ")
     assert probe["screen"]["devicePixelRatio"] == 2
     assert probe["screen"]["physical"] == [
         probe["screen"]["width"] * 2,

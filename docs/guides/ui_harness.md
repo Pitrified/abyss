@@ -30,6 +30,7 @@ uv run --no-sync playwright install chromium
 | `/vendor/<npm name>/<path>` | `cache/vendor/`, at the version `ui/vendor.toml` pins |
 | `/models/face_landmarker.task` | the model the Python pipeline loads, through pose-tools' `ModelManager` |
 | `/clips/<name>` | `build/clips/` |
+| `/version.js` | `export const VERSION`, a hash of every file under `ui/`, computed per request |
 | `/config.json?camera=&viewer=&screen=` | device configs from `abyss_devices.py` and the constants of the maths |
 | `/scene.json?screen=` | the scene for that panel, as segments from `abyss.render.scene.window_box` |
 
@@ -73,6 +74,14 @@ Every frame also updates `window.abyss.timing`: `last` and a rolling `median` ov
 in `interval`. With the camera, the status line shows the fps. A tap anywhere enters fullscreen and
 tries the portrait lock; `window.abyss.display` says whether it is fullscreen and what the lock did
 (`"locked"` or the error name; desktop Chromium refuses it).
+
+The top-right corner shows the served UI's version, `ui <hash>`, from `/version.js`. Every response
+is `no-store`, so it should always match `curl -s <server>/version.js`; an older hash on a device
+means it is running a stale copy. Next to it, the **log** button copies a header (version, URL,
+user agent, camera, output, display, median timings) and `window.abyss.log` to the clipboard: the
+newest 500 lines of events (config, camera, output size, scale ready, fullscreen, lock, errors) and
+one summary line a second with the eye, fps and stage medians. If the clipboard is refused it shows
+the text selected instead. The button does not count as the fullscreen tap.
 
 The scene is drawn by three.js from the served segments. three.js's own cameras cannot express an
 off-axis frustum, so a bare `THREE.Camera` at the origin carries abyss's whole view projection as

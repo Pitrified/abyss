@@ -3,6 +3,7 @@
 from collections.abc import Iterator
 import http.client
 from pathlib import Path
+import re
 from urllib.parse import urlsplit
 
 import pytest
@@ -142,3 +143,26 @@ def test_scene_route_needs_a_known_screen(base: str) -> None:
     assert response.getheader("Content-Type") == "application/json"
     assert get(base, "/scene.json").status == 400
     assert get(base, "/scene.json?screen=nope").status == 404
+
+
+def read_version(base: str) -> str:
+    """Fetch /version.js and pull the string out of its one export."""
+    parts = urlsplit(base)
+    conn = http.client.HTTPConnection(parts.hostname or "", parts.port)
+    conn.request("GET", "/version.js")
+    response = conn.getresponse()
+    assert response.status == 200
+    assert response.getheader("Content-Type") == "text/javascript; charset=utf-8"
+    assert response.getheader("Cache-Control") == "no-store"
+    body = response.read().decode()
+    match = re.fullmatch(r'export const VERSION = "ui ([0-9a-f]{8})";\n', body)
+    assert match, body
+    return match.group(1)
+
+
+def test_version_follows_the_ui_files(base: str, config: ServeConfig) -> None:
+    """Any edit under ui/ changes the version the page shows, with no restart."""
+    before = read_version(base)
+    assert read_version(base) == before
+    (config.ui_root / "phone_web" / "index.html").write_text("<!doctype html><p>bye")
+    assert read_version(base) != before

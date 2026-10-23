@@ -10,6 +10,9 @@ One static server for every UI under ``ui/``, standard library only. Routes:
 - ``/models/face_landmarker.task``: the same model file the Python pipeline
   loads, through pose-tools' ``ModelManager``.
 - ``/clips/<name>``: generated clips from ``build/clips/``.
+- ``/version.js``: ``export const VERSION``, a hash of every file under ``ui/``,
+  computed per request. The page shows it, so a stale copy in the browser is
+  visible as an old hash.
 - ``/config.json?camera=&viewer=&screen=``: device configs and constants, and
   ``/scene.json?screen=``: the scene for that panel. See
   :mod:`abyss.ui.page_config`.
@@ -28,6 +31,7 @@ import argparse
 from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
+import hashlib
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler
 from http.server import ThreadingHTTPServer
@@ -120,6 +124,22 @@ def resolve_inside(root: Path, relative: str) -> Path | None:
     return target if target.is_relative_to(root) else None
 
 
+def ui_version(root: Path) -> str:
+    """Hash every file under the UI folder, paths and contents.
+
+    Args:
+        root: The UI folder.
+
+    Returns:
+        ``ui <8 hex digits>``, which changes with any edit below ``root``.
+    """
+    digest = hashlib.sha256()
+    for path in sorted(p for p in root.rglob("*") if p.is_file()):
+        digest.update(path.relative_to(root).as_posix().encode())
+        digest.update(path.read_bytes())
+    return f"ui {digest.hexdigest()[:8]}"
+
+
 def split_vendor_path(rest: str) -> tuple[str, str] | None:
     """Split ``<npm name>/<member>``, where a scoped name has two segments.
 
@@ -163,6 +183,9 @@ class UiRequestHandler(BaseHTTPRequestHandler):
             self.send_config(urlsplit(self.path).query)
         elif path == "/scene.json":
             self.send_scene(urlsplit(self.path).query)
+        elif path == "/version.js":
+            module = f'export const VERSION = "{ui_version(self.config.ui_root)}";\n'
+            self.send_bytes(module.encode(), CONTENT_TYPES[".js"])
         elif path.startswith("/clips/"):
             self.send_inside(self.config.clips_dir, path.removeprefix("/clips/"))
         else:

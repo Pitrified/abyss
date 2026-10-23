@@ -12,6 +12,8 @@
 // timing:  per-stage frame times in ms, last and rolling median; see timing.js
 // output:  { width, height, pixelRatio } of the scene, with a screen
 // display: { fullscreen, lock }; see display.js
+// version: the served UI's hash, from /version.js, also shown in the corner
+// log:     the newest LOG_LINES lines of what the page did; see log()
 
 export const state = {
   status: "starting",
@@ -22,7 +24,11 @@ export const state = {
   latest: null,
   scale: null,
   track: [],
+  log: [],
 };
+
+const LOG_LINES = 500;
+const started = performance.now();
 
 window.abyss = state;
 
@@ -31,9 +37,18 @@ export function setStatus(text) {
   if (line) line.textContent = text;
 }
 
+// One line of the log a person copies off the device: events as they happen,
+// and a summary a second from the camera loop. Seconds since the page loaded.
+export function log(text) {
+  const seconds = ((performance.now() - started) / 1000).toFixed(2);
+  state.log.push(`${seconds} ${text}`);
+  if (state.log.length > LOG_LINES) state.log.shift();
+}
+
 export function fail(err) {
   state.status = "error";
   state.error = { name: err?.name ?? "Error", message: err?.message ?? String(err) };
   setStatus(`${state.error.name}: ${state.error.message}`);
+  log(`error ${state.error.name}: ${state.error.message}`);
   console.error(`abyss: ${state.error.name}: ${state.error.message}`);
 }

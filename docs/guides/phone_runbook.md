@@ -33,6 +33,10 @@ draws the scene: a grey box receding into the screen, a cyan frame around the ed
 right of centre.
 That page needs no camera and no face, so if it fails, the problem is serving, not tracking.
 
+Two things on every page, top right: the version, `ui <hash>`, which should match
+`curl -s https://g7.tail5dff8b.ts.net/version.js` (an older one means a stale copy), and the
+**log** button, which copies what the page saw, for pasting into a chat when something is off.
+
 ## 2. The probe, on each device
 
 Open `https://g7.tail5dff8b.ts.net/probe/`, allow the camera, tap **fullscreen**, tap **copy**,
