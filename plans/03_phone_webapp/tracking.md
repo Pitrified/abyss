@@ -117,3 +117,10 @@ Append-only. Newest at the bottom.
   The trailing blank lines are fixed, and `ui/vendor.toml` is excluded from detect-secrets alongside
   `uv.lock`, for the same reason: its integrity hashes are public. `pre-commit run --all-files`
   passes.
+- 2026-10-23 : **`tailscale serve` up on g7**: `https://g7.tail5dff8b.ts.net/`, tailnet only, `--bg`,
+  proxying to `make serve` on `127.0.0.1:8000`. Ports 8000 and 443 checked free first; the
+  Cloudflare tunnel uses 8090-8092. Serve had to be enabled for the tailnet, and the config needs
+  root (run by the user; operator left unset). Headless Chromium on g7 through that URL: the page
+  runs on the fake camera at 30 fps, landmarker median 25.6 ms, the rest under 0.3 ms, nothing
+  off-server; the probe reports a secure context and a 720x1280 stream. Undo with
+  `tailscale serve --https=443 off`, as root.
