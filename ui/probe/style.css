@@ -1,0 +1,30 @@
+body {
+  margin: 0;
+  padding: 0.5em;
+  background: #111;
+  color: #ddd;
+  font: 14px/1.4 system-ui, sans-serif;
+}
+
+button {
+  font: inherit;
+  padding: 0.5em 1em;
+}
+
+#out {
+  white-space: pre-wrap;
+  word-break: break-all;
+  font: 12px/1.3 ui-monospace, monospace;
+}
+
+#camera {
+  width: 30%;
+}
+
+/* Read back by probe.js: the browser resolves env() into pixels here. */
+#safe-area {
+  position: fixed;
+  visibility: hidden;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right)
+    env(safe-area-inset-bottom) env(safe-area-inset-left);
+}

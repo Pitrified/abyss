@@ -2,7 +2,8 @@
 
 // Ask for portrait at phone resolution. A fake device or a laptop webcam
 // answers with whatever it has, and the page reads the size it actually got.
-const CONSTRAINTS = {
+// The probe page asks with the same constraints, to report what this gets.
+export const CONSTRAINTS = {
   audio: false,
   video: {
     facingMode: "user",
