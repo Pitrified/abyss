@@ -49,6 +49,7 @@ def test_the_g7_webcam_is_measured() -> None:
     assert camera.is_measured is True
     assert camera.focal_px == pytest.approx(945.0)
     assert camera.focal_measured_at_height == 720
+    assert camera.focal_measured_at_width == 1280
 
 
 def test_the_g7_webcam_focal_rescales_with_height() -> None:
@@ -74,6 +75,9 @@ def test_the_phone_focal_follows_its_spec_diagonal() -> None:
     )
     assert camera.focal_px_for_height(640) == pytest.approx(381, abs=1)
     assert "PROVISIONAL" in camera.provenance
+    # Valid for 3:4 portrait only; a 16:9 mode crops the width.
+    assert camera.focal_fits_frame(1440, 1920) is True
+    assert camera.focal_fits_frame(720, 1280) is False
 
 
 def test_the_phone_camera_is_not_mirrored() -> None:

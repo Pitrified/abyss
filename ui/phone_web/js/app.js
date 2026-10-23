@@ -22,7 +22,7 @@ import { fullscreenOnTap } from "./display.js";
 import { drawEye, drawFrame } from "./draw.js";
 import { extractEyeSample, eyePositionM, LiveScale } from "./eye_position.js";
 import { checkAspect, viewProjectionMatrix } from "./frustum.js";
-import { frameGeometry } from "./geometry.js";
+import { focalFitsFrame, frameGeometry } from "./geometry.js";
 import { logButton } from "./log_button.js";
 import { SceneView } from "./scene.js";
 import { PositionSmoother } from "./smoothing.js";
@@ -115,7 +115,14 @@ function locateEye(ctx, result, idx, msec) {
 }
 
 function context(config, draw, width, height) {
-  const geometry = frameGeometry(config.camera, width, height, config.constants);
+  const { camera } = config;
+  if (!focalFitsFrame(camera, width, height)) {
+    log(
+      `warning: ${camera.name}'s focal is for ${camera.focal_measured_at_width}x${camera.focal_measured_at_height} ` +
+        `frames and this one is ${width}x${height}, another crop: depth will be off`,
+    );
+  }
+  const geometry = frameGeometry(camera, width, height, config.constants);
   const fixed = params.has("scale") ? Number(params.get("scale")) : undefined;
   return {
     config,

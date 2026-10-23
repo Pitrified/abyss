@@ -55,6 +55,7 @@ CAMERAS: dict[str, CameraConfig] = {
         name="g7_webcam",
         focal_px=945.0,
         focal_measured_at_height=720,
+        focal_measured_at_width=1280,
         provenance=(
             "Chicony 04f2:b6c8, measured 2026-08-16 by ChArUco calibration off a "
             "Kindle Paperwhite 11 at 300 ppi, 15 views at 1280x720, rms 0.263 px. "
@@ -80,6 +81,7 @@ CAMERAS: dict[str, CameraConfig] = {
         # on a 4:3 frame, so tan(46.4 deg) * 0.6 = 0.630 across the 1440 side.
         focal_px=1143.0,
         focal_measured_at_height=1920,
+        focal_measured_at_width=1440,
         mirrored=False,
         provenance=(
             "Focal length PROVISIONAL, derived from specs, not measured: the "

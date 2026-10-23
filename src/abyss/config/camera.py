@@ -83,7 +83,8 @@ class CameraConfig(BaseModel):
     several resolutions, so the frame size arrives with the frames and is bound
     in through :class:`FrameGeometry`. The only resolution stored here is the
     one a measured focal length was measured at, which is what makes that
-    measurement interpretable.
+    measurement interpretable, and the width with it, which says which frames
+    share its crop.
 
     Args:
         name: Device name, used in logs and as its registry key.
@@ -94,6 +95,9 @@ class CameraConfig(BaseModel):
         focal_px: Focal length in pixels, if it has been measured. Requires
             ``focal_measured_at_height``.
         focal_measured_at_height: Frame height ``focal_px`` was measured at.
+        focal_measured_at_width: Frame width ``focal_px`` was measured at.
+            Optional; when known, :meth:`focal_fits_frame` can tell a frame of
+            another shape, whose crop the rescaled focal does not describe.
         mirrored: Whether the capture is mirrored, as a front-facing phone
             camera usually is. Flips the sign of X and nothing else.
         provenance: Where the numbers came from, in words. Say "provisional"
@@ -106,6 +110,7 @@ class CameraConfig(BaseModel):
     fov_vertical_deg: float | None = Field(default=None, gt=0, lt=STRAIGHT_ANGLE_DEG)
     focal_px: float | None = Field(default=None, gt=0)
     focal_measured_at_height: int | None = Field(default=None, gt=0)
+    focal_measured_at_width: int | None = Field(default=None, gt=0)
     mirrored: bool = False
     provenance: str = "unmeasured, using MediaPipe's assumed field of view"
 
@@ -161,6 +166,28 @@ class CameraConfig(BaseModel):
         if fov is None:
             fov = MEDIAPIPE_VERTICAL_FOV_DEG
         return (height / 2) / math.tan(math.radians(fov / 2))
+
+    def focal_fits_frame(self, width: int, height: int) -> bool:
+        """Whether a frame of this size has the shape the focal was measured at.
+
+        Rescaling by height assumes the frame covers the same part of the
+        sensor. A frame of another aspect ratio is a different crop, so the
+        rescaled focal is wrong for it and the depth with it, silently: a 16:9
+        stream from the Pixel's 4:3 front camera crops the width.
+
+        Args:
+            width: Frame width in pixels.
+            height: Frame height in pixels.
+
+        Returns:
+            False only when the measured shape is known and differs; a field
+            of view or the fallback has no shape to differ from.
+        """
+        measured_w = self.focal_measured_at_width
+        measured_h = self.focal_measured_at_height
+        if self.focal_px is None or measured_w is None or measured_h is None:
+            return True
+        return width * measured_h == height * measured_w
 
 
 @dataclass(frozen=True)

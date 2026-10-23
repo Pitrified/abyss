@@ -34,6 +34,24 @@ def test_log_records_events_and_a_summary_a_second(
     page.context.close()
 
 
+def test_log_warns_when_the_frame_is_another_crop(
+    browser: Browser, base_url: str
+) -> None:
+    """The fake camera is 720x1280; the Pixel's focal is for 1440x1920."""
+    warnings = {}
+    for camera in ("pixel7pro_front", "unknown_clip"):
+        page, log = open_page(browser, f"{base_url}/phone_web/?camera={camera}")
+        wait_until(page, "window.abyss.status === 'running'")
+        lines = page.evaluate("window.abyss.log")
+        warnings[camera] = [line for line in lines if " warning: " in line]
+        assert not log.errors
+        page.context.close()
+    assert len(warnings["pixel7pro_front"]) == 1
+    assert "1440x1920" in warnings["pixel7pro_front"][0]
+    assert "720x1280" in warnings["pixel7pro_front"][0]
+    assert warnings["unknown_clip"] == []
+
+
 def test_log_button_copies_header_and_lines(browser: Browser, base_url: str) -> None:
     """The button puts the version, the URL and the log on the clipboard."""
     page, log = open_page(browser, f"{base_url}/phone_web/?screen=g7_internal")

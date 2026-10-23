@@ -110,6 +110,20 @@ def test_focal_length_matches(page: Page) -> None:
         assert abs(value - case["want"]) < EXACT * case["want"], case
 
 
+def test_focal_fit_matches(page: Page) -> None:
+    """The page tells a frame of another shape the way Python does."""
+    sizes = [(1440, 1920), (480, 640), (720, 1280), (1280, 720), (640, 360)]
+    cases = [
+        {"camera": cam.model_dump(), "w": w, "h": h, "want": cam.focal_fits_frame(w, h)}
+        for cam in CAMERAS
+        for w, h in sizes
+    ]
+    got = call(page, "geometry.js", "m.focalFitsFrame(c.camera, c.w, c.h)", cases)
+    assert got == [case["want"] for case in cases]
+    assert False in got
+    assert True in got
+
+
 def test_eye_position_matches(page: Page) -> None:
     """Including the mirrored camera, which flips x and nothing else."""
     cases = []

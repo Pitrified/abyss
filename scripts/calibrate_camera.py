@@ -770,6 +770,7 @@ def cmd_solve(args: argparse.Namespace, out_fol: Path) -> None:
     print(f'        name="{args.camera}",')
     print(f"        focal_px={fy:.1f},")
     print(f"        focal_measured_at_height={args.height},")
+    print(f"        focal_measured_at_width={args.width},")
     print(
         f'        provenance="ChArUco on {spec.source}, {len(object_points)} views, '
         f'rms {rms:.3f} px, <date>",'

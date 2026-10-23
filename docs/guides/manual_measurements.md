@@ -118,6 +118,8 @@ Less accurate. Use only when there is nothing to show a board on.
 `focal_measured_at_height` is required: a focal length in pixels is meaningless without the
 resolution it was measured at. Setting `fov_vertical_deg` instead is fine, but never from a
 published spec, which quotes the diagonal.
+Add `focal_measured_at_width` too: rescaling by height only holds for frames of the same shape,
+and with the width known the phone page logs a warning when a stream is another crop.
 
 ## 2. Whether two resolutions share a field of view
 

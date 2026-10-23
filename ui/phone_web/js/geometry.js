@@ -1,5 +1,6 @@
 // A camera bound to the frames it produced. Port of
-// abyss.config.camera.CameraConfig.focal_px_for_height and FrameGeometry.
+// abyss.config.camera.CameraConfig.focal_px_for_height, .focal_fits_frame and
+// FrameGeometry.
 //
 // `camera` is a CameraConfig as served at /config.json, `constants` the
 // constants block from the same document.
@@ -12,6 +13,14 @@ export function focalPxForHeight(camera, height, constants) {
   }
   const fov = camera.fov_vertical_deg ?? constants.mediapipe_vertical_fov_deg;
   return height / 2 / Math.tan(((fov / 2) * Math.PI) / 180);
+}
+
+// False only when the measured shape is known and the frame's differs: a
+// different crop, which the rescaled focal does not describe.
+export function focalFitsFrame(camera, width, height) {
+  const { focal_px: focal, focal_measured_at_width: w, focal_measured_at_height: h } = camera;
+  if (focal == null || w == null || h == null) return true;
+  return width * h === height * w;
 }
 
 export function frameGeometry(camera, width, height, constants) {
