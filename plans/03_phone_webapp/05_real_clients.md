@@ -79,6 +79,8 @@ first run on the phone look broken for a reason that is not the maths.
 
 ## Steps
 
+Follow [`docs/guides/phone_runbook.md`](../../docs/guides/phone_runbook.md), written before the run.
+
 1. **g4.** Open the page from g7's tailnet name. Its own webcam and screen: `g4_internal` entries
    exist, the camera unmeasured. Check the effect, record frame times.
 2. **The Pixel.** Same page. Check the effect holding the phone, record frame times and the stage

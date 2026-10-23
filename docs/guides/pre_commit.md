@@ -22,7 +22,9 @@ For repos:
 - pyright
 - nbstripout
 
-1. update the tool with [uv](./uv.md)
+1. update the tool with [uv](./uv.md).
+   ruff is pinned exactly in `pyproject.toml` so it cannot drift from the hook:
+   edit that `ruff==` pin first, then lock.
 
    ```bash
    uv lock --upgrade-package ruff

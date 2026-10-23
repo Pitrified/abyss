@@ -110,3 +110,6 @@ Append-only. Newest at the bottom.
   `devicePixelRatio`, a `pixel7pro` screen from the spec sheet and AOSP's cutout path, and a probe
   page at `/probe/` that reports what the device says, ready to copy. 295 unit tests, 37 browser
   tests.
+- 2026-10-23 : phase 4 runbook written, `docs/guides/phone_runbook.md`: serving, the probe, the
+  mirroring check (head to your right must give negative x), g4, then the Pixel, and a log template.
+  On the Pixel the stage split needs `chrome://inspect` over USB; fps is on the status line.
