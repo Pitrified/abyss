@@ -89,4 +89,3 @@ Done on 2026-10-22 in a cloud session, verified from a clean clone: `make check`
 
 No screen for the Pixel exists yet, so every check runs against `g7_internal`; the phone's panel is
 phase 4.
-

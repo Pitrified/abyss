@@ -40,11 +40,17 @@ Use the Makefile; it exists so commands are discoverable and consistent.
 ```bash
 make help        # list every target
 make sync        # uv sync --all-extras --all-groups
+make hooks       # pre-commit install, once per clone
 make check       # lint + typecheck + test
 make test        # uv run --no-sync pytest
 make nbstrip     # strip notebook outputs (the hook only verifies)
 make e2e         # browser tests: Chromium, a synthetic face clip as the camera
 ```
+
+**The pre-commit hooks are installed and run on every commit**, so write to pass them rather than
+fixing up afterwards: ruff check and format, pyright, stripped notebook outputs, no secrets, a
+single trailing newline, no trailing whitespace. Never skip them with `--no-verify`; fix the finding.
+`make check` covers the Python half, and `uv run --no-sync pre-commit run --files <paths>` the rest.
 
 **The browser UIs are checked by running them.** `make e2e` serves `ui/`, opens it in headless
 Chromium with a recorded face playing as the webcam, and reads the page's state; `scripts/drive_ui.py`

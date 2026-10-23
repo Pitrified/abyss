@@ -43,4 +43,5 @@ repos:
     hooks:
       - id: detect-secrets
         args: ["--baseline", ".secrets.baseline"]
-        exclude: uv.lock
+        # Lock files: public integrity hashes, which read as high-entropy strings.
+        exclude: ^(uv\.lock|ui/vendor\.toml)$

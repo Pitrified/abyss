@@ -1,4 +1,4 @@
-.PHONY: help sync lint format typecheck test check nbstrip vendor clip serve e2e undev dev-pose-tools
+.PHONY: help sync hooks lint format typecheck test check nbstrip vendor clip serve e2e undev dev-pose-tools
 
 MAKEFLAGS += --no-print-directory
 .DEFAULT_GOAL := help
@@ -23,6 +23,9 @@ help:  ## Show this help (list targets and their descriptions)
 
 sync:  ## Install all dependencies (extras and groups) - the only target that syncs
 	uv sync --all-extras --all-groups
+
+hooks:  ## Install the pre-commit git hooks, once per clone
+	$(UV_RUN) pre-commit install
 
 ########
 # LINT #

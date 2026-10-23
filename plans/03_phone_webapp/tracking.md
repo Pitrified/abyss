@@ -113,3 +113,7 @@ Append-only. Newest at the bottom.
 - 2026-10-23 : phase 4 runbook written, `docs/guides/phone_runbook.md`: serving, the probe, the
   mirroring check (head to your right must give negative x), g4, then the Pixel, and a log template.
   On the Pixel the stage split needs `chrome://inspect` over USB; fps is on the status line.
+- 2026-10-23 : pre-commit hooks installed on g7 (`make hooks`, new), and documented as a setup step.
+  The trailing blank lines are fixed, and `ui/vendor.toml` is excluded from detect-secrets alongside
+  `uv.lock`, for the same reason: its integrity hashes are public. `pre-commit run --all-files`
+  passes.

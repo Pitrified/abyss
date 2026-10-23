@@ -1,5 +1,8 @@
 # Pre commit
 
+Install the hooks once per clone with `make hooks` (`pre-commit install`); every commit then runs
+them. Run them over the whole repo with `uv run --no-sync pre-commit run --all-files`.
+
 ## Maintenance of the file
 
 ### Manually check the latest release versions

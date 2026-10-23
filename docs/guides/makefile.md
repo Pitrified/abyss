@@ -8,6 +8,7 @@ This copy is trimmed from the one in `python-project-template`: abyss has no mkd
 ```bash
 make help        # list every target with its description
 make sync        # install all dependencies (extras and groups)
+make hooks       # install the pre-commit git hooks, once per clone
 make check       # lint, typecheck and test
 make nbstrip     # strip notebook outputs
 make vendor      # fetch the browser UIs' third-party files

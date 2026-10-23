@@ -98,4 +98,3 @@ unchanged in what it runs.
 Every new check was seen failing: matrix order (five tests), the mirror flip, the even-count median.
 The page tracks at roughly 55 ms a frame headless on the container's CPU, which says nothing about
 the phone.
-

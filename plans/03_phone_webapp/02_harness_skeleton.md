@@ -127,4 +127,3 @@ removed, the stray request above. The clip check against the Python landmarker w
 
 Found on the way and left alone: the venv resolves ruff 0.16.2 while pre-commit pins 0.15.2, and
 0.16.2 reformats eight files the hook accepts. `make check` only lints, so nothing fails today.
-
