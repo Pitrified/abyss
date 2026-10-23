@@ -108,6 +108,25 @@ SCREENS: dict[str, ScreenConfig] = {
             "active area to the centre of the lens, plus half the panel height"
         ),
     ),
+    "pixel7pro": ScreenConfig(
+        name="pixel7pro",
+        # 1440x3120 px at 512 ppi. Held upright, the front camera is a punch
+        # hole centred on the top edge, 72 px down: +Y down to the centre.
+        width_m=1440 * 0.0254 / 512,
+        height_m=3120 * 0.0254 / 512,
+        camera_to_centre_m=(0.0, (3120 / 2 - 72) * 0.0254 / 512, 0.0),
+        provenance=(
+            "Pixel 7 Pro, from specs rather than a ruler, which would be less "
+            "precise. Size: 1440x3120 at 512 ppi from Google's spec sheet, "
+            "71.4 x 154.8 mm; 512 is rounded, so up to 0.1% off. Camera: the "
+            "display cutout in AOSP, device/google/pantah, cheetah overlay, "
+            "config_mainBuiltInDisplayCutout, a circle of radius 43 px centred "
+            "at (720, 72) px from the top-left corner, read 2026-10-23. The panel "
+            "curves at its long edges and the frustum treats it as flat, so the "
+            "last few mm of each long edge are drawn slightly off. The offset "
+            "assumes the camera stream is upright, which the probe page checks"
+        ),
+    ),
 }
 """Display devices."""
 

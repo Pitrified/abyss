@@ -80,6 +80,17 @@ def test_the_screen_offset_is_flagged_as_provisional() -> None:
     assert "PROVISIONAL" in get_screen("g4_internal").provenance
 
 
+def test_the_pixel_screen_is_its_spec_sheet() -> None:
+    """1440x3120 at 512 ppi, camera hole centred at 72 px from the top edge."""
+    screen = get_screen("pixel7pro")
+    metres_per_px = 0.0254 / 512
+    assert screen.width_m == pytest.approx(1440 * metres_per_px)
+    assert screen.height_m == pytest.approx(3120 * metres_per_px)
+    assert screen.camera_to_centre_m == pytest.approx(
+        (0.0, (3120 / 2 - 72) * metres_per_px, 0.0)
+    )
+
+
 def test_the_default_viewer_exists() -> None:
     """One viewer today, which is why nothing selects between them."""
     assert get_viewer().name == "default"
