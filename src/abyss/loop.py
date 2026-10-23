@@ -185,7 +185,8 @@ class LoopStats:
         )
         self._warn_if_starved()
         timed = " ".join(
-            f"{name} {self.stage_ms[name]:.1f}" for name in STAGE_NAMES
+            f"{name} {self.stage_ms[name]:.1f}"
+            for name in STAGE_NAMES
             if name in self.stage_ms
         )
         accounted = sum(self.stage_ms.values())

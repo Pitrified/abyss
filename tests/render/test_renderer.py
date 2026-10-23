@@ -151,12 +151,12 @@ def test_the_cube_and_the_window_move_by_different_amounts(
     base = render_frame(screen, centred_eye(screen), renderer, size)
     moved = render_frame(screen, centred_eye(screen, right_m=0.12), renderer, size)
 
-    cube_shift = centroid(moved, orange_mask(moved))[0] - centroid(
-        base, orange_mask(base)
-    )[0]
-    marker_shift = centroid(moved, cyan_mask(moved))[0] - centroid(
-        base, cyan_mask(base)
-    )[0]
+    cube_shift = (
+        centroid(moved, orange_mask(moved))[0] - centroid(base, orange_mask(base))[0]
+    )
+    marker_shift = (
+        centroid(moved, cyan_mask(moved))[0] - centroid(base, cyan_mask(base))[0]
+    )
     assert abs(marker_shift) < 0.5
     assert abs(cube_shift) > 5 * max(abs(marker_shift), 0.5)
 

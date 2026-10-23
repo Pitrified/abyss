@@ -277,9 +277,7 @@ def detect_corners(
         Object points and image points, or ``None`` if too little was found.
     """
     grey = (
-        image
-        if image.ndim == GREYSCALE_NDIM
-        else cv.cvtColor(image, cv.COLOR_BGR2GRAY)
+        image if image.ndim == GREYSCALE_NDIM else cv.cvtColor(image, cv.COLOR_BGR2GRAY)
     )
     detector = cv.aruco.CharucoDetector(board)
     corners, ids, _, _ = detector.detectBoard(grey)
