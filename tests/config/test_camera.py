@@ -77,6 +77,26 @@ class TestMeasuredFocal:
         )
         assert camera.focal_px_for_height(1080) == pytest.approx(1650.0)
 
+    def test_fits_frames_of_its_shape_only(self) -> None:
+        # 4:3 portrait: a smaller 3:4 frame is the same crop, 9:16 is not.
+        camera = CameraConfig(
+            name="test",
+            focal_px=1143.0,
+            focal_measured_at_height=1920,
+            focal_measured_at_width=1440,
+        )
+        assert camera.focal_fits_frame(1440, 1920) is True
+        assert camera.focal_fits_frame(480, 640) is True
+        assert camera.focal_fits_frame(720, 1280) is False
+        assert camera.focal_fits_frame(1920, 1440) is False
+
+    def test_without_a_measured_width_any_frame_fits(self) -> None:
+        camera = CameraConfig(
+            name="test", focal_px=1100.0, focal_measured_at_height=720
+        )
+        assert camera.focal_fits_frame(640, 480) is True
+        assert unmeasured().focal_fits_frame(640, 480) is True
+
 
 class TestValidation:
     """Malformed entries fail at construction, not ten frames into a run."""

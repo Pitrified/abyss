@@ -1,5 +1,5 @@
 ---
-status: draft
+status: done
 ---
 
 # Phone webapp - capture and display over the network
@@ -51,11 +51,68 @@ Numbering is local to this folder.
 - Q1: **Where does the split land - frames or landmarks?** Sending camera frames to the server and
   rendered frames back is the obvious shape and the most bandwidth. Running the landmarker on the
   phone and sending only an eye position is far lighter, and MediaPipe has a web build.
-  ANS: ...
+  ANS: landmarks, and they never leave the phone. Tracking, the frustum and the drawing all run on the
+  phone, so nothing per frame crosses the network and the round trip is not on the path from a head
+  movement to the picture moving, which is the latency the effect is judged by. g7 serves the page and
+  the assets and is otherwise out of the loop. The cost is a second implementation of the frustum
+  maths, a few dozen lines, held to the Python one by a check (see
+  [`01_research_dev_harness.md`](01_research_dev_harness.md)). Sending frames was rejected for that
+  latency, and splitting tracking from drawing across the network keeps a hop on the path for no gain.
 - Q2: **Does the browser render, or does the server?** If the browser renders (three.js), the server
   only sends a viewer position and the phone GPU does the work. If the server renders, it sends
   video. This mostly follows from Q1.
-  ANS: ...
+  ANS: the browser, with three.js. A native app (Flutter or Unity) was considered: Flutter is weak at
+  3D and awkward for MediaPipe, and Unity is the upgrade path if the browser runs out of performance,
+  not the starting point, because of its build cycle and licence. The page also runs unchanged on g4
+  and in a headless Chromium, which is what makes it testable at all.
 - Q3: **Is a phone even needed for a first version?** A laptop browser on the same network exercises
   the whole path with none of the phone-specific unknowns. g4 is that laptop, on the same tailnet.
-  ANS: ...
+  ANS: no. Order: headless Chromium with a recorded face fed in as the camera, then g4's browser,
+  then the same page on the Pixel. Each step adds one unknown.
+
+The second batch comes out of [`01_research_dev_harness.md`](01_research_dev_harness.md): how an
+agent runs the page for real, with a recorded face standing in for the camera.
+
+- Q4: **Where do the page's third-party files come from?** three.js and `@mediapipe/tasks-vision`,
+  about 20 MB unpacked, most of it three 13 MB variants of the MediaPipe WASM binary. The page needs
+  them served from somewhere; where they are stored and who fetches them is the question.
+  a. Committed under `webapp/vendor/`. Rejected: binaries in git, and a version bump is a large diff.
+  b. **A manifest in git, files fetched on demand into a gitignored cache, served by g7.** The manifest
+     names each package, its exact version and its integrity hash, the same ones npm's registry
+     publishes. A `make` target downloads what is missing and checks the hashes. This is
+     `ModelManager.ensure_model` applied to JS, and the face model itself can come through the same
+     door: g7 already holds it in `~/.mediapipe/models/`.
+  c. Loaded from jsdelivr at runtime, pinned by version and by subresource integrity hash.
+     Nothing stored anywhere, but every client needs the internet, and so does every test.
+  Inside b, who does the fetching is the Node question: `package.json` plus `package-lock.json` and
+  `npm ci` if g7 has Node, or a short Python fetcher over the registry if not.
+  Recommended: b. c is fine for a throwaway prototype, and `cdn.jsdelivr.net` is allowed in the cloud
+  environment since 2026-10-22.
+  ANS: b. A manifest in git, a fetched and hash-checked gitignored cache, served by g7. Who fetches is
+  settled in phase 1.
+- Q5: **Is `make e2e` part of `make check`?** The probe ran a fake-camera session in seconds, but
+  MediaPipe's WASM path was around 90 ms a frame there, so a frame-exact run over a whole clip is not.
+  ANS: no, `make e2e` is a separate target.
+- Q6: **Where does the webapp live?** `webapp/` at the root beside `src/`, with its server and the
+  golden-vector export in `src/abyss/webapp/`.
+  ANS: modular. The phone webapp is the first UI, not the only one: more UIs and more renderers may
+  follow, so the layout has to leave room for siblings rather than name one of them the webapp.
+  Shape to settle when the first file is written, e.g. `ui/phone_web/` for the page and
+  `src/abyss/ui/` for what serves it, next to the existing `src/abyss/render/` seam.
+- Q7: **Where does a test clip live?** A clip recorded on the Pixel's front camera at phone distance,
+  in portrait, is the fixture none of the existing clips is, and also how the Pixel's focal length gets
+  measured. It is a face, so it is never on a public GitHub. Options, which combine:
+  a. **Outside git on g7**, in `~/data/pose/` beside `face01.mp4`, which is the existing convention.
+     Tests that need it skip where it is absent. Cloud sessions do not have it.
+  b. **Numbers extracted from it, committed.** The precedent is `tests/viewer/data/face01_samples.json`:
+     iris positions and head pose for 20 frames of `face01.mp4`, extracted once so the maths is
+     testable with no clip and no model. Per-frame eye positions are not a face.
+  c. **A synthetic clip generated at test time**: a public-domain portrait moved by ffmpeg along a
+     known path, as in the probe. Runs anywhere, cloud included, and the true motion is known
+     exactly, which a recorded clip never gives.
+  d. **A private store** reachable from cloud sessions: a private repository, or g7 behind the
+     Cloudflare tunnel with an access token. Only needed if a cloud session must run the real clip.
+  Recommended: a plus b plus c. c is the fixture every run has, a is the real-world check on g7,
+  b carries what a needs into places a cannot go. d only if that turns out not to be enough.
+  ANS: c now. a plus b is wanted and deferred: it needs a recording session with the Pixel, and
+  nothing in the first phases waits on it. d is not planned.

@@ -237,7 +237,9 @@ can be wrong.
 `Renderer` is a protocol with one method:
 
 ```python
-def render(self, view_projection: np.ndarray, width_px: int, height_px: int) -> np.ndarray: ...
+def render(
+    self, view_projection: np.ndarray, width_px: int, height_px: int
+) -> np.ndarray: ...
 ```
 
 A matrix and a size in, a BGR frame out. The seam sits here rather than at the scene deliberately:

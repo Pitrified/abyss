@@ -142,9 +142,7 @@ def test_it_agrees_with_the_offline_estimator(geometry, viewer) -> None:
     for one in samples:
         live.update(one)
 
-    assert live.scale == pytest.approx(
-        estimate_head_scale(samples, geometry, viewer)
-    )
+    assert live.scale == pytest.approx(estimate_head_scale(samples, geometry, viewer))
 
 
 def test_a_reset_bootstraps_again(geometry, viewer) -> None:

@@ -1,5 +1,8 @@
 # Pre commit
 
+Install the hooks once per clone with `make hooks` (`pre-commit install`); every commit then runs
+them. Run them over the whole repo with `uv run --no-sync pre-commit run --all-files`.
+
 ## Maintenance of the file
 
 ### Manually check the latest release versions
@@ -22,7 +25,9 @@ For repos:
 - pyright
 - nbstripout
 
-1. update the tool with [uv](./uv.md)
+1. update the tool with [uv](./uv.md).
+   ruff and pyright are pinned exactly in `pyproject.toml` so they cannot drift from the hooks:
+   edit those `==` pins first, then lock.
 
    ```bash
    uv lock --upgrade-package ruff

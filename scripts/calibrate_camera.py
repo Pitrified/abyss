@@ -277,9 +277,7 @@ def detect_corners(
         Object points and image points, or ``None`` if too little was found.
     """
     grey = (
-        image
-        if image.ndim == GREYSCALE_NDIM
-        else cv.cvtColor(image, cv.COLOR_BGR2GRAY)
+        image if image.ndim == GREYSCALE_NDIM else cv.cvtColor(image, cv.COLOR_BGR2GRAY)
     )
     detector = cv.aruco.CharucoDetector(board)
     corners, ids, _, _ = detector.detectBoard(grey)
@@ -772,6 +770,7 @@ def cmd_solve(args: argparse.Namespace, out_fol: Path) -> None:
     print(f'        name="{args.camera}",')
     print(f"        focal_px={fy:.1f},")
     print(f"        focal_measured_at_height={args.height},")
+    print(f"        focal_measured_at_width={args.width},")
     print(
         f'        provenance="ChArUco on {spec.source}, {len(object_points)} views, '
         f'rms {rms:.3f} px, <date>",'

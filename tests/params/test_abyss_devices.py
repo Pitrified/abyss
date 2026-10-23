@@ -1,5 +1,7 @@
 """Test the device registry."""
 
+import math
+
 import pytest
 
 from abyss.params.abyss_devices import CAMERAS
@@ -47,6 +49,7 @@ def test_the_g7_webcam_is_measured() -> None:
     assert camera.is_measured is True
     assert camera.focal_px == pytest.approx(945.0)
     assert camera.focal_measured_at_height == 720
+    assert camera.focal_measured_at_width == 1280
 
 
 def test_the_g7_webcam_focal_rescales_with_height() -> None:
@@ -63,9 +66,23 @@ def test_the_g7_webcam_focal_rescales_with_height() -> None:
     assert camera.focal_px_for_height(360) == pytest.approx(472.5)
 
 
-def test_the_phone_camera_is_mirrored() -> None:
-    """A front-facing phone camera mirrors its preview."""
-    assert get_camera("pixel7pro_front").mirrored is True
+def test_the_phone_focal_follows_its_spec_diagonal() -> None:
+    """92.8 deg across the diagonal of a 4:3 frame, 1440x1920 portrait."""
+    camera = get_camera("pixel7pro_front")
+    half_diagonal = math.tan(math.radians(92.8 / 2))
+    assert camera.focal_px_for_height(1920) == pytest.approx(
+        720 / (0.6 * half_diagonal), rel=1e-3
+    )
+    assert camera.focal_px_for_height(640) == pytest.approx(381, abs=1)
+    assert "PROVISIONAL" in camera.provenance
+    # Valid for 3:4 portrait only; a 16:9 mode crops the width.
+    assert camera.focal_fits_frame(1440, 1920) is True
+    assert camera.focal_fits_frame(720, 1280) is False
+
+
+def test_the_phone_camera_is_not_mirrored() -> None:
+    """Chrome delivers the Pixel's front camera unmirrored, seen on the device."""
+    assert get_camera("pixel7pro_front").mirrored is False
 
 
 def test_this_box_screen_matches_its_edid() -> None:
@@ -78,6 +95,17 @@ def test_this_box_screen_matches_its_edid() -> None:
 def test_the_screen_offset_is_flagged_as_provisional() -> None:
     """The bezel is a guess until someone measures it, and must say so."""
     assert "PROVISIONAL" in get_screen("g4_internal").provenance
+
+
+def test_the_pixel_screen_is_its_spec_sheet() -> None:
+    """1440x3120 at 512 ppi, camera hole centred at 72 px from the top edge."""
+    screen = get_screen("pixel7pro")
+    metres_per_px = 0.0254 / 512
+    assert screen.width_m == pytest.approx(1440 * metres_per_px)
+    assert screen.height_m == pytest.approx(3120 * metres_per_px)
+    assert screen.camera_to_centre_m == pytest.approx(
+        (0.0, (3120 / 2 - 72) * metres_per_px, 0.0)
+    )
 
 
 def test_the_default_viewer_exists() -> None:

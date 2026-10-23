@@ -14,6 +14,8 @@ interrupted by shell commands is harder to read.
 | [`pre_commit.md`](pre_commit.md) | maintaining the hook config and bumping its versions |
 | [`manual_measurements.md`](manual_measurements.md) | the three measurements that need a person: focal length, matched fields of view, camera-to-screen offset |
 | [`phase5_live_runbook.md`](phase5_live_runbook.md) | running the head-coupled loop live on g7, with the known failures and what to record |
+| [`phone_runbook.md`](phone_runbook.md) | phase 4 of the phone webapp: the page on g4 and the Pixel, served by g7, with the mirroring check and what to record |
+| [`ui_harness.md`](ui_harness.md) | serving the browser UIs and running them headless in Chromium with a recorded face as the camera |
 
 ## Notes
 

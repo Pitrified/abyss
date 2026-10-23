@@ -55,6 +55,7 @@ CAMERAS: dict[str, CameraConfig] = {
         name="g7_webcam",
         focal_px=945.0,
         focal_measured_at_height=720,
+        focal_measured_at_width=1280,
         provenance=(
             "Chicony 04f2:b6c8, measured 2026-08-16 by ChArUco calibration off a "
             "Kindle Paperwhite 11 at 300 ppi, 15 views at 1280x720, rms 0.263 px. "
@@ -76,8 +77,28 @@ CAMERAS: dict[str, CameraConfig] = {
     ),
     "pixel7pro_front": CameraConfig(
         name="pixel7pro_front",
-        mirrored=True,
-        provenance="unmeasured; front cameras mirror their preview",
+        # The 1440x1920 portrait stream the page asks for: 92.8 deg diagonal
+        # on a 4:3 frame, so tan(46.4 deg) * 0.6 = 0.630 across the 1440 side.
+        focal_px=1143.0,
+        focal_measured_at_height=1920,
+        focal_measured_at_width=1440,
+        mirrored=False,
+        provenance=(
+            "Focal length PROVISIONAL, derived from specs, not measured: the "
+            "front camera's published 92.8 deg diagonal field of view (Google, "
+            "DXOMARK; 21 mm equivalent agrees) taken over a 4:3 frame. The probe "
+            "sweep of 2026-10-23 found 1440x1920 shares its width with the "
+            "sensor's full 2448x3440 readout to 0.3%, so the stream is uncropped "
+            "across. If the 92.8 deg is instead the diagonal of that 1:1.41 "
+            "readout, the focal is 3.5% longer. Valid for 3:4 portrait streams "
+            "only: 16:9 modes crop the width. Not mirrored, seen 2026-10-23 in "
+            "Chrome 155 on "
+            "Android 17: with the flag set, moving the head 10 cm to the viewer's "
+            "right took x from 0 to +10 cm, where it must go negative, and in the "
+            "page's unflipped view the face left by the image's left edge. "
+            "getUserMedia delivers the sensor image and leaves mirroring to the "
+            "preview. Upright with the phone held upright"
+        ),
     ),
 }
 """Capture devices."""
@@ -106,6 +127,25 @@ SCREENS: dict[str, ScreenConfig] = {
             "size from the panel's own EDID on card1-eDP-1, exact. Offset "
             "measured 2026-08-16 with a ruler: 4 mm from the top edge of the "
             "active area to the centre of the lens, plus half the panel height"
+        ),
+    ),
+    "pixel7pro": ScreenConfig(
+        name="pixel7pro",
+        # 1440x3120 px at 512 ppi. Held upright, the front camera is a punch
+        # hole centred on the top edge, 72 px down: +Y down to the centre.
+        width_m=1440 * 0.0254 / 512,
+        height_m=3120 * 0.0254 / 512,
+        camera_to_centre_m=(0.0, (3120 / 2 - 72) * 0.0254 / 512, 0.0),
+        provenance=(
+            "Pixel 7 Pro, from specs rather than a ruler, which would be less "
+            "precise. Size: 1440x3120 at 512 ppi from Google's spec sheet, "
+            "71.4 x 154.8 mm; 512 is rounded, so up to 0.1% off. Camera: the "
+            "display cutout in AOSP, device/google/pantah, cheetah overlay, "
+            "config_mainBuiltInDisplayCutout, a circle of radius 43 px centred "
+            "at (720, 72) px from the top-left corner, read 2026-10-23. The panel "
+            "curves at its long edges and the frustum treats it as flat, so the "
+            "last few mm of each long edge are drawn slightly off. The offset "
+            "assumes the camera stream is upright, which the probe page checks"
         ),
     ),
 }

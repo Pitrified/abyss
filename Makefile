@@ -1,4 +1,4 @@
-.PHONY: help sync lint format typecheck test check nbstrip undev dev-pose-tools
+.PHONY: help sync hooks lint format typecheck test check nbstrip vendor clip serve e2e undev dev-pose-tools
 
 MAKEFLAGS += --no-print-directory
 .DEFAULT_GOAL := help
@@ -24,6 +24,9 @@ help:  ## Show this help (list targets and their descriptions)
 sync:  ## Install all dependencies (extras and groups) - the only target that syncs
 	uv sync --all-extras --all-groups
 
+hooks:  ## Install the pre-commit git hooks, once per clone
+	$(UV_RUN) pre-commit install
+
 ########
 # LINT #
 ########
@@ -45,6 +48,23 @@ check: lint typecheck test  ## Run lint, typecheck and test
 nbstrip:  ## Strip notebook outputs (pre-commit only verifies, this fixes)
 	@files=$$(git ls-files '*.ipynb'); \
 	if [ -n "$$files" ]; then $(UV_RUN) nbstripout $$files; else echo "no tracked notebooks"; fi
+
+######
+# UI #
+######
+# The browser UIs and their harness. See docs/guides/ui_harness.md.
+
+vendor:  ## Fetch and hash-check the UIs' third-party files into cache/vendor/
+	$(UV_RUN) python -m abyss.ui.vendor
+
+clip:  ## Write the synthetic face clip to build/clips/
+	$(UV_RUN) python -m abyss.ui.clip
+
+serve: vendor  ## Serve the UIs on localhost:8000
+	$(UV_RUN) python -m abyss.ui.serve
+
+e2e: vendor  ## Browser tests: Chromium, the synthetic clip as the camera (not part of check)
+	$(UV_RUN) pytest -m e2e tests/e2e
 
 ########
 # DEPS #

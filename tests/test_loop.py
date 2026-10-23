@@ -142,7 +142,13 @@ def test_every_frame_reaches_the_sink(screen, geometry, viewer, renderer) -> Non
     """One frame in, one frame out, at the size the sink asked for."""
     sink = RecordingSink()
     stats = run_loop(
-        frames(), sink, screen, renderer, always_tracks, geometry, viewer,
+        frames(),
+        sink,
+        screen,
+        renderer,
+        always_tracks,
+        geometry,
+        viewer,
         scale=LiveScale(geometry, viewer, scale=0.94),
     )
 
@@ -162,7 +168,13 @@ def test_it_renders_the_scene_rather_than_a_message(
     """
     sink = RecordingSink()
     run_loop(
-        frames(), sink, screen, renderer, always_tracks, geometry, viewer,
+        frames(),
+        sink,
+        screen,
+        renderer,
+        always_tracks,
+        geometry,
+        viewer,
         scale=LiveScale(geometry, viewer, scale=0.94),
     )
 
@@ -175,7 +187,13 @@ def test_it_says_so_while_calibrating(screen, geometry, viewer, renderer) -> Non
     """Rather than rendering at the wrong scale, which would look like it works."""
     sink = RecordingSink()
     stats = run_loop(
-        frames(), sink, screen, renderer, always_tracks, geometry, viewer,
+        frames(),
+        sink,
+        screen,
+        renderer,
+        always_tracks,
+        geometry,
+        viewer,
         scale=LiveScale(geometry, viewer, needed=FRAMES + 5),
     )
 
@@ -199,7 +217,13 @@ def test_a_face_that_arrives_late_starts_the_scene(
 
     sink = RecordingSink()
     stats = run_loop(
-        frames(), sink, screen, renderer, late, geometry, viewer,
+        frames(),
+        sink,
+        screen,
+        renderer,
+        late,
+        geometry,
+        viewer,
         scale=LiveScale(geometry, viewer, needed=2),
     )
 
@@ -217,12 +241,19 @@ def test_a_lost_face_holds_the_position_and_marks_it(
     blank - and the frame itself has to say it is held, because live there is
     nobody reading a log.
     """
+
     def then_lost(_frame: np.ndarray, idx: int, _msec: float) -> EyeSample | None:
         return eye_sample(idx) if idx < 6 else None
 
     sink = RecordingSink()
     stats = run_loop(
-        frames(), sink, screen, renderer, then_lost, geometry, viewer,
+        frames(),
+        sink,
+        screen,
+        renderer,
+        then_lost,
+        geometry,
+        viewer,
         scale=LiveScale(geometry, viewer, scale=0.94),
     )
 
@@ -241,7 +272,13 @@ def test_a_face_never_seen_at_all_does_not_crash(
     """There is nothing to hold before the first face, and that is a state."""
     sink = RecordingSink()
     stats = run_loop(
-        frames(), sink, screen, renderer, never_tracks, geometry, viewer,
+        frames(),
+        sink,
+        screen,
+        renderer,
+        never_tracks,
+        geometry,
+        viewer,
         scale=LiveScale(geometry, viewer, scale=0.94),
     )
 
@@ -261,7 +298,13 @@ def test_stop_ends_the_run_early(screen, geometry, viewer, renderer) -> None:
 
     sink = RecordingSink()
     stats = run_loop(
-        frames(), sink, screen, renderer, always_tracks, geometry, viewer,
+        frames(),
+        sink,
+        screen,
+        renderer,
+        always_tracks,
+        geometry,
+        viewer,
         scale=LiveScale(geometry, viewer, scale=0.94),
         controls=Controls(stop=stop),
     )
@@ -285,12 +328,24 @@ def test_reset_re_bootstraps_the_scale(screen, geometry, viewer, renderer) -> No
         return True
 
     with_reset = run_loop(
-        frames(), RecordingSink(), screen, renderer, always_tracks, geometry, viewer,
+        frames(),
+        RecordingSink(),
+        screen,
+        renderer,
+        always_tracks,
+        geometry,
+        viewer,
         scale=LiveScale(geometry, viewer, needed=4),
         controls=Controls(reset=reset),
     )
     without = run_loop(
-        frames(), RecordingSink(), screen, renderer, always_tracks, geometry, viewer,
+        frames(),
+        RecordingSink(),
+        screen,
+        renderer,
+        always_tracks,
+        geometry,
+        viewer,
         scale=LiveScale(geometry, viewer, needed=4),
     )
 
@@ -305,7 +360,13 @@ def test_the_stats_report_the_rate(screen, geometry, viewer, renderer) -> None:
     """A slow loop honestly measured closes the phase; an unmeasured one does not."""
     sink = RecordingSink()
     stats = run_loop(
-        frames(), sink, screen, renderer, always_tracks, geometry, viewer,
+        frames(),
+        sink,
+        screen,
+        renderer,
+        always_tracks,
+        geometry,
+        viewer,
         scale=LiveScale(geometry, viewer, scale=0.94),
     )
 
@@ -326,7 +387,13 @@ def test_the_frame_carries_the_depth_readout(
     """
     plain = RecordingSink()
     run_loop(
-        frames(2), plain, screen, renderer, always_tracks, geometry, viewer,
+        frames(2),
+        plain,
+        screen,
+        renderer,
+        always_tracks,
+        geometry,
+        viewer,
         scale=LiveScale(geometry, viewer, scale=0.94),
     )
 
@@ -411,7 +478,12 @@ def test_the_mark_key_logs_the_reading_every_time(
     handler = lg.add(stats_lines.append, level="INFO")
     try:
         run_loop(
-            frames(), RecordingSink(), screen, renderer, always_tracks, geometry,
+            frames(),
+            RecordingSink(),
+            screen,
+            renderer,
+            always_tracks,
+            geometry,
             viewer,
             scale=LiveScale(geometry, viewer, scale=0.94),
             controls=Controls(mark=lambda: next(asked, False)),

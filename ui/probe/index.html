@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>abyss probe</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="style.css">
+  <script type="module" src="probe.js"></script>
+</head>
+<body>
+  <p>
+    What this device reports, for the registry and the runbook.
+    Hold the phone still in front of your face: after a countdown, the camera sweep runs by itself.
+    When the status says done, tap <b>copy</b> and paste the text where it is needed.
+  </p>
+  <p>
+    <button id="fullscreen" type="button">fullscreen</button>
+    <button id="copy" type="button">copy</button>
+    <span id="status">starting</span>
+  </p>
+  <div id="safe-area"></div>
+  <video id="camera" autoplay muted playsinline></video>
+  <div id="thumbs"></div>
+  <pre id="out"></pre>
+</body>
+</html>

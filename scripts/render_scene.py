@@ -345,8 +345,7 @@ def main() -> None:
         fps=args.fps,
     )
     lg.info(
-        f"Rendering {len(positions)} frames for {screen.name} "
-        f"into {config.out_fol}"
+        f"Rendering {len(positions)} frames for {screen.name} into {config.out_fol}"
     )
     render_run(screen, positions, held, config)
 

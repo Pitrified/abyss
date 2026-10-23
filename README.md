@@ -26,6 +26,17 @@ make sync          # uv sync --all-extras --all-groups
 
 `pose-tools` is pinned by git tag in `pyproject.toml`, so a plain sync is enough.
 
+### Install the git hooks
+
+```bash
+make hooks         # pre-commit install, once per clone
+```
+
+Every commit then runs the checks in `.pre-commit-config.yaml`: ruff, pyright, notebook outputs,
+secrets, whitespace. A clone without the hooks lets in exactly what they would have refused, and
+the next person to touch those files inherits it.
+To run them over everything at once: `uv run --no-sync pre-commit run --all-files`.
+
 ### Data and models
 
 Neither is stored in the repository:

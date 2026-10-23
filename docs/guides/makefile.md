@@ -8,10 +8,17 @@ This copy is trimmed from the one in `python-project-template`: abyss has no mkd
 ```bash
 make help        # list every target with its description
 make sync        # install all dependencies (extras and groups)
+make hooks       # install the pre-commit git hooks, once per clone
 make check       # lint, typecheck and test
 make nbstrip     # strip notebook outputs
+make vendor      # fetch the browser UIs' third-party files
+make clip        # write the synthetic face clip
+make serve       # serve the browser UIs on localhost
+make e2e         # browser tests, kept out of `make check`
 make undev       # revert a local editable override
 ```
+
+The four UI targets are explained in [`ui_harness.md`](ui_harness.md).
 
 ## Adding a target
 
@@ -57,7 +64,11 @@ Only `make` targets pass `--no-sync`. These still revert an editable install:
 
 - a bare `uv run ...` in a terminal,
 - the editor's test runner or language server, if it invokes `uv run`,
-- `pre-commit`, and any `uv sync`.
+- any `uv sync`, including `make sync` and `make undev`.
+
+The pre-commit hooks are safe. Their only uv hook, `uv-lock`, runs `uv lock`, which rewrites
+`uv.lock` and never touches `.venv`; the editable install is not in the lock to begin with. The
+other hooks run in pre-commit's own environments, and pyright only reads `.venv`.
 
 So treat a local override as short-lived. `make undev` is the deliberate way back to the pinned
 versions, and re-running `make dev-<lib>` is cheap when something has clobbered it.
