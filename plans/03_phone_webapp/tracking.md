@@ -54,8 +54,8 @@ Deferred, not phased:
 ## Next steps
 
 As of 2026-10-23 all four phases are done; the Pixel ran the runbook and g4 is left optional (see
-Deferred). The branch `feat/phone-webapp` is pushed and not merged to `main`; merging waits for the
-user. Ruff and pyright are pinned to the same exact versions in `pyproject.toml` and
+Deferred). The branch `feat/phone-webapp` was merged to `main` on 2026-10-23 (`3c3159f`).
+Ruff and pyright are pinned to the same exact versions in `pyproject.toml` and
 `.pre-commit-config.yaml`; bump each pair together.
 
 ## Log
