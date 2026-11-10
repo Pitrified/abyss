@@ -102,51 +102,80 @@ def quaternion_from_matrix(rotation: np.ndarray) -> list[float]:
     return [*(axis * np.sin(angle / 2)).tolist(), float(np.cos(angle / 2))]
 
 
-def pick_camera(centres: np.ndarray, forwards: np.ndarray) -> int:
+def level(vectors: np.ndarray, up: np.ndarray) -> np.ndarray:
+    """Return vectors with their component along ``up`` removed, as unit vectors."""
+    flat = vectors - (vectors @ up)[..., None] * up
+    return flat / np.linalg.norm(flat, axis=-1, keepdims=True)
+
+
+def capture_up(camera_ups: np.ndarray) -> np.ndarray:
+    """Return the scene's up: the capture cameras' mean up, as a unit vector.
+
+    A hand-held phone is level on average, so its rolls and pitches cancel.
+    The training frame's own axes are not a safe up: gsplat levels the cameras,
+    then turns the world to the point cloud's principal axes, which in a long
+    corridor rolled the scene 27 degrees.
+
+    Args:
+        camera_ups: ``(N, 3)`` each camera's up direction in the splat's frame.
+
+    Returns:
+        The unit up vector.
+    """
+    up = camera_ups.mean(axis=0)
+    return up / np.linalg.norm(up)
+
+
+def pick_camera(centres: np.ndarray, forwards: np.ndarray, up: np.ndarray) -> int:
     """Pick the capture camera that sees the most of a scene captured around it.
 
     In a capture that circles a scene, the best single viewpoint is far out and
     facing the middle: score is horizontal distance from the scene's centre
-    times how directly the camera faces it.
+    times how directly the camera faces it. Captures that do not circle a
+    subject, a corridor filmed from one end, need the camera chosen by hand.
 
     Args:
-        centres: ``(N, 3)`` camera centres in a z-up frame centred on the scene.
+        centres: ``(N, 3)`` camera centres in a frame centred on the scene.
         forwards: ``(N, 3)`` camera viewing directions in that frame.
+        up: The scene's up, a unit vector.
 
     Returns:
         The index of the camera.
     """
-    radius = np.linalg.norm(centres[:, :2], axis=1)
-    inward = -centres[:, :2] / radius[:, None]
-    heading = forwards[:, :2] / np.linalg.norm(forwards[:, :2], axis=1)[:, None]
-    return int(np.argmax(radius * (heading * inward).sum(axis=1)))
+    flat = centres - (centres @ up)[..., None] * up
+    radius = np.linalg.norm(flat, axis=1)
+    inward = -flat / radius[:, None]
+    return int(np.argmax(radius * (level(forwards, up) * inward).sum(axis=1)))
 
 
 def placement_at_camera(
     centre: np.ndarray,
     forward: np.ndarray,
+    up: np.ndarray,
     eye: tuple[float, float, float] = TYPICAL_EYE_M,
     scale: float = 1.0,
 ) -> dict:
-    """Place a z-up splat so a capture camera sits at the eye, facing the screen.
+    """Place a splat so a capture camera sits at the eye, facing the screen.
 
     A captured room only reads as a room when the viewer is inside it at about
     its own scale; shrunk to fit behind the glass it is a dollhouse seen from
     outside. So the camera's centre goes to the eye, its heading into the
-    screen, and the splat's up to the screen's. The camera's pitch is dropped:
-    the panel is upright.
+    screen, and the scene's up to the screen's. The camera's pitch and roll are
+    dropped: the panel is upright.
 
     Args:
-        centre: The camera's centre in the splat's frame, z up.
+        centre: The camera's centre in the splat's frame.
         forward: The camera's viewing direction in that frame.
+        up: The scene's up in that frame, a unit vector (:func:`capture_up`).
         eye: Screen-frame point the camera's centre goes to, metres.
         scale: Metres per splat unit.
 
     Returns:
         A placement: ``position``, ``quaternion`` and ``scale``, no ``file``.
     """
-    fx, fy = forward[:2] / np.linalg.norm(forward[:2])
-    rotation = np.array([[fy, -fx, 0.0], [0.0, 0.0, 1.0], [-fx, -fy, 0.0]])
+    heading = level(forward, up)
+    right = np.cross(heading, up)
+    rotation = np.array([right, up, -heading])
     position = np.asarray(eye) - scale * rotation @ centre
     return {
         "position": [round(float(v), 5) for v in position],

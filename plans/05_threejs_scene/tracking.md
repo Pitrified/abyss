@@ -169,3 +169,15 @@ Append-only. Newest at the bottom.
   scene's median depth, and the second half, the turn in place, barely moves the camera at all:
   a focal length that cannot be pinned down is what too little parallax looks like. Wrote the
   capture guide into `03_pixel_capture.md` and questions Q14 to Q18 into `00_start.md`.
+- 2026-11-11 : **metro trained** (user: to gather data). `scripts/train_splat.py` at the defaults,
+  168 frames at 540x960: 1495 s in all, 1.16M Gaussians, peak VRAM 2.9 GB, PSNR 24.88, SSIM 0.847,
+  LPIPS 0.250 (room: 32.19, 0.942, 0.075). SPZ 274 MB to 27.6 MB. gsplat's held-out renders match
+  their frames well, so the training holds near the capture path.
+  The first placement came out rolled: gsplat's training frame is not z-up after its principal-axis
+  turn, the cameras' mean up was 27 degrees off z. Fixed: `capture_up` takes up from the cameras,
+  `placement_at_camera` and `pick_camera` take it. The room still picks camera 179 and renders as
+  before. Placed at camera 27, mid-sway, at 0.3 m a unit, estimated from the carriage's width
+  (about 9 units for about 2.7 m). Upright now, but pitched: from a level eye the window shows
+  mostly floor, the corridor only from a low eye. The mean up includes the phone's average
+  downward tilt, and the focal length was 50 % off, so the geometry is not trusted. Left as is;
+  the recapture by the guide is the fix. `make check` 323, `make e2e` 54 passed.

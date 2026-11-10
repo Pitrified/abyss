@@ -9,15 +9,18 @@ Three steps, each skipped when its output is already there:
    ``~/data/splat_train/runs/<name>_<steps>``.
 2. Convert the trained PLY to SPZ with Spark, into ``AbyssPaths.splats_fol``.
 3. Write the placement file beside it, with one capture camera at the viewer's
-   eye (:func:`abyss.ui.splat.placement_at_camera`); ``--camera`` picks which.
+   eye (:func:`abyss.ui.splat.placement_at_camera`); ``--camera`` picks which,
+   and ``--scale`` sets metres per unit.
 
 The scene folder is COLMAP's layout: ``images/`` and ``sparse/0/``. gsplat's
 loader reads the images at the size they are, scaling the intrinsics to match,
 so a folder whose ``images`` holds downscaled copies trains at that size.
 
-gsplat's training space is z-up and centred on the cameras; the camera poses are
-read back through gsplat's own loader so the placement uses the same frame the
-splat was trained in. Not a test: it needs the GPU and takes tens of minutes.
+The camera poses are read back through gsplat's own loader, so the placement
+uses the frame the splat was trained in. That frame's z is only roughly up, so
+up is the cameras' mean up (:func:`abyss.ui.splat.capture_up`).
+
+Not a test: it needs the GPU and takes tens of minutes.
 """
 
 import argparse
@@ -30,6 +33,7 @@ from loguru import logger as lg
 import numpy as np
 
 from abyss.params.abyss_params import get_abyss_paths
+from abyss.ui.splat import capture_up
 from abyss.ui.splat import pick_camera
 from abyss.ui.splat import placement_at_camera
 from abyss.ui.spz import ply_to_spz
@@ -139,8 +143,12 @@ def main() -> None:
 
     poses = camera_poses(args.gsplat, args.scene)
     centres, forwards = poses[:, :, 3], poses[:, :, 2]
-    camera = pick_camera(centres, forwards) if args.camera is None else args.camera
-    placement = placement_at_camera(centres[camera], forwards[camera], scale=args.scale)
+    up = capture_up(-poses[:, :, 1])
+    picked = pick_camera(centres, forwards, up)
+    camera = picked if args.camera is None else args.camera
+    placement = placement_at_camera(
+        centres[camera], forwards[camera], up, scale=args.scale
+    )
     placement_file = splats / f"{args.name}.json"
     placement_file.write_text(json.dumps({"file": spz.name, **placement}) + "\n")
     lg.info(f"Camera {camera} at the eye; wrote {placement_file}")

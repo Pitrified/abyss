@@ -97,8 +97,10 @@ panel behaves as a window: a lower eye sees more ceiling.
 **Training on g7.** `scripts/train_splat.py <scene> <name>` trains with gsplat's
 `examples/simple_trainer.py` in gsplat's own environment (`~/repos/gsplat`, its `.venv`), converts
 the PLY to SPZ with Spark's `transcodeSpz` in headless Chromium (`abyss.ui.spz`), and writes the
-placement with `placement_at_camera`: gsplat's training frame is z-up, and the script picks the
-camera far out and facing the middle (`--camera` overrides). `<scene>` is COLMAP's layout,
+placement with `placement_at_camera`. Up is the capture cameras' mean up (`capture_up`), not the
+training frame's z: gsplat turns the world to the point cloud's axes, which rolled a corridor 27
+degrees. For a capture that circles a subject the script picks the camera far out and facing the
+middle; for anything else pass `--camera`, and `--scale` for metres per unit. `<scene>` is COLMAP's layout,
 `images/` and `sparse/0/`; gsplat scales the intrinsics to the images it finds, so an `images`
 folder of downscaled copies trains at that size. Each step is skipped when its output exists.
 

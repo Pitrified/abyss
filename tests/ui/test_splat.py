@@ -13,6 +13,7 @@ from abyss.ui.splat import TEST_SPLAT_NAME
 from abyss.ui.splat import TEST_SPLAT_POINTS
 from abyss.ui.splat import TEST_SPLAT_RADIUS_M
 from abyss.ui.splat import TYPICAL_EYE_M
+from abyss.ui.splat import capture_up
 from abyss.ui.splat import pick_camera
 from abyss.ui.splat import placement_at_camera
 from abyss.ui.splat import quaternion_from_matrix
@@ -65,23 +66,41 @@ def rotate(quaternion: list[float], vector: np.ndarray) -> np.ndarray:
     return vector + 2 * np.cross(q, np.cross(q, vector) + w * vector)
 
 
+UPS = [
+    np.array([0.0, 0, 1]),
+    np.array([0.0, 0.452, 0.887]) / np.linalg.norm([0.0, 0.452, 0.887]),
+]
+"""z up, and the metro's: rolled 27 degrees about the corridor."""
+
+
+@pytest.mark.parametrize("up", UPS)
 @pytest.mark.parametrize("heading_deg", [0, 37, 90, 180, 251])
 def test_placement_puts_the_camera_at_the_eye_facing_the_screen(
-    heading_deg: float,
+    heading_deg: float, up: np.ndarray
 ) -> None:
-    """Centre to the eye, heading to -z, up to +y, for any heading."""
+    """Centre to the eye, heading to -z, the scene's up to +y."""
     heading = np.radians(heading_deg)
     centre = np.array([0.8, -0.3, 0.6])
-    forward = np.array([np.cos(heading), np.sin(heading), -0.4])
+    a = np.cross(up, [1.0, 0, 0]) if abs(up[0]) < 0.9 else np.cross(up, [0, 1.0, 0])
+    a /= np.linalg.norm(a)
+    b = np.cross(up, a)
+    level = np.cos(heading) * a + np.sin(heading) * b
+    forward = level - 0.4 * up
     scale = 1.5
-    placement = placement_at_camera(centre, forward, TYPICAL_EYE_M, scale)
+    placement = placement_at_camera(centre, forward, up, TYPICAL_EYE_M, scale)
     q = placement["quaternion"]
     assert np.isclose(np.linalg.norm(q), 1)
     placed = scale * rotate(q, centre) + placement["position"]
     assert np.allclose(placed, TYPICAL_EYE_M, atol=1e-4)
-    level = np.array([forward[0], forward[1], 0]) / np.hypot(*forward[:2])
     assert np.allclose(rotate(q, level), [0, 0, -1], atol=1e-5)
-    assert np.allclose(rotate(q, np.array([0, 0, 1.0])), [0, 1, 0], atol=1e-5)
+    assert np.allclose(rotate(q, up), [0, 1, 0], atol=1e-5)
+
+
+def test_capture_up_is_the_mean_camera_up() -> None:
+    """Rolls either side of level cancel."""
+    roll = np.radians(20)
+    ups = np.array([[0, np.sin(roll), np.cos(roll)], [0, -np.sin(roll), np.cos(roll)]])
+    assert np.allclose(capture_up(ups), [0, 0, 1])
 
 
 def test_quaternion_of_identity() -> None:
@@ -93,7 +112,7 @@ def test_pick_camera_prefers_far_and_facing_the_middle() -> None:
     """Of cameras on a ring, the one facing inward wins over one facing out."""
     centres = np.array([[1.0, 0, 0.5], [0, 1.0, 0.5], [0.5, 0, 0.5]])
     forwards = np.array([[1.0, 0, 0], [0, -1.0, -0.3], [-1.0, 0, 0]])
-    assert pick_camera(centres, forwards) == 1
+    assert pick_camera(centres, forwards, np.array([0, 0, 1.0])) == 1
 
 
 def test_colours_are_distinct() -> None:
