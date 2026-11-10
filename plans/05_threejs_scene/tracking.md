@@ -25,7 +25,7 @@ what rate, and whether g7 can train one. Analysis and decisions in [`00_start.md
 | #  | Phase                                      | Plan | Status  |
 | -- | ------------------------------------------ | ---- | ------- |
 | 0  | CUDA toolkit and COLMAP on g7              | box note `~/repos/plans/2026-11-10_00_cuda_colmap.md` | done |
-| 1  | a public splat on the Pixel, rate tiers    | [`01_pixel_splat.md`](01_pixel_splat.md) | in progress |
+| 1  | a public splat on the Pixel, rate tiers    | [`01_pixel_splat.md`](01_pixel_splat.md) | done |
 | 2  | training on g7, a public scene             | [`02_g7_training.md`](02_g7_training.md) | planned |
 | 3  | a Pixel capture, placed against the panel  | [`03_pixel_capture.md`](03_pixel_capture.md) | draft |
 
@@ -86,3 +86,30 @@ Append-only. Newest at the bottom.
 - 2026-11-10 : phase 1 committed. abyss moved to port 8001 (`DEFAULT_PORT`), served on the
   tailnet as `https://g7.tail5dff8b.ts.net:8443/` through a second `tailscale serve` entry
   (box note `2026-11-10_01_tailscale_serve_abyss_8443`); lang-tutor keeps 443 -> 8000.
+- 2026-11-10 : **Pixel rate sweep**, `greyscale-bedroom` thinned with `keep=`, 366x793 css at
+  2.625, tracking running. The two sweeps ran one after the other, the CPU one second.
+
+  | splats | GPU delegate     | CPU delegate     |
+  | ------ | ---------------- | ---------------- |
+  | 100k   | 29.9 fps, tier 30 | 15.0 fps, tier 10 |
+  | 500k   | 15.0 fps, tier 10 | 12.0 fps, tier 10 |
+  | 1M     | 8.6 fps, tier 10  | 7.5 fps, tier 10  |
+  | 2M     | 4.0 fps, tier 1   | 4.1 fps, tier 1   |
+
+  Look runs on GPU: `butterfly` (177k) 20 to 24 fps, `painted-bedroom` (500k) 12 fps.
+  The splat cost does not show in `draw` (0.5 to 0.9 ms throughout, the call only queues work);
+  it shows in the landmarker time, which grows with the count on both delegates (GPU 36 to 236 ms,
+  CPU 56 to 234 ms): the landmarker waits on the GPU the splat keeps busy, and Spark's sort worker
+  shares the CPU. At 2M the GPU-run rate kept falling after the sweep, 4.0 to 2.9 fps over 45 s,
+  likely heat. Tier 30 holds only up to about 100k to 200k splats; 500k and 1M are tier 10.
+  The CPU run's camera took 133 s to start, not explained by the log.
+- 2026-11-10 : **Pixel look**: butterfly upright, a little behind the glass. The bedroom showed less
+  ceiling as the face lowered, which looked like a vertical flip. It is not one: rendered on g7's
+  GPU from its capture point the room is upright (bed and floor below, beams above). At scale
+  0.025 the room was about 7 cm tall with its ceiling near eye height, a dollhouse seen from
+  outside, so a lower eye saw its roof edge-on. New placement for both bedrooms: scale 1, the
+  splat's origin (its capture point) at a typical eye, `[0, 0.044, 0.25]` in the screen frame.
+  Headless frames from a high, level and low eye now show floor, wall and ceiling in turn.
+- 2026-11-10 : **phase 1 done.** With the new placement the painted bedroom on the Pixel reads as
+  a room behind the glass, at 15 fps on the GPU delegate; the user: "It works". All "Done when"
+  items met: checks green, effect seen, tiers and the g7 render logged.

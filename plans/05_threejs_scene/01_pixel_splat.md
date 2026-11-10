@@ -1,5 +1,5 @@
 ---
-status: in progress
+status: done
 ---
 
 # Phase 1 - a public splat on the Pixel, rate tiers
@@ -65,3 +65,18 @@ Context: [`00_start.md`](00_start.md) Q1, Q3, Q8, Q9, Q11, Q12.
 - The Pixel draws the public splat through the frustum, and the effect is seen by the user.
 - The rate tier per splat count and delegate is logged in `tracking.md`.
 - The g7 render result is logged, either way.
+
+## What the implementation found
+
+- Spark sorts from `camera.matrixWorld`, so the camera has to sit at the eye; a mutation that left
+  it at the origin failed 7 tests.
+- The inline import map needs the CSP to allow it by hash; the server computes the hash per page.
+- `SplatMesh({ splats })` draws a loaded `PackedSplats`; `packedSplats:` drew nothing.
+- Headless SwiftShader takes minutes per frame of a real splat, so the tests use a five-point
+  synthetic one. On g7, `--use-angle=vulkan` puts Chromium on the Quadro: 2M splats at 40 fps (Q12).
+- Pixel tiers, tracking running: 100k is tier 30 on the GPU delegate, 500k to 1M tier 10, 2M
+  tier 1; the CPU delegate is tier 10 from 100k. The splat cost shows in the landmarker time, not
+  in `draw`. Table in `tracking.md`.
+- Placement is what makes a captured room work: scaled down to fit behind the glass it reads as a
+  dollhouse seen from outside. At scale 1 with the splat's capture point at a typical eye, the
+  viewer is inside the room and the panel behaves as a window.
