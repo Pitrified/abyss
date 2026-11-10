@@ -605,6 +605,7 @@ Pixel and trained on g7.
 The Python side keeps the reference maths and the wireframe that the tests compare against.
 Unity or Godot is the step if the browser runs out, at the cost of the headless tests.
 No decision: this ranks what to try first.
+Picked 2026-11-10: three.js, carried on in [`../05_threejs_scene/`](../05_threejs_scene/00_start.md).
 
 ## Questions this raises
 
