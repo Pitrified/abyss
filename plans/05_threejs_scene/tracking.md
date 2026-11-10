@@ -119,3 +119,15 @@ Append-only. Newest at the bottom.
   The scene is Mip-NeRF 360 `room`, pulled out of the 12.5 GB zip by range requests (listing the
   zip's members that way worked). Found: the driver is now 595 (CUDA 13.2), not the 580 the repo
   instructions state, likely moved by phase 0's `cuda-toolkit` install.
+- 2026-11-10 : **data and COLMAP.** `room` pulled from the remote zip by range requests: 396 MB
+  (`images_4`, `images_2`, `sparse`) in 395 s, about 1 MB/s, into `~/data/splat_train/360_v2/room/`.
+  **COLMAP from scratch on the CPU** (3.12.6, built without CUDA) on the 312 quarter-size images
+  (779x519), one shared camera: features 22 s, exhaustive matching 776 s, mapper 230 s, 17 min in
+  all. One model, 311 images registered (the shipped poses also have 311), 40.6k points,
+  reprojection error 0.59 px (shipped: 112.6k points at full size, 0.86 px). Matching is the cost
+  and grows with the square of the image count; a sequential or vocabulary-tree matcher is the
+  lever for a larger capture in phase 3.
+- 2026-11-10 : **environment.** gsplat cloned at `512d366b` into `~/repos/gsplat`, uv venv on
+  Python 3.12. torch 2.9.1+cu130 and torchvision 0.24.1 installed in 915 s, nearly all download;
+  the first try timed out on `pypi.nvidia.com` at uv's default HTTP timeout, `UV_HTTP_TIMEOUT=600`
+  fixed it. torch sees the Quadro, compute capability 7.5.
