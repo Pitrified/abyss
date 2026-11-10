@@ -160,3 +160,12 @@ Append-only. Newest at the bottom.
   14.3 s (32 MB), then 10 fps with tracking (landmarker median 93 to 98 ms, draw 0.7 ms), tier 10;
   the user: "It's amazing". All "Done when" items met: training and COLMAP numbers logged, the
   trained splat drawn by the page on the phone.
+- 2026-11-10 : **phase 3, first capture**: a metro carriage, an 11 s portrait video (1080x1920,
+  30 fps, stabilised), the phone swaying sideways then turning in place. 168 frames (every second,
+  540x960) into `~/data/splat_train/metro/`. COLMAP on the CPU, sequential matcher (overlap 15):
+  features 13 s, matching 45 s, mapper 477 s. All 168 frames posed, but weakly: 3.7k points,
+  reprojection error 0.92 px, focal 1039 px with radial distortion 0.23, where the Pixel's main
+  lens should give about 690 px on this frame. The camera path's spread is about 1/25 of the
+  scene's median depth, and the second half, the turn in place, barely moves the camera at all:
+  a focal length that cannot be pinned down is what too little parallax looks like. Wrote the
+  capture guide into `03_pixel_capture.md` and questions Q14 to Q18 into `00_start.md`.
