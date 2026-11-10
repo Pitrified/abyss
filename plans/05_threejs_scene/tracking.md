@@ -27,7 +27,7 @@ what rate, and whether g7 can train one. Analysis and decisions in [`00_start.md
 | 0  | CUDA toolkit and COLMAP on g7              | box note `~/repos/plans/2026-11-10_00_cuda_colmap.md` | done |
 | 1  | a public splat on the Pixel, rate tiers    | [`01_pixel_splat.md`](01_pixel_splat.md) | done |
 | 2  | training on g7, a public scene             | [`02_g7_training.md`](02_g7_training.md) | done |
-| 3  | a Pixel capture, placed against the panel  | [`03_pixel_capture.md`](03_pixel_capture.md) | draft |
+| 3  | a Pixel capture, placed against the panel  | [`03_pixel_capture.md`](03_pixel_capture.md) | in progress |
 
 Status values: draft / planned / in progress / done / superseded / discarded.
 

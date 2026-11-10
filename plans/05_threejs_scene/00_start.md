@@ -139,6 +139,48 @@ Numbering is local to this folder.
   - Recommended: a.
   - ANS: a, as recommended (user, 2026-11-10).
 
+Batch 2, for phase 3, raised 2026-11-10 with the first capture (a metro carriage) already in hand.
+The capture guide they refer to is in [`03_pixel_capture.md`](03_pixel_capture.md).
+
+- Q14: **Motion for a capture.** The panel is a window: the viewer's eye moves over a patch roughly
+  30 cm wide and 20 cm tall, 15 to 40 cm from the glass, always looking through it. A splat is only
+  sharp from viewpoints near where it was captured, and depth only comes from the camera moving,
+  not turning. The metro video swayed sideways, then turned in place.
+  - a. Sweep a plane: the phone faces the scene the whole time and slides left-right at three or
+    four heights, then forward and back once, covering a patch a bit larger than the eye's.
+  - b. Orbit a subject, as Mip-NeRF 360 does: good for walking around an object, wasted on a
+    window that is only looked through from one side.
+  - c. Free-hand, as the metro video.
+  - Recommended: a, because it captures exactly the viewpoints the window will be seen from, plus a
+    margin; turning in place adds no depth.
+  - NEW_ANS:
+- Q15: **Camera settings.** Motion blur and per-frame changes are what spoil a splat: exposure,
+  focus and white balance shifting, the lens switching, stabilisation warping the frame.
+  - a. 4K at 30 fps, 1x lens, exposure and focus locked (long press), stabilisation off if the
+    Pixel camera allows it.
+  - b. 1080p at 60 fps, same locks: a shorter shutter, less blur, half the detail.
+  - c. Default settings, as the metro video (1080p30, stabilised).
+  - Recommended: a in good light, b in dim light; frames are downscaled for training anyway.
+  - NEW_ANS:
+- Q16: **Length and frames.** Phase 2 trained 312 images in 32 minutes; the frame count changes the
+  matching and posing time, not the training time, which is set by the step count.
+  - a. 30 to 60 s of slow movement, about 200 to 300 frames taken from it.
+  - b. 10 to 15 s, as the metro video, about 150 frames.
+  - Recommended: a, because a slow sweep at three heights needs that long.
+  - NEW_ANS:
+- Q17: **Placement of a capture.** The room placed the eye at one capture camera at scale 1.
+  A phone capture has a real scale in metres only up to COLMAP's unknown factor.
+  - a. Eye at the capture's centre camera, scale set by eye so near objects sit at the glass.
+  - b. Measure one known distance in the scene (a door width) and scale to metres.
+  - Recommended: a for now; b if objects look the wrong size.
+  - NEW_ANS:
+- Q18: **The splat budget for a capture.** Phase 1 and 2 tiers: about 500k splats for about 15 fps,
+  1.5M for 10 fps, with tracking.
+  - a. Train at the defaults and thin on the phone with `keep=`.
+  - b. Cap the count in training (gsplat's MCMC strategy takes a maximum).
+  - Recommended: a first, b if `keep=` visibly degrades the scene.
+  - NEW_ANS:
+
 ## Phases
 
 The plan of record is [`tracking.md`](tracking.md); first sketch:
