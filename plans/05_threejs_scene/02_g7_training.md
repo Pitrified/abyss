@@ -1,5 +1,5 @@
 ---
-status: in progress
+status: done
 ---
 
 # Phase 2 - training on g7, a public scene
@@ -52,3 +52,16 @@ Context: [`00_start.md`](00_start.md) Q4 to Q8. Needs phase 0's CUDA toolkit and
 - One public scene trained on g7, numbers logged in `tracking.md`.
 - COLMAP's CPU run timed on the same images.
 - The trained splat drawn by the page.
+
+## What the implementation found
+
+- The pinned pairing is gsplat `main` with torch 2.9.1+cu130, not the 1.5.3 release; the local
+  nvcc 13.1 builds against it. Building only for compute 7.5 is enough on g7.
+- gsplat's loader wants full-size `images/`; a folder whose `images` are downscaled copies trains at
+  that size, since the intrinsics are rescaled to the images found.
+- Quarter size (779x519) at 30k steps used 3.9 GB at peak and 32 minutes; 6 GB is not the limit.
+- COLMAP on the CPU solves the same images as the shipped poses in 17 minutes, matching most of it.
+- Spark's `transcodeSpz` converts PLY to SPZ about 11 to 1; no second SPZ tool is needed.
+- The placement that works for a captured room is the viewer at a capture camera, at scale 1.
+- On the Pixel, the 1.53M-splat room held 10 fps on the GPU delegate, above the sweep's 4 fps at
+  2M; the load was 14 s for 32 MB.

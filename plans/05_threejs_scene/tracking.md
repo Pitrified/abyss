@@ -26,7 +26,7 @@ what rate, and whether g7 can train one. Analysis and decisions in [`00_start.md
 | -- | ------------------------------------------ | ---- | ------- |
 | 0  | CUDA toolkit and COLMAP on g7              | box note `~/repos/plans/2026-11-10_00_cuda_colmap.md` | done |
 | 1  | a public splat on the Pixel, rate tiers    | [`01_pixel_splat.md`](01_pixel_splat.md) | done |
-| 2  | training on g7, a public scene             | [`02_g7_training.md`](02_g7_training.md) | in progress |
+| 2  | training on g7, a public scene             | [`02_g7_training.md`](02_g7_training.md) | done |
 | 3  | a Pixel capture, placed against the panel  | [`03_pixel_capture.md`](03_pixel_capture.md) | draft |
 
 Status values: draft / planned / in progress / done / superseded / discarded.
@@ -156,3 +156,7 @@ Append-only. Newest at the bottom.
   the middle. Its pick, camera 179, looks at an armchair and the garden window; the camera picked by
   hand, 116, mostly at a dark TV. `scripts/train_splat.py` chains the three steps. `make check` 317
   passed, `make e2e` 54 passed.
+- 2026-11-10 : **phase 2 done.** The trained room on the Pixel, GPU delegate: 1.53M splats loaded in
+  14.3 s (32 MB), then 10 fps with tracking (landmarker median 93 to 98 ms, draw 0.7 ms), tier 10;
+  the user: "It's amazing". All "Done when" items met: training and COLMAP numbers logged, the
+  trained splat drawn by the page on the phone.
