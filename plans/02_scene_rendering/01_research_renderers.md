@@ -525,6 +525,87 @@ Four things the table makes visible once C4 leads it:
 - **Relaxing C3 to 15 fps excludes nothing that C4 had not already excluded**, Blender aside.
   Its main effect is on the readback question, which stops being a trade-off at a 40 ms budget.
 
+## On the phone
+
+Added 2026-11-10, after [`../03_phone_webapp/`](../03_phone_webapp/tracking.md) put a renderer on the Pixel 7 Pro.
+Everything above is a Python renderer on g7 behind the `Renderer` seam.
+The phone page draws in the browser with three.js, from a frustum matrix the page computes itself
+and checks against Python.
+So the question has a second half: what can draw on the phone, and how good it looks.
+Candidates first named in this section have not been tried; `?` marks a claim to check, as above.
+
+### Axes
+
+Two lead, from the user's notes of 2026-11-10:
+
+- **P1 phone port.** How directly the option reaches the Pixel.
+- **P2 beauty.** Whether the scene is impressive, not only correct.
+
+Noted, not ranking:
+
+- **Depth.** The scene has to reach far enough behind and in front of the panel to give a "wow" effect.
+  The content decides this more than the renderer does.
+- **Content effort.** Not a filter.
+  A downloaded model is cheap.
+  A splat needs a capture and a training run, which is acceptable; what is open is whether training
+  can be done on g7 at all.
+  A native app means building an APK and installing it on the Pixel, also acceptable.
+- **Rate, in tiers.** Each option is placed at roughly 30, 10 or 1 fps, so the end of an
+  implementation holds no surprise. No millisecond precision.
+  For the phone this relaxes C3's 15 fps floor: 10 fps is fine, 1 fps is enough for a first look.
+  Optimising comes later, and tracking is the first place to look (see the questions below).
+- **Headless testability.** Nice to have, because it is what makes unattended development possible.
+  `make e2e` covers the page today on a synthetic clip; recording a Pixel clip to simulate the device
+  is on the table.
+- **Codebases.** Not a constraint. Each new target reimplements the eye position and frustum maths,
+  and a check against Python keeps each one honest.
+
+### P1, phone port
+
+Easiest first.
+
+1. **three.js in the existing page.** Already on the Pixel; the matrix handoff is checked, and
+   `make e2e` covers it. glTF models with physically based materials and environment lighting are
+   the next step up from the current cube.
+2. **Splat viewers on three.js**: Spark (<https://sparkjs.dev/>),
+   GaussianSplats3D (<https://github.com/mkkellogg/GaussianSplats3D>).
+   Same page, different content. Whether they take the page's matrix through the three.js camera `?`,
+   and how many splats the Pixel draws at which rate `?`.
+3. **Other web engines**: Babylon.js, PlayCanvas. Same page, new engine.
+   Babylon has `freezeProjectionMatrix` for a fixed matrix `?`; both have splat support `?`.
+4. **Godot or Unity, as an APK.** Tracking and the frustum maths are rewritten in the engine, and
+   `make e2e` no longer covers it. Unity was already named as the upgrade path in
+   [`../03_phone_webapp/tracking.md`](../03_phone_webapp/tracking.md).
+5. **pygfx / wgpu-py.** WGSL shaders carry to WebGPU in the browser; the rest is a rewrite.
+6. **ModernGL, Panda3D, pyrender, VisPy, VTK, Open3D.** g7 only.
+   Reaching the phone means streaming frames from g7.
+   `../03_phone_webapp/` chose to keep every per-frame step on the phone; that was that initiative's
+   choice, not a ban, and it can be reopened if a g7-only renderer earns it.
+7. **gsplat, Nerfstudio.** CUDA, so g7 only. But the splat they train is what options 2 to 4 show,
+   so they pair with those rather than compete.
+
+### P2, beauty
+
+Most impressive first.
+
+1. **A splat of a real place**, trained on g7 and shown on the phone. Photographic, and parallax
+   through a window is where it shows best.
+2. **Unity or Godot.** The best lighting and post-processing, and asset stores.
+3. **three.js or Babylon** with physically based materials, environment maps and bloom.
+   Close to native on a phone, with free models (Sketchfab, Poly Haven).
+4. **Panda3D, pygfx.** Decent, with more work for the same result.
+5. **ModernGL, wgpu-py.** As good as the shaders written by hand.
+6. **VisPy, VTK, Open3D, pyrender.** A scientific look.
+
+### Where they meet
+
+three.js in the existing page leads both lists once a splat is counted as content rather than an
+engine: a glTF scene with real lighting first, then a splat in the same page, captured with the
+Pixel and trained on g7.
+The Python side keeps the reference maths and the wireframe that the tests compare against.
+Unity or Godot is the step if the browser runs out, at the cost of the headless tests.
+No decision: this ranks what to try first.
+
 ## Questions this raises
 
 To be folded into [`00_start.md`](00_start.md) as numbered questions rather than answered here.
@@ -540,3 +621,10 @@ To be folded into [`00_start.md`](00_start.md) as numbered questions rather than
   exit criteria. Recommended, because it is the one defect the live demo cannot reveal.
 - Python 3.14 wheel availability for the shortlist. One `uv pip install --dry-run` per candidate
   answers the whole C5 column, and should happen before any of them is chosen.
+- Whether a splat can be trained on g7: gsplat or Nerfstudio in 6 GB of VRAM, from a capture taken
+  with the Pixel. To answer before any splat option is chosen.
+- How fast a splat of useful size draws on the Pixel, in the rate tiers.
+- Whether tracking can be made cheaper by making it rougher: a downscaled camera frame into the
+  landmarker, a smaller model (MediaPipe's face detector alone reports eye keypoints `?`), or the
+  landmarker every few frames with the position held between. An eye 5 cm off does not matter;
+  losing the face for several frames does. Stability over precision.
