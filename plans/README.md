@@ -29,6 +29,10 @@ status: draft   # draft | planned | in progress | done | superseded | discarded
 ---
 ```
 
+From `05_threejs_scene` on, a folder's bootstrap file also carries `priority` (born at 0, bumped
+by one when it matters more, back to 0 when done) and a `description` block of two or three lines,
+which is what `plans.py list` shows. Older folders are not backfilled.
+
 `draft` = brainstorm material, not yet the plan of record; `done` = decision taken or analysis closed;
 `in progress` = currently being implemented. A sub-plan's frontmatter and its row in `tracking.md`
 must agree with each other and with reality. The bootstrap file is `done` once its open questions

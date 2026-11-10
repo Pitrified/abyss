@@ -1,5 +1,9 @@
 ---
-status: draft
+status: in progress
+priority: 1
+description: |
+  A Gaussian splat in the phone page, drawn with three.js (Spark) through abyss's frustum,
+  trained on g7 with gsplat. Settles first whether the Pixel can draw one and g7 can train one.
 ---
 
 # three.js scene - a splat on the phone
@@ -31,6 +35,11 @@ This folder first settles what is technically possible, before any scene is chos
   (`uv pip compile`, nothing installed). torch 2.15.0 is built against CUDA 13.2.
 - Ubuntu 26.04's own archive has `cuda-toolkit` 13.1.1 and `colmap` 3.12.6 (CPU-only).
   A simulated install pulls 83 packages and leaves the driver untouched. gcc is 15.2.0.
+- Installed 2026-11-10. `nvcc` 13.1.115 at `/usr/local/cuda-13.1/bin`, off PATH, with `/usr/local/cuda`
+  linked to it; a one-kernel test built with gcc 15 for `sm_75` ran correctly on the GPU.
+  Driver still 595.99.02. `colmap` installed but failed to start: the package links `libPoseLib.so`
+  without depending on `libposelib`. With `libposelib` 2.0.5 installed, `colmap -h` reports
+  `COLMAP 3.12.6 ... without CUDA`.
 
 ## Decisions
 
@@ -64,19 +73,19 @@ Numbering is local to this folder.
   - a. Pixel render first, with a public pre-trained splat. Training follows, or runs in parallel.
   - b. g7 training first, then render our own splat.
   - Recommended: a, because the two are independent, and the render is closest to what the user sees.
-  - NEW_ANS:
+  - ANS: a, as recommended (user, 2026-11-10).
 - Q3: **Which web splat library?**
   - a. Spark (<https://sparkjs.dev/>), built for three.js.
   - b. GaussianSplats3D (<https://github.com/mkkellogg/GaussianSplats3D>). Its maintenance status needs checking.
   - c. Both, compared on the same splat.
   - Recommended: a, with b as the fallback if a does not take our camera.
-  - NEW_ANS:
+  - ANS: a, as recommended (user, 2026-11-10).
 - Q4: **Which trainer on g7?**
   - a. gsplat's `simple_trainer`, built against the CUDA toolkit installed on g7.
   - b. Nerfstudio `splatfacto` (gsplat underneath, a much larger environment, plus its own capture tooling).
   - Recommended: a, because it is the smaller of the two and reported lean on VRAM, which matters at 6 GB.
   - Dropped: Brush (Rust on wgpu), whose only edge here was avoiding the CUDA toolkit install.
-  - NEW_ANS:
+  - ANS: a, as recommended (user, 2026-11-10).
 - Q5: **Camera poses for training.** Every trainer needs the capture's camera poses, which come from COLMAP.
   - a. `pycolmap` from PyPI, CPU, no system install.
   - b. COLMAP from apt, a system install with a plan note.
@@ -87,52 +96,52 @@ Numbering is local to this folder.
   - a. Their own environment outside abyss (own uv project or binary), plus a script in abyss that calls them.
   - b. A dependency group in abyss's `pyproject.toml`.
   - Recommended: a, because torch, CUDA and pinned Python versions should not touch abyss's 3.14 environment.
-  - NEW_ANS:
+  - ANS: a, as recommended (user, 2026-11-10).
 - Q7: **First training data.**
   - a. A small public scene (from the Mip-NeRF 360 set), to prove the pipeline. Then a Pixel capture.
   - b. A Pixel capture straight away.
   - Recommended: a, because a failure then points at the pipeline, not at the capture.
-  - NEW_ANS:
+  - ANS: a, as recommended (user, 2026-11-10).
 - Q8: **Where do splats live, and in which format?**
   The Pixel has fetched from g7 at 70 to 140 kB/s over Tailscale's relay; a raw `.ply` splat runs to hundreds of MB.
   - a. `~/data/splats/` outside the repo (a path entry in `AbyssPaths` when it is real), served by
     the existing server, in a compressed format (`.spz`, or the library's own).
   - b. Raw `.ply`.
   - Recommended: a.
-  - NEW_ANS:
+  - ANS: a, as recommended (user, 2026-11-10).
 - Q9: **How is the Pixel's rate measured?** One scene subsampled to several splat counts
   (about 100k, 500k, 1M, 2M), each placed in a tier (30, 10, 1 fps), with tracking running, on both
   delegates, since the GPU delegate shares the GPU with the splat.
-  - NEW_ANS:
+  - ANS: as proposed (user, 2026-11-10).
 - Q10: **Placing the scene.** A trained splat is in COLMAP's frame, at an arbitrary scale with no
   metric units. It has to be placed and scaled against the panel, and that placement is what makes or
   misses the depth "wow".
   - a. A hand-set transform per scene, in a small file next to the splat.
   - b. Fitted automatically (a ground plane, a chosen point at the panel).
   - Recommended: a for now; b once there is more than one scene.
-  - NEW_ANS:
+  - ANS: a, as recommended (user, 2026-11-10).
 - Q11: **Headless test for the splat path.** SwiftShader in `make e2e` will be slow on a real splat.
   - a. A synthetic splat of a few Gaussians at known screen-frame points, read back at
     Python-projected pixels, the way the cube is checked today. This also catches a mirrored or flipped frame.
   - b. No headless check; device only.
   - Recommended: a.
-  - NEW_ANS:
+  - ANS: a, as recommended (user, 2026-11-10).
 - Q12: **g7 render.** The cheapest route is the same page in Chromium on g7, which the harness already
   drives, but on SwiftShader. Asking it for the GPU (`--use-angle=vulkan` or similar) is one flag to try.
   A Python render through gsplat comes free only if gsplat ends up installed for training.
   - a. Try the GPU flag once. If it does not just work, drop g7 render from this feature.
   - b. Drop it now.
   - Recommended: a.
-  - NEW_ANS:
+  - ANS: a, as recommended (user, 2026-11-10).
 - Q13: **A glTF scene with real lighting.** It needs no capability probe: three.js loads glTF, and Q1 covers the camera.
   - a. Out of this feature, unless a splat fails.
   - b. Also a phase here, as the fallback scene.
   - Recommended: a.
-  - NEW_ANS:
+  - ANS: a, as recommended (user, 2026-11-10).
 
-## Phases, sketched
+## Phases
 
-Not yet the plan of record; `tracking.md` follows once the questions are answered.
+The plan of record is [`tracking.md`](tracking.md); first sketch:
 
 0. CUDA toolkit and COLMAP on g7, by the user's script; verified by building one CUDA kernel.
 1. Matrix split (Q1), and a splat in the page on the Pixel with a public splat: rate tiers.
