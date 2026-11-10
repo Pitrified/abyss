@@ -26,7 +26,7 @@ what rate, and whether g7 can train one. Analysis and decisions in [`00_start.md
 | -- | ------------------------------------------ | ---- | ------- |
 | 0  | CUDA toolkit and COLMAP on g7              | box note `~/repos/plans/2026-11-10_00_cuda_colmap.md` | done |
 | 1  | a public splat on the Pixel, rate tiers    | [`01_pixel_splat.md`](01_pixel_splat.md) | done |
-| 2  | training on g7, a public scene             | [`02_g7_training.md`](02_g7_training.md) | planned |
+| 2  | training on g7, a public scene             | [`02_g7_training.md`](02_g7_training.md) | in progress |
 | 3  | a Pixel capture, placed against the panel  | [`03_pixel_capture.md`](03_pixel_capture.md) | draft |
 
 Status values: draft / planned / in progress / done / superseded / discarded.
@@ -113,3 +113,9 @@ Append-only. Newest at the bottom.
 - 2026-11-10 : **phase 1 done.** With the new placement the painted bedroom on the Pixel reads as
   a room behind the glass, at 15 fps on the GPU delegate; the user: "It works". All "Done when"
   items met: checks green, effect seen, tiers and the g7 render logged.
+- 2026-11-10 : phase 2 started; review before any install. Corrected: torch 2.15.0 with gsplat
+  1.5.3 was a guess. gsplat's `main` examples pin torch 2.9.1 and torchvision 0.24.1, which have
+  cu130 wheels for Python 3.12; torch 2.15.0 has only cu132 wheels, and the local nvcc is 13.1.
+  The scene is Mip-NeRF 360 `room`, pulled out of the 12.5 GB zip by range requests (listing the
+  zip's members that way worked). Found: the driver is now 595 (CUDA 13.2), not the 580 the repo
+  instructions state, likely moved by phase 0's `cuda-toolkit` install.
