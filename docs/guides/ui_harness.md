@@ -8,7 +8,7 @@ what they do. Everything here runs headless, so it works on g7 unattended and in
 ```bash
 make vendor   # fetch and hash-check three.js, tasks-vision and the test portrait
 make clip     # write build/clips/synthetic_face.mjpeg
-make serve    # serve the UIs on http://127.0.0.1:8000/
+make serve    # serve the UIs on http://127.0.0.1:8001/
 make e2e      # the browser tests; not part of `make check`
 ```
 

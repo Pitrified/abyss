@@ -74,7 +74,7 @@ from abyss.ui.vendor import verified_path
 
 DEFAULT_UI = "phone_web"
 DEFAULT_HOST = "127.0.0.1"
-DEFAULT_PORT = 8000
+DEFAULT_PORT = 8001
 
 CSP_DIRECTIVES = (
     "default-src 'self'",

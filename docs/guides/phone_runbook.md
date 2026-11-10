@@ -23,21 +23,22 @@ field of view, and its likely error, a few percent, was accepted rather than mea
 ## 1. Serving, on g7
 
 ```bash
-make serve          # 127.0.0.1:8000, loopback only
+make serve          # 127.0.0.1:8001, loopback only
 ```
 
 `tailscale serve` on g7 terminates HTTPS on the tailnet name and proxies to it, so the page is at
-**`https://g7.tail5dff8b.ts.net/`** from g4 and the phone.
+**`https://g7.tail5dff8b.ts.net:8443/`** from g4 and the phone.
+Port 8443 rather than the default 443, which g7 proxies to another project on 8000.
 HTTPS matters: the camera API only exists in a secure context, which `localhost` is and a bare
 tailnet IP over HTTP is not.
 
-**Good**: `https://g7.tail5dff8b.ts.net/phone_web/?eye=0,0.1,0.6&screen=g7_internal` opens and
+**Good**: `https://g7.tail5dff8b.ts.net:8443/phone_web/?eye=0,0.1,0.6&screen=g7_internal` opens and
 draws the scene: a grey box receding into the screen, a cyan frame around the edge, an orange cube
 right of centre.
 That page needs no camera and no face, so if it fails, the problem is serving, not tracking.
 
 Two things on every page, top right: the version, `ui <hash>`, which should match
-`curl -s https://g7.tail5dff8b.ts.net/version.js` (an older one means a stale copy), and the
+`curl -s https://g7.tail5dff8b.ts.net:8443/version.js` (an older one means a stale copy), and the
 **log** button, which copies what the page saw, for pasting into a chat.
 The log lives in the page: a reload empties it, so copy it before reloading.
 
@@ -51,7 +52,7 @@ rather than `direct`, expect a first load of a minute or more: the relay measure
 
 ## 2. The probe, on each device
 
-Open `https://g7.tail5dff8b.ts.net/probe/` and allow the camera.
+Open `https://g7.tail5dff8b.ts.net:8443/probe/` and allow the camera.
 Tap **fullscreen**, then hold the device still for the camera sweep below; when the status reads
 done, tap **copy** and paste the text into the log entry. On g4, run it in a normal window.
 
@@ -92,8 +93,8 @@ the maths, not the registry's `mirrored` flag for a real stream.
 
 Open the page with the device's own camera and screen, and no scene yet:
 
-- g4: `https://g7.tail5dff8b.ts.net/phone_web/?camera=g4_internal`
-- Pixel: `https://g7.tail5dff8b.ts.net/phone_web/?camera=pixel7pro_front`
+- g4: `https://g7.tail5dff8b.ts.net:8443/phone_web/?camera=g4_internal`
+- Pixel: `https://g7.tail5dff8b.ts.net:8443/phone_web/?camera=pixel7pro_front`
 
 Look at the camera until the status line stops reading `frame N: calibrating n/30` and reads
 `frame N: eye x, y, z cm | f fps`. Then, keeping the device still, move your head about 10 cm to
@@ -117,7 +118,7 @@ page draws the stream as delivered, with no CSS mirror.
 ## 4. The effect, on g4
 
 ```
-https://g7.tail5dff8b.ts.net/phone_web/?camera=g4_internal&screen=g4_internal
+https://g7.tail5dff8b.ts.net:8443/phone_web/?camera=g4_internal&screen=g4_internal
 ```
 
 Sit square to the screen at about 60 cm, look at the camera for the 30 calibrating frames, then
@@ -141,7 +142,7 @@ median of each stage and `fps`.
 ## 5. The effect, on the Pixel
 
 ```
-https://g7.tail5dff8b.ts.net/phone_web/?camera=pixel7pro_front&screen=pixel7pro&delegate=GPU
+https://g7.tail5dff8b.ts.net:8443/phone_web/?camera=pixel7pro_front&screen=pixel7pro&delegate=GPU
 ```
 
 **Tap once** first: fullscreen and the portrait lock. Without it the browser's bars take part of the
@@ -182,8 +183,8 @@ The first load of the large one is slow over Tailscale's relay; check the path i
 **Look** at each, tapping once for fullscreen as in section 5:
 
 ```
-https://g7.tail5dff8b.ts.net/phone_web/?camera=pixel7pro_front&screen=pixel7pro&delegate=GPU&splat=butterfly
-https://g7.tail5dff8b.ts.net/phone_web/?camera=pixel7pro_front&screen=pixel7pro&delegate=GPU&splat=painted-bedroom
+https://g7.tail5dff8b.ts.net:8443/phone_web/?camera=pixel7pro_front&screen=pixel7pro&delegate=GPU&splat=butterfly
+https://g7.tail5dff8b.ts.net:8443/phone_web/?camera=pixel7pro_front&screen=pixel7pro&delegate=GPU&splat=painted-bedroom
 ```
 
 **Sweep** the large one, once per delegate. It draws 100k, 500k, 1M and 2M splats in turn, 10 s
@@ -191,8 +192,8 @@ each, so keep your face in view for about a minute after the camera starts. When
 `sweep done`, tap **log** and paste it here.
 
 ```
-https://g7.tail5dff8b.ts.net/phone_web/?camera=pixel7pro_front&screen=pixel7pro&delegate=GPU&splat=greyscale-bedroom&sweep=0.05,0.25,0.5,1
-https://g7.tail5dff8b.ts.net/phone_web/?camera=pixel7pro_front&screen=pixel7pro&splat=greyscale-bedroom&sweep=0.05,0.25,0.5,1
+https://g7.tail5dff8b.ts.net:8443/phone_web/?camera=pixel7pro_front&screen=pixel7pro&delegate=GPU&splat=greyscale-bedroom&sweep=0.05,0.25,0.5,1
+https://g7.tail5dff8b.ts.net:8443/phone_web/?camera=pixel7pro_front&screen=pixel7pro&splat=greyscale-bedroom&sweep=0.05,0.25,0.5,1
 ```
 
 **Good**: one `sweep keep ...` line per share, each with a tier of 30, 10 or 1, and the table after

@@ -83,3 +83,6 @@ Append-only. Newest at the bottom.
 - 2026-11-10 : **Pixel run blocked**: port 8000 on g7 is held by `lang-tutor`'s uvicorn (since
   2026-11-08), and `tailscale serve` proxies `https://g7.tail5dff8b.ts.net/` to it, so the URL
   serves lang-tutor. Left running; how to serve abyss is for the user.
+- 2026-11-10 : phase 1 committed. abyss moved to port 8001 (`DEFAULT_PORT`), served on the
+  tailnet as `https://g7.tail5dff8b.ts.net:8443/` through a second `tailscale serve` entry
+  (box note `2026-11-10_01_tailscale_serve_abyss_8443`); lang-tutor keeps 443 -> 8000.

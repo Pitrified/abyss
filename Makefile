@@ -60,7 +60,7 @@ vendor:  ## Fetch and hash-check the UIs' third-party files into cache/vendor/
 clip:  ## Write the synthetic face clip to build/clips/
 	$(UV_RUN) python -m abyss.ui.clip
 
-serve: vendor  ## Serve the UIs on localhost:8000
+serve: vendor  ## Serve the UIs on localhost:8001
 	$(UV_RUN) python -m abyss.ui.serve
 
 e2e: vendor  ## Browser tests: Chromium, the synthetic clip as the camera (not part of check)
