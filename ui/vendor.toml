@@ -28,6 +28,16 @@ integrity = "sha512-blFeqb49wRCSGUGj7gtpfnSGHy2lwDk94RhUmS1c/hTby70kvChbWpkJ4Pm1
 files = [
     "build/three.module.js",
     "build/three.core.js",
+    # Spark imports it as three/addons/postprocessing/Pass.js.
+    "examples/jsm/postprocessing/Pass.js",
+]
+
+[npm."@sparkjsdev/spark"]
+# Gaussian splats in three.js, MIT. Its WebAssembly is inlined in the module.
+version = "2.4.0"
+integrity = "sha512-aUjgBfhwDRcF3nUwiAD6Nh7IwvxEmW9liz2qrAXIm2BlPYBmn81QbXIpGFLBSr/o0TKGvEXbNIsKujgPGV/7QQ=="
+files = [
+    "dist/spark.module.js",
 ]
 
 [file.portrait]

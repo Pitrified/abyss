@@ -14,6 +14,18 @@ export async function loadConfig({ camera, viewer, screen } = {}) {
   return response.json();
 }
 
+// Where a splat file is and how it sits in the screen frame: { file,
+// position, quaternion as x y z w, scale }, from /splats/<name>.json.
+export async function loadSplatPlacement(name) {
+  const response = await fetch(`/splats/${encodeURIComponent(name)}.json`);
+  if (!response.ok) {
+    const err = new Error(`splat ${name}: ${response.status} ${await response.text()}`);
+    err.name = "ConfigError";
+    throw err;
+  }
+  return response.json();
+}
+
 export async function loadScene(screen) {
   const response = await fetch(`/scene.json?screen=${encodeURIComponent(screen)}`);
   if (!response.ok) {

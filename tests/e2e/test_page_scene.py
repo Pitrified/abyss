@@ -25,8 +25,10 @@ import pytest
 
 from abyss.params.abyss_devices import get_screen
 from abyss.render.frustum import EyeBehindScreenError
+from abyss.render.frustum import eye_in_screen_frame
 from abyss.render.frustum import frustum_for_eye
 from abyss.render.frustum import project_points
+from abyss.render.frustum import projection_matrix
 from abyss.render.frustum import view_projection_matrix
 from abyss.render.renderer import AspectMismatchError
 from abyss.render.renderer import check_aspect
@@ -115,6 +117,27 @@ def test_matrices_match_python(page: Page) -> None:
             assert abs(frustum[side] - getattr(f, side)) <= RELATIVE * max(
                 1, abs(getattr(f, side))
             )
+
+
+def test_eye_view_halves_match_python(page: Page) -> None:
+    """The camera position and the projection three.js gets are Python's two halves."""
+    cases = [
+        {"screen": screen_json(s), "eye": e, "k": constants()}
+        for s in SCREENS
+        for e in EYES
+    ]
+    got = run_js(page, "frustum.js", "m.eyeView(c.screen, c.eye, c.k)", cases)
+    for case, view in zip(cases, got, strict=True):
+        screen = get_screen(case["screen"]["name"])
+        eye = np.array(case["eye"])
+        want_eye = eye_in_screen_frame(eye, screen)
+        want_projection = projection_matrix(frustum_for_eye(screen, eye))
+        assert np.allclose(view["eye"], want_eye, rtol=RELATIVE, atol=1e-12)
+        assert np.allclose(
+            view["projection"], want_projection, rtol=RELATIVE, atol=1e-12
+        )
+        want = view_projection_matrix(screen, eye)
+        assert np.allclose(view["matrix"], want, rtol=RELATIVE, atol=1e-12)
 
 
 def test_errors_match_python(page: Page) -> None:

@@ -1,5 +1,5 @@
 ---
-status: planned
+status: in progress
 ---
 
 # Phase 1 - a public splat on the Pixel, rate tiers

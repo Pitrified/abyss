@@ -6,6 +6,10 @@
 //   camera=<key>     camera registry key (default: the server's, the Pixel)
 //   viewer=<key>     viewer registry key
 //   screen=<key>     screen registry key; draws the scene for that panel
+//   splat=<name>     a Gaussian splat in the scene too, from /splats/; needs screen=
+//   keep=<fraction>  thin the splat to this share of its splats, for rate tests
+//   sweep=<k,k,...>  camera only: draw the splat at each share in turn and log
+//                    the rate of each; see sweep.js
 //   eye=<x,y,z>      no tracking: draw one frame for this camera-frame eye
 //   size=<WxH>       output size in pixels, one per CSS pixel, for tests;
 //                    by default the picture fits the window, refits when it
@@ -16,17 +20,18 @@
 
 import { eachFrame, openCamera } from "./camera.js";
 import { decodeFrame, loadClip } from "./clip_source.js";
-import { loadConfig, loadScene } from "./config.js";
+import { loadConfig, loadScene, loadSplatPlacement } from "./config.js";
 import { VERSION } from "/version.js";
 import { fullscreenOnTap } from "./display.js";
 import { drawEye, drawFrame } from "./draw.js";
 import { extractEyeSample, eyePositionM, LiveScale } from "./eye_position.js";
-import { checkAspect, viewProjectionMatrix } from "./frustum.js";
+import { checkAspect, eyeView } from "./frustum.js";
 import { focalFitsFrame, frameGeometry } from "./geometry.js";
 import { logButton } from "./log_button.js";
 import { SceneView } from "./scene.js";
 import { PositionSmoother } from "./smoothing.js";
 import { fail, loading, log, logDownloads, setStatus, state } from "./state.js";
+import { runSweep } from "./sweep.js";
 import { StageTimer } from "./timing.js";
 import { createLandmarker, monotonicClock } from "./tracker.js";
 
@@ -41,33 +46,42 @@ function fitToWindow(screen) {
   return [width, Math.round(width / aspect)];
 }
 
-// The matrix for an eye, and drawing the scene through one. The picture
-// refits to the window unless size= pins it, and redraws the last matrix,
-// since resizing a canvas clears it.
+// The view for an eye, and drawing the scene through one. The picture refits
+// to the window unless size= pins it, and redraws the last view, since
+// resizing a canvas clears it.
 function makeDrawer(config, sceneDoc) {
   if (!config.screen) return null;
   const canvas = document.getElementById("scene");
   canvas.hidden = false;
-  const view = new SceneView(canvas, sceneDoc);
+  const sceneView = new SceneView(canvas, sceneDoc);
   const size = params.get("size");
   let last = null;
   const resize = () => {
     const [width, height] = size ? size.split("x").map(Number) : fitToWindow(config.screen);
     const pixelRatio = size ? 1 : window.devicePixelRatio;
     checkAspect(config.screen, width, height, config.constants);
-    view.setSize(width, height, pixelRatio);
+    sceneView.setSize(width, height, pixelRatio);
     state.output = { width, height, pixelRatio };
     log(`output ${width}x${height} css at ${pixelRatio}`);
-    if (last) view.render(last);
+    if (last) sceneView.render(last);
   };
   resize();
   if (!size) window.addEventListener("resize", resize);
   return {
-    matrix: (eye) => viewProjectionMatrix(config.screen, eye, config.constants),
-    render: (matrix) => {
-      view.render(matrix);
-      last = matrix;
+    view: (eye) => eyeView(config.screen, eye, config.constants),
+    render: (view) => {
+      sceneView.render(view);
+      last = view;
     },
+    addSplat: (placement, keep) => sceneView.addSplat(placement, keep),
+    useKeep: (keep) => sceneView.useKeep(keep),
+    // Spark sorts in a worker and shows the result on a later frame, so a
+    // view that never changes is redrawn every frame rather than once.
+    redrawEveryFrame: (view, onFrame) =>
+      sceneView.renderer.setAnimationLoop(() => {
+        sceneView.render(view);
+        onFrame();
+      }),
   };
 }
 
@@ -80,8 +94,9 @@ function process(ctx, detect, idx, msec, now) {
   const { sample, position, smoothed } = timer.time("eye", () => locateEye(ctx, result, idx, msec));
   let matrix = null;
   if (smoothed && ctx.draw) {
-    matrix = timer.time("matrix", () => ctx.draw.matrix(smoothed));
-    timer.time("draw", () => ctx.draw.render(matrix));
+    const view = timer.time("matrix", () => ctx.draw.view(smoothed));
+    matrix = view.matrix;
+    timer.time("draw", () => ctx.draw.render(view));
   }
   timer.end();
   state.timing = timer.summary();
@@ -192,6 +207,7 @@ async function runCamera(config, draw, landmarker) {
   let summarized = -Infinity;
   loading(null);
   state.status = "running";
+  if (params.has("sweep")) sweep(ctx, draw).catch(fail);
   eachFrame(video, (now) => {
     const msec = clock(now);
     const entry = process(ctx, () => landmarker.detectForVideo(video, msec), state.frames, msec, now);
@@ -205,6 +221,25 @@ async function runCamera(config, draw, landmarker) {
   });
 }
 
+// The splat at each share in turn while tracking runs: state.sweep is the table.
+async function sweep(ctx, draw) {
+  if (!state.splat) {
+    const err = new Error("sweep= needs splat=");
+    err.name = "ParameterError";
+    throw err;
+  }
+  const keeps = params.get("sweep").split(",").map(Number);
+  state.sweep = await runSweep(keeps, {
+    useKeep: async (keep) => {
+      const count = await draw.useKeep(keep);
+      Object.assign(state.splat, { keep, count });
+      return count;
+    },
+    restartTiming: () => (ctx.timer = new StageTimer()),
+    timing: () => ctx.timer.summary(),
+  });
+}
+
 // No tracking at all: one frame for a given eye, for tests and for looking.
 function runFixedEye(config, draw) {
   if (!draw) {
@@ -215,11 +250,28 @@ function runFixedEye(config, draw) {
   const eye = params.get("eye").split(",").map(Number);
   state.source = "fixed";
   state.latest = { sample: null, position: eye, smoothed: eye };
-  state.matrix = draw.matrix(eye);
-  draw.render(state.matrix);
+  const view = draw.view(eye);
+  state.matrix = view.matrix;
+  draw.render(view);
+  if (state.splat) draw.redrawEveryFrame(view, () => (state.splat.drawn += 1));
   state.frames = 1;
   setStatus(`fixed eye ${eye.map((v) => (v * 100).toFixed(1)).join(", ")} cm`);
   state.status = "done";
+}
+
+async function addSplat(draw) {
+  const name = params.get("splat");
+  if (!draw) {
+    const err = new Error("splat= needs screen= to draw anything");
+    err.name = "ParameterError";
+    throw err;
+  }
+  const keep = Number(params.get("keep") ?? 1);
+  loading("splat");
+  const placement = await loadSplatPlacement(name);
+  const count = await draw.addSplat(placement, keep);
+  state.splat = { name, keep, count, drawn: 0 };
+  log(`splat ${name} ${placement.file}: ${count} splats, keep ${keep}`);
 }
 
 async function main() {
@@ -237,6 +289,7 @@ async function main() {
   if (screen) loading("scene");
   const draw = makeDrawer(config, screen ? await loadScene(screen) : null);
   if (draw) document.body.classList.add("with-scene");
+  if (params.has("splat")) await addSplat(draw);
   fullscreenOnTap();
   if (params.has("eye")) {
     loading(null);

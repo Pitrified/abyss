@@ -11,6 +11,11 @@
        its own fetches are served from these instead of downloading again. -->
   <link rel="preload" href="/vendor/@mediapipe/tasks-vision/wasm/vision_wasm_internal.wasm" as="fetch" crossorigin>
   <link rel="preload" href="/models/face_landmarker.task" as="fetch" crossorigin>
+  <!-- Spark imports three by its bare name, so the page does too: one copy.
+       The server allows this inline script by its hash; keep it byte-exact. -->
+  <script type="importmap">
+{"imports": {"three": "/vendor/three/build/three.module.js", "three/addons/": "/vendor/three/examples/jsm/", "@sparkjsdev/spark": "/vendor/@sparkjsdev/spark/dist/spark.module.js"}}
+  </script>
   <script src="js/boot.js"></script>
   <script type="module" src="js/app.js"></script>
 </head>

@@ -25,7 +25,7 @@ what rate, and whether g7 can train one. Analysis and decisions in [`00_start.md
 | #  | Phase                                      | Plan | Status  |
 | -- | ------------------------------------------ | ---- | ------- |
 | 0  | CUDA toolkit and COLMAP on g7              | box note `~/repos/plans/2026-11-10_00_cuda_colmap.md` | done |
-| 1  | a public splat on the Pixel, rate tiers    | [`01_pixel_splat.md`](01_pixel_splat.md) | planned |
+| 1  | a public splat on the Pixel, rate tiers    | [`01_pixel_splat.md`](01_pixel_splat.md) | in progress |
 | 2  | training on g7, a public scene             | [`02_g7_training.md`](02_g7_training.md) | planned |
 | 3  | a Pixel capture, placed against the panel  | [`03_pixel_capture.md`](03_pixel_capture.md) | draft |
 
@@ -53,3 +53,33 @@ Append-only. Newest at the bottom.
 - 2026-11-10 : phase plans written and reviewed. Claim checked: Spark's module reads
   `camera.matrixWorld`, which is why Q1 matters. `plans.py check` flags the missing `priority` and
   `description` frontmatter, which this repo does not use (`plans/README.md`); left as is.
+- 2026-11-10 : **phase 1 started.** Reviewed first: the plan holds, with two corrections found
+  while building. The page's CSP refuses inline scripts, so the import map Spark needs is allowed by
+  its SHA-256, computed by the server for each HTML page it sends (and on its 304s, which a browser
+  stores headers from). Spark's `SplatMesh({ packedSplats })` leaves `numSplats` at 0 for a source
+  that is already loaded; `SplatMesh({ splats })` sets it.
+- 2026-11-10 : **matrix split done.** `eyeView` in `frustum.js` returns the eye and the projection
+  apart, and their product; the three.js camera sits at the eye. Existing readback tests green
+  unchanged; with the camera put back at the origin on purpose, 7 tests fail, the splat and
+  wireframe readbacks among them.
+- 2026-11-10 : **splats in the page.** Spark 2.4.0 vendored, imported only when `splat=` is given.
+  `/splats/` serves `~/data/splats/`; a placement file per splat (position, quaternion, scale).
+  `keep=` thins a splat evenly in the page, through Spark's `forEachSplat` and `pushSplat`, so one
+  file gives every count. A five-point PLY written by `abyss.ui.splat` is read back in `make e2e` at
+  Python-projected pixels, within 2 px, for three eyes. `make check` 310, `make e2e` 53.
+- 2026-11-10 : public splats in `~/data/splats/`, from Spark's examples (licence not stated; used
+  locally, not redistributed): `butterfly` 177k splats, `painted-bedroom` 500k,
+  `greyscale-bedroom` 2M. All are y-down, z-forward; `[1, 0, 0, 0]` stands them up. Placements set by
+  hand: butterfly at scale 0.04, the bedrooms at 0.025, all a few cm behind the panel. Headless
+  frames show the butterfly upright and shifting with the eye; the bedroom at 0.05 filled the panel
+  with one wall, at 0.025 it reads as a room.
+- 2026-11-10 : SwiftShader draws real splats at about 2 s a frame (177k) to 5 s (500k), so they stay
+  out of `make e2e`. **g7 render (Q12): yes, one flag.** `--use-angle=vulkan` (or `--use-angle=gl-egl`)
+  gives headless Chromium the Quadro; the default and `--use-angle=gl` stay on SwiftShader.
+  On the GPU: butterfly 60 fps (the frame cap), 2M splats at 40 fps, at 1082x2342.
+- 2026-11-10 : `sweep=` added for the Pixel: one page load draws each share in turn with tracking
+  running, 3 s to settle and 7 s measured, logs a tier per count (20 fps or more is 30, 5 or more is
+  10, else 1) and a table to copy with the log button. Runbook section 6 written.
+- 2026-11-10 : **Pixel run blocked**: port 8000 on g7 is held by `lang-tutor`'s uvicorn (since
+  2026-11-08), and `tailscale serve` proxies `https://g7.tail5dff8b.ts.net/` to it, so the URL
+  serves lang-tutor. Left running; how to serve abyss is for the user.

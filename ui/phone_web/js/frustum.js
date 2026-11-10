@@ -61,18 +61,27 @@ function multiply(a, b) {
   return a.map((row) => [0, 1, 2, 3].map((j) => row.reduce((sum, v, k) => sum + v * b[k][j], 0)));
 }
 
-// Screen-frame points to clip space: the projection with the eye translated
-// to the origin folded in.
-export function viewProjectionMatrix(screen, eyeCameraM, constants, near, far) {
+// The view for an eye, in its two halves and as their product. three.js wants
+// the halves: the camera sits at the eye, in the screen frame, and the
+// projection holds the frustum only, because Spark sorts splats by distance
+// from the camera. `matrix` is the product, the one Python builds.
+export function eyeView(screen, eyeCameraM, constants, near, far) {
   const frustum = frustumForEye(screen, eyeCameraM, constants, near, far);
   const eye = eyeInScreenFrame(eyeCameraM, screen, constants);
+  const projection = projectionMatrix(frustum);
   const translation = [
     [1, 0, 0, -eye[0]],
     [0, 1, 0, -eye[1]],
     [0, 0, 1, -eye[2]],
     [0, 0, 0, 1],
   ];
-  return multiply(projectionMatrix(frustum), translation);
+  return { eye, projection, matrix: multiply(projection, translation) };
+}
+
+// Screen-frame points to clip space: the projection with the eye translated
+// to the origin folded in.
+export function viewProjectionMatrix(screen, eyeCameraM, constants, near, far) {
+  return eyeView(screen, eyeCameraM, constants, near, far).matrix;
 }
 
 // Screen-frame points to pixels, y down. No clipping, as in Python.

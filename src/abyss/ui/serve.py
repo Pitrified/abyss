@@ -10,6 +10,8 @@ One static server for every UI under ``ui/``, standard library only. Routes:
 - ``/models/face_landmarker.task``: the same model file the Python pipeline
   loads, through pose-tools' ``ModelManager``.
 - ``/clips/<name>``: generated clips from ``build/clips/``.
+- ``/splats/<name>``: Gaussian splats and their placement files, from
+  ``~/data/splats/``, outside the repository.
 - ``/version.js``: ``export const VERSION``, a hash of every file under ``ui/``,
   computed per request. The page shows it, so a stale copy in the browser is
   visible as an old hash.
@@ -29,12 +31,15 @@ keeps the page from reaching any host but this one. That is not hygiene for its
 own sake: ``@mediapipe/tasks-vision`` posts usage logs to
 ``odml.pa.googleapis.com`` once a minute, and the policy is what stops it.
 ``'wasm-unsafe-eval'`` is the one relaxation, because MediaPipe is WebAssembly.
+An HTML page's own import maps are allowed by their hash, since an import map is
+an inline script; no other inline script is.
 
 Binds ``127.0.0.1`` by default, which is a secure context for the camera API.
 Run as ``python -m abyss.ui.serve``, which is what ``make serve`` does.
 """
 
 import argparse
+import base64
 from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -45,6 +50,7 @@ from http.server import BaseHTTPRequestHandler
 from http.server import ThreadingHTTPServer
 import json
 from pathlib import Path
+import re
 import threading
 from typing import ClassVar
 from urllib.parse import parse_qs
@@ -81,6 +87,9 @@ CSP_DIRECTIVES = (
 )
 CONTENT_SECURITY_POLICY = "; ".join(CSP_DIRECTIVES)
 
+IMPORT_MAP = re.compile(rb'<script type="importmap">(.*?)</script>', re.DOTALL)
+"""An inline import map, its text as the browser hashes it."""
+
 COMPRESSIBLE = frozenset({".html", ".js", ".mjs", ".css", ".json", ".wasm"})
 """Suffixes worth gzipping. Images, clips and the model are compressed already."""
 
@@ -113,6 +122,7 @@ class ServeConfig:
     clips_dir: Path
     manifest: Manifest
     model_path: Path | None = None
+    splats_dir: Path | None = None
 
     @classmethod
     def default(cls) -> "ServeConfig":
@@ -123,7 +133,40 @@ class ServeConfig:
             model is resolved lazily, on its first request.
         """
         paths = get_abyss_paths()
-        return cls(paths.ui_fol, paths.vendor_fol, paths.clips_fol, load_manifest())
+        return cls(
+            paths.ui_fol,
+            paths.vendor_fol,
+            paths.clips_fol,
+            load_manifest(),
+            splats_dir=paths.splats_fol,
+        )
+
+
+def content_security_policy(page: bytes = b"") -> str:
+    """Build the policy for a response, allowing a page's own import maps.
+
+    An import map is an inline script, which ``script-src 'self'`` refuses.
+    Each one in ``page`` is allowed by its SHA-256, so the page can map
+    ``three`` to the vendored copy without allowing inline script in general.
+
+    Args:
+        page: The HTML body, or empty for any other response.
+
+    Returns:
+        The policy; :data:`CONTENT_SECURITY_POLICY` when there is no import map.
+    """
+    hashes = [
+        f"'sha256-{base64.b64encode(hashlib.sha256(text).digest()).decode()}'"
+        for text in IMPORT_MAP.findall(page)
+    ]
+    if not hashes:
+        return CONTENT_SECURITY_POLICY
+    return "; ".join(
+        f"{directive} {' '.join(hashes)}"
+        if directive.startswith("script-src ")
+        else directive
+        for directive in CSP_DIRECTIVES
+    )
 
 
 def resolve_inside(root: Path, relative: str) -> Path | None:
@@ -209,6 +252,9 @@ class UiRequestHandler(BaseHTTPRequestHandler):
 
     config: ClassVar[ServeConfig]
 
+    csp: str = CONTENT_SECURITY_POLICY
+    """The policy for the response being sent; an HTML page widens it."""
+
     # Chromium does not revalidate a fetch() by ETag on an HTTP/1.0 response,
     # so tasks-vision's .wasm and model came over in full on every load; on
     # 1.1 they come back as 304s. Every response sends a Content-Length, as
@@ -226,6 +272,8 @@ class UiRequestHandler(BaseHTTPRequestHandler):
 
     def do_GET(self) -> None:
         """Answer a GET."""
+        # One handler serves every request on a kept-alive connection.
+        self.csp = CONTENT_SECURITY_POLICY
         path = unquote(urlsplit(self.path).path)
         if path in {"", "/"}:
             self.redirect(f"/{DEFAULT_UI}/")
@@ -242,6 +290,8 @@ class UiRequestHandler(BaseHTTPRequestHandler):
             self.send_bytes(module.encode(), CONTENT_TYPES[".js"])
         elif path.startswith("/clips/"):
             self.send_inside(self.config.clips_dir, path.removeprefix("/clips/"))
+        elif path.startswith("/splats/"):
+            self.send_splat(path.removeprefix("/splats/"))
         else:
             self.send_inside(self.config.ui_root, path)
 
@@ -319,6 +369,17 @@ class UiRequestHandler(BaseHTTPRequestHandler):
         path = self.config.model_path or ModelManager().ensure_model("face_landmarker")
         self.send_file(path)
 
+    def send_splat(self, relative: str) -> None:
+        """Send a splat or its placement file, if a splats folder is configured.
+
+        Args:
+            relative: The URL path below ``/splats/``.
+        """
+        if self.config.splats_dir is None:
+            self.send_error(HTTPStatus.NOT_FOUND, "no splats folder configured")
+            return
+        self.send_inside(self.config.splats_dir, relative)
+
     def send_inside(self, root: Path, relative: str) -> None:
         """Send a file from under a folder, ``index.html`` for a folder.
 
@@ -348,6 +409,9 @@ class UiRequestHandler(BaseHTTPRequestHandler):
         """
         content_type = CONTENT_TYPES.get(path.suffix, "application/octet-stream")
         data = path.read_bytes()
+        # Before the 304 too: a browser updates its stored headers from one.
+        if path.suffix == ".html":
+            self.csp = content_security_policy(data)
         compressible = path.suffix in COMPRESSIBLE and len(data) >= GZIP_MIN_BYTES
         zipped = compressible and accepts_gzip(self.headers.get("Accept-Encoding"))
         digest = hashlib.sha256(data).hexdigest()[:32]
@@ -389,7 +453,7 @@ class UiRequestHandler(BaseHTTPRequestHandler):
 
     def end_headers(self) -> None:
         """Add the CSP to every response, error pages included, then finish."""
-        self.send_header("Content-Security-Policy", CONTENT_SECURITY_POLICY)
+        self.send_header("Content-Security-Policy", self.csp)
         super().end_headers()
 
 

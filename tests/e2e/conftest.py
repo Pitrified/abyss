@@ -7,6 +7,7 @@ Every test in this folder carries the ``e2e`` marker, so `make test` skips them.
 """
 
 from collections.abc import Iterator
+from dataclasses import replace
 from pathlib import Path
 
 from playwright.sync_api import Browser
@@ -21,6 +22,7 @@ from abyss.ui.browser import start_chromium
 from abyss.ui.clip import write_clip
 from abyss.ui.serve import ServeConfig
 from abyss.ui.serve import running_server
+from abyss.ui.splat import write_test_splat
 from abyss.ui.vendor import ensure_vendor
 
 
@@ -39,9 +41,15 @@ def clip() -> Path:
 
 
 @pytest.fixture(scope="session")
-def base_url(clip: Path) -> Iterator[str]:
+def splats() -> Path:
+    """Write the synthetic test splat, served instead of ~/data/splats."""
+    return write_test_splat()
+
+
+@pytest.fixture(scope="session")
+def base_url(clip: Path, splats: Path) -> Iterator[str]:
     """Serve the UIs on a free port."""
-    with running_server(ServeConfig.default()) as url:
+    with running_server(replace(ServeConfig.default(), splats_dir=splats)) as url:
         yield url
 
 

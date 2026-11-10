@@ -1,7 +1,10 @@
 """Test the UI server's routes, headers and refusals, against temporary folders."""
 
+import base64
 from collections.abc import Iterator
+from dataclasses import replace
 import gzip
+import hashlib
 import http.client
 from pathlib import Path
 import re
@@ -11,10 +14,14 @@ import pytest
 
 from abyss.ui.serve import CONTENT_SECURITY_POLICY
 from abyss.ui.serve import ServeConfig
+from abyss.ui.serve import content_security_policy
 from abyss.ui.serve import running_server
 from abyss.ui.serve import split_vendor_path
 from abyss.ui.vendor import Manifest
 from abyss.ui.vendor import extract_package
+
+IMPORT_MAP = b'\n{"imports": {"three": "/vendor/three/build/three.module.js"}}\n'
+MAPPED_PAGE = b'<!doctype html><script type="importmap">' + IMPORT_MAP + b"</script>"
 
 
 @pytest.fixture
@@ -32,7 +39,19 @@ def config(tmp_path: Path, fake_package) -> ServeConfig:
     (clips / "c.mjpeg").write_bytes(b"\xff\xd8\xff")
     model = tmp_path / "face_landmarker.task"
     model.write_bytes(b"model")
-    return ServeConfig(ui, cache, clips, Manifest((pkg,), ()), model_path=model)
+    (ui / "mapped").mkdir()
+    (ui / "mapped" / "index.html").write_bytes(MAPPED_PAGE)
+    splats = tmp_path / "splats"
+    splats.mkdir()
+    (splats / "s.json").write_text('{"file": "s.ply"}')
+    return ServeConfig(
+        ui,
+        cache,
+        clips,
+        Manifest((pkg,), ()),
+        model_path=model,
+        splats_dir=splats,
+    )
 
 
 @pytest.fixture
@@ -234,3 +253,54 @@ def test_generated_routes_are_never_cached(base: str) -> None:
         response, _ = fetch(base, path)
         assert response.getheader("Cache-Control") == "no-store", path
         assert response.getheader("ETag") is None, path
+
+
+def test_import_map_is_allowed_by_its_hash_and_nothing_else(base: str) -> None:
+    """A page's import map is allowed by its hash; other pages keep the base policy."""
+    digest = base64.b64encode(hashlib.sha256(IMPORT_MAP).digest()).decode()
+    response = get(base, "/mapped/")
+    policy = response.getheader("Content-Security-Policy", "")
+    script_src = next(d for d in policy.split("; ") if d.startswith("script-src "))
+    assert f"'sha256-{digest}'" in script_src
+    assert "unsafe-inline" not in policy
+    assert policy == content_security_policy(MAPPED_PAGE)
+    assert get(base, "/phone_web/").getheader("Content-Security-Policy") == (
+        CONTENT_SECURITY_POLICY
+    )
+
+
+def test_import_map_hash_survives_a_304(base: str) -> None:
+    """A revalidated page keeps its hash: a browser stores the 304's headers."""
+    parts = urlsplit(base)
+    conn = http.client.HTTPConnection(parts.hostname or "", parts.port)
+    conn.request("GET", "/mapped/")
+    first = conn.getresponse()
+    first.read()
+    conn.request(
+        "GET", "/mapped/", headers={"If-None-Match": first.getheader("ETag", "")}
+    )
+    second = conn.getresponse()
+    second.read()
+    assert second.status == 304
+    assert second.getheader("Content-Security-Policy") == content_security_policy(
+        MAPPED_PAGE
+    )
+    conn.request("GET", "/phone_web/nope.js")
+    third = conn.getresponse()
+    third.read()
+    assert third.getheader("Content-Security-Policy") == CONTENT_SECURITY_POLICY
+
+
+def test_splats_route_serves_inside_its_folder(base: str) -> None:
+    """Splat files come from the splats folder, and may not climb out of it."""
+    response = get(base, "/splats/s.json")
+    assert response.status == 200
+    assert response.getheader("Content-Type") == "application/json"
+    assert get(base, "/splats/../secret.txt").status == 403
+    assert get(base, "/splats/missing.ply").status == 404
+
+
+def test_splats_route_without_a_folder_is_404(config: ServeConfig) -> None:
+    """A server with no splats folder answers 404 rather than guessing one."""
+    with running_server(replace(config, splats_dir=None)) as url:
+        assert get(url, "/splats/s.json").status == 404

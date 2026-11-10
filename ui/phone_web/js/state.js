@@ -11,6 +11,9 @@
 // track:   clip mode only: one { idx, msec, sample, position, smoothed } per frame
 // timing:  per-stage frame times in ms, last and rolling median; see timing.js
 // output:  { width, height, pixelRatio } of the scene, with a screen
+// splat:   { name, keep, count, drawn } with a splat; drawn counts the frames
+//          a fixed eye redraws while Spark sorts
+// sweep:   the rate table once sweep= has run; see sweep.js
 // display: { fullscreen, lock }; see display.js
 // version: the served UI's hash, from /version.js, also shown in the corner
 // log:     the newest LOG_LINES lines of what the page did; see log()

@@ -33,6 +33,7 @@ uv run --no-sync playwright install chromium
 | `/version.js` | `export const VERSION`, a hash of every file under `ui/`, computed per request |
 | `/config.json?camera=&viewer=&screen=` | device configs from `abyss_devices.py` and the constants of the maths |
 | `/scene.json?screen=` | the scene for that panel, as segments from `abyss.render.scene.window_box` |
+| `/splats/<name>` | `~/data/splats/`: Gaussian splats and their placement files; `make e2e` serves `build/splats/` instead |
 
 `ui/vendor.toml` is the only third-party thing in git. Each npm package is pinned by version and by
 the integrity hash the registry publishes; `make vendor` checks every tarball against it and records
@@ -45,6 +46,9 @@ Every response carries a Content-Security-Policy. `connect-src 'self'` is the li
 `@mediapipe/tasks-vision` posts usage logs to `odml.pa.googleapis.com` every minute, and the
 policy is what stops it. The page cannot load or send anything to any host but the one serving it,
 and `make e2e` fails if it tries.
+No inline script runs either, with one exception: the page's import map, which maps `three` to the
+vendored copy for Spark, is allowed by its SHA-256. The server hashes the import maps of each HTML
+page it sends, so editing one needs nothing else.
 
 The page ports the eye position maths to JavaScript, but none of its numbers: device configs and
 constants (MediaPipe's assumed field of view, the eye offset in the face model, the bootstrap
@@ -63,10 +67,30 @@ length, the filter width) come from `/config.json`, built from the Python module
 | `scale=<float>` | freeze the head scale instead of bootstrapping it |
 | `delegate=GPU` | MediaPipe delegate; CPU by default |
 | `fps=<float>` | the clip's frame rate, for VIDEO-mode timestamps; default 30, which `make clip` writes |
+| `splat=<name>` | also draw the Gaussian splat placed by `/splats/<name>.json`; needs `screen=` |
+| `keep=<fraction>` | thin the splat evenly to this share of its splats; thinned splats keep their base colour only |
+| `sweep=<k,k,...>` | camera only: draw the splat at each share in turn, 3 s to settle and 7 s measured, logging the rate tier of each and a table at the end on `window.abyss.sweep` |
 
 With `source=`, the page publishes one entry per frame on `window.abyss.track` and sets
 `window.abyss.status` to `done` at the end. With the camera it keeps `window.abyss.latest` current.
 With `screen=`, each entry also carries the view projection `matrix` it drew with, row-major.
+
+## Splats
+
+A splat is a file and a placement file beside it, `~/data/splats/<name>.json`:
+
+```json
+{"file": "butterfly.spz", "position": [0.0, 0.0, -0.03], "quaternion": [1, 0, 0, 0], "scale": 0.04}
+```
+
+`position` is in metres in the screen frame (the panel at `z = 0`, the viewer at positive `z`), the
+`quaternion` is `x, y, z, w`, and `scale` multiplies the file's units. Every format Spark reads
+works: `.spz`, `.ply`, `.splat`, `.ksplat`, `.sog`. Files from 3DGS tools are usually `y` down and
+`z` forward, and `[1, 0, 0, 0]`, half a turn about `x`, stands them upright behind the panel.
+
+SwiftShader draws a real splat at about 2 s a frame, so `make e2e` uses a five-point splat that
+`abyss.ui.splat` writes. On g7, Chromium uses the GPU with `--use-angle=vulkan` (seen: 2M splats at
+40 fps at the Pixel's resolution, headless).
 
 Every frame also updates `window.abyss.timing`: `last` and a rolling `median` over 60 frames of
 `landmarker`, `eye`, `matrix` and `draw` in milliseconds, their `total`, the frame `interval`, and

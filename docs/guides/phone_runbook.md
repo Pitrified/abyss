@@ -172,6 +172,37 @@ medians and fps, and the lines below a summary a second. The button does not lea
 **Record**: fps on the delegate used, the timing medians, `scale ready`, and one sentence on how
 the effect looked held in the hand.
 
+## 6. Splats, on the Pixel
+
+The splats are on g7 in `~/data/splats/`, each with a placement file
+(see `docs/guides/ui_harness.md`, "Splats"). Three public ones from Spark's examples:
+`butterfly` (177k splats, 4 MB), `painted-bedroom` (500k, 8 MB), `greyscale-bedroom` (2M, 31 MB).
+The first load of the large one is slow over Tailscale's relay; check the path is `direct`.
+
+**Look** at each, tapping once for fullscreen as in section 5:
+
+```
+https://g7.tail5dff8b.ts.net/phone_web/?camera=pixel7pro_front&screen=pixel7pro&delegate=GPU&splat=butterfly
+https://g7.tail5dff8b.ts.net/phone_web/?camera=pixel7pro_front&screen=pixel7pro&delegate=GPU&splat=painted-bedroom
+```
+
+**Sweep** the large one, once per delegate. It draws 100k, 500k, 1M and 2M splats in turn, 10 s
+each, so keep your face in view for about a minute after the camera starts. When the log shows
+`sweep done`, tap **log** and paste it here.
+
+```
+https://g7.tail5dff8b.ts.net/phone_web/?camera=pixel7pro_front&screen=pixel7pro&delegate=GPU&splat=greyscale-bedroom&sweep=0.05,0.25,0.5,1
+https://g7.tail5dff8b.ts.net/phone_web/?camera=pixel7pro_front&screen=pixel7pro&splat=greyscale-bedroom&sweep=0.05,0.25,0.5,1
+```
+
+**Good**: one `sweep keep ...` line per share, each with a tier of 30, 10 or 1, and the table after
+`sweep done`. The tier is set by the frame rate with tracking running: 20 fps or more is 30, 5 or
+more is 10, below that 1.
+
+**Record**: both sweep tables, and a sentence on each splat: is it upright, does it sit behind the
+glass, and how large and how deep should it be. The placement files are edited on g7; a reload picks
+the change up.
+
 ## Log template
 
 ```markdown
