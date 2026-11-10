@@ -88,6 +88,20 @@ A splat is a file and a placement file beside it, `~/data/splats/<name>.json`:
 works: `.spz`, `.ply`, `.splat`, `.ksplat`, `.sog`. Files from 3DGS tools are usually `y` down and
 `z` forward, and `[1, 0, 0, 0]`, half a turn about `x`, stands them upright behind the panel.
 
+**A captured room is placed at full size, with the viewer inside it.** Shrunk to fit behind the
+panel, a room reads as a dollhouse seen from outside: its ceiling sits below the eye, and lowering
+the face shows less of it, which looks like a vertical flip. Put the splat's capture point (one of
+the cameras it was trained from) at a typical eye, `TYPICAL_EYE_M` in `abyss.ui.splat`, and the
+panel behaves as a window: a lower eye sees more ceiling.
+
+**Training on g7.** `scripts/train_splat.py <scene> <name>` trains with gsplat's
+`examples/simple_trainer.py` in gsplat's own environment (`~/repos/gsplat`, its `.venv`), converts
+the PLY to SPZ with Spark's `transcodeSpz` in headless Chromium (`abyss.ui.spz`), and writes the
+placement with `placement_at_camera`: gsplat's training frame is z-up, and the script picks the
+camera far out and facing the middle (`--camera` overrides). `<scene>` is COLMAP's layout,
+`images/` and `sparse/0/`; gsplat scales the intrinsics to the images it finds, so an `images`
+folder of downscaled copies trains at that size. Each step is skipped when its output exists.
+
 SwiftShader draws a real splat at about 2 s a frame, so `make e2e` uses a five-point splat that
 `abyss.ui.splat` writes. On g7, Chromium uses the GPU with `--use-angle=vulkan` (seen: 2M splats at
 40 fps at the Pixel's resolution, headless).
@@ -116,8 +130,10 @@ the log lists every download over 50 kB with its size, start and duration: the t
 `.wasm` finishing and `landmarker ready` is compiling and setup, not the network.
 
 The scene is drawn by three.js from the served segments. three.js's own cameras cannot express an
-off-axis frustum, so a bare `THREE.Camera` at the origin carries abyss's whole view projection as
-its projection matrix. `Matrix4.set` takes row-major arguments; passing the matrix to `fromArray`
+off-axis frustum, so a bare `THREE.Camera` sits at the eye, unrotated, and carries the off-axis
+frustum as its projection matrix; three multiplies it by the translation to the eye, which gives
+abyss's view projection. The camera has to be at the eye, not at the origin with the whole matrix
+as its projection: Spark sorts splats from the camera's position. `Matrix4.set` takes row-major arguments; passing the matrix to `fromArray`
 instead transposes it, and only the picture tests in `tests/e2e/test_page_scene.py` notice.
 
 ## Caching and compression

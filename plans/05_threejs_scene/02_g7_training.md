@@ -33,7 +33,8 @@ Context: [`00_start.md`](00_start.md) Q4 to Q8. Needs phase 0's CUDA toolkit and
   until it fits in 6 GB. Record peak VRAM (`nvidia-smi`), wall time, and the Gaussian count.
 - **COLMAP (Q5).** Run once on the same scene's images from scratch, without the shipped poses,
   to prove the CPU path and time it; phase 3 depends on it.
-- **Convert (Q8).** The trained `.ply` to `.spz`, with whatever tool Spark or gsplat provides.
+- **Convert (Q8).** The trained `.ply` to `.spz` with Spark's `transcodeSpz`, in headless Chromium.
+- **Place.** One capture camera at the typical eye, the training frame's z to the screen's up.
 - **Script.** A script in abyss `scripts/` that calls the environment, so the run is repeatable.
 
 ## Out of scope

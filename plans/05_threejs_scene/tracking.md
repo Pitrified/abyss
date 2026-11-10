@@ -131,3 +131,28 @@ Append-only. Newest at the bottom.
   Python 3.12. torch 2.9.1+cu130 and torchvision 0.24.1 installed in 915 s, nearly all download;
   the first try timed out on `pypi.nvidia.com` at uv's default HTTP timeout, `UV_HTTP_TIMEOUT=600`
   fixed it. torch sees the Quadro, compute capability 7.5.
+- 2026-11-10 : **gsplat built.** `pip install -e .` with `TORCH_CUDA_ARCH_LIST=7.5`: 2315 s, while
+  COLMAP held the CPU for the first part; gsplat reports 1.6.0. `examples/requirements.txt` (with
+  fused-ssim, fused-bilagrid, ppisp built from git) took 129 s more. A 1000-Gaussian rasterization
+  ran on the GPU.
+- 2026-11-10 : **training.** gsplat's loader needs the full-size `images/` and re-derives the
+  downscaled ones from it; it also scales the intrinsics to the images it reads. So `room_q/` links
+  `images` to `images_4` and trains at factor 1, instead of pulling 969 MB more. AlexNet (233 MB)
+  downloads on the first run, for LPIPS. Default strategy, 779x519:
+
+  | steps | wall time | peak VRAM | Gaussians | PSNR | SSIM | LPIPS |
+  | ----- | --------- | --------- | --------- | ---- | ---- | ----- |
+  | 7k    | 3:56 train, 300 s all | 2.2 GB | 778k | 30.04 | 0.918 | 0.111 |
+  | 30k   | 31:21 train, 1901 s all | 3.9 GB | 1.53M | 32.19 | 0.942 | 0.075 |
+
+  6 GB is not the limit at this size: half-size images (`images_2`, already pulled) are the next
+  step up if quality asks for it. The 30k peak includes headless page runs on the same GPU.
+- 2026-11-10 : **convert and place.** Spark exports `transcodeSpz`, so the PLY becomes SPZ in
+  headless Chromium through the served page: 360 MB to 31.9 MB in 20 s (7k: 184 to 14.1 MB).
+  `abyss.ui.spz` holds it, with an e2e test that the test splat's SPZ loads with all its splats.
+  gsplat's training frame is z-up and centred on the cameras (Mip-NeRF 360 room: cameras on a ring
+  of radius 1.0 at height 0.6). `placement_at_camera` maps z to the screen's up and puts a capture
+  camera at the typical eye, facing into the screen; `pick_camera` takes the one far out and facing
+  the middle. Its pick, camera 179, looks at an armchair and the garden window; the camera picked by
+  hand, 116, mostly at a dark TV. `scripts/train_splat.py` chains the three steps. `make check` 317
+  passed, `make e2e` 54 passed.

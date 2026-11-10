@@ -18,11 +18,15 @@ Why each choice:
   points is a failure rather than a pass.
 
 Run as ``python -m abyss.ui.splat`` to write it by hand.
+
+It also places trained splats: :func:`placement_at_camera` puts one of the
+capture cameras at the viewer's eye.
 """
 
 import json
 from pathlib import Path
 
+import cv2 as cv
 from loguru import logger as lg
 import numpy as np
 
@@ -82,6 +86,73 @@ PLY_FIELDS = (
 
 IDENTITY_PLACEMENT = {"position": [0, 0, 0], "quaternion": [0, 0, 0, 1], "scale": 1}
 """A placement that leaves the splat in the screen frame as written."""
+
+TYPICAL_EYE_M = (0.0, 0.044, 0.25)
+"""Screen-frame eye a captured scene is placed for: centred, a little above the
+middle of a phone held upright, 25 cm out."""
+
+
+def quaternion_from_matrix(rotation: np.ndarray) -> list[float]:
+    """Return a rotation matrix as a quaternion, ``[x, y, z, w]``, three.js's order."""
+    rvec, _ = cv.Rodrigues(rotation)
+    angle = float(np.linalg.norm(rvec))
+    if angle == 0:
+        return [0.0, 0.0, 0.0, 1.0]
+    axis = rvec.ravel() / angle
+    return [*(axis * np.sin(angle / 2)).tolist(), float(np.cos(angle / 2))]
+
+
+def pick_camera(centres: np.ndarray, forwards: np.ndarray) -> int:
+    """Pick the capture camera that sees the most of a scene captured around it.
+
+    In a capture that circles a scene, the best single viewpoint is far out and
+    facing the middle: score is horizontal distance from the scene's centre
+    times how directly the camera faces it.
+
+    Args:
+        centres: ``(N, 3)`` camera centres in a z-up frame centred on the scene.
+        forwards: ``(N, 3)`` camera viewing directions in that frame.
+
+    Returns:
+        The index of the camera.
+    """
+    radius = np.linalg.norm(centres[:, :2], axis=1)
+    inward = -centres[:, :2] / radius[:, None]
+    heading = forwards[:, :2] / np.linalg.norm(forwards[:, :2], axis=1)[:, None]
+    return int(np.argmax(radius * (heading * inward).sum(axis=1)))
+
+
+def placement_at_camera(
+    centre: np.ndarray,
+    forward: np.ndarray,
+    eye: tuple[float, float, float] = TYPICAL_EYE_M,
+    scale: float = 1.0,
+) -> dict:
+    """Place a z-up splat so a capture camera sits at the eye, facing the screen.
+
+    A captured room only reads as a room when the viewer is inside it at about
+    its own scale; shrunk to fit behind the glass it is a dollhouse seen from
+    outside. So the camera's centre goes to the eye, its heading into the
+    screen, and the splat's up to the screen's. The camera's pitch is dropped:
+    the panel is upright.
+
+    Args:
+        centre: The camera's centre in the splat's frame, z up.
+        forward: The camera's viewing direction in that frame.
+        eye: Screen-frame point the camera's centre goes to, metres.
+        scale: Metres per splat unit.
+
+    Returns:
+        A placement: ``position``, ``quaternion`` and ``scale``, no ``file``.
+    """
+    fx, fy = forward[:2] / np.linalg.norm(forward[:2])
+    rotation = np.array([[fy, -fx, 0.0], [0.0, 0.0, 1.0], [-fx, -fy, 0.0]])
+    position = np.asarray(eye) - scale * rotation @ centre
+    return {
+        "position": [round(float(v), 5) for v in position],
+        "quaternion": [round(v, 6) for v in quaternion_from_matrix(rotation)],
+        "scale": scale,
+    }
 
 
 def write_ply(
