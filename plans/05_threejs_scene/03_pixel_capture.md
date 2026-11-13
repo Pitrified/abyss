@@ -1,5 +1,5 @@
 ---
-status: in progress
+status: done
 ---
 
 # Phase 3 - a Pixel capture, placed against the panel
@@ -81,3 +81,36 @@ crossing. If in doubt, take two.
 ## Done when
 
 - The captured scene runs on the Pixel and the user judges the depth.
+
+## What the implementation found
+
+The metro capture was trained to gather numbers, and closed as useful (user, 2026-11-13: the metro
+"looks decent enough"). The capture guide above was written after it and is still untried.
+
+| | metro (this phase) | Mip-NeRF 360 room (phase 2) |
+| --- | --- | --- |
+| input | 11 s portrait video, 1080x1920, 30 fps, stabilised | public dataset |
+| frames | 168 at 540x960 (every second frame, half size) | 311 at 779x519 |
+| COLMAP, CPU | features 13 s, sequential matching 45 s, mapper 477 s | exhaustive, see phase 2 |
+| poses | all 168, 3.7k points, 0.92 px, focal 1039 px (expected about 690) | all |
+| training, 30k steps | 1495 s | about 32 min |
+| peak VRAM | 2.9 GB | 3.9 GB |
+| Gaussians | 1.16M | 1.53M |
+| PSNR / SSIM / LPIPS | 24.88 / 0.847 / 0.250 | 32.19 / 0.942 / 0.075 |
+| PLY to SPZ | 274 MB to 27.6 MB | 360 MB to 31.9 MB |
+| placement | camera 27, 0.3 m a unit, by hand | camera 179, scale 1, picked |
+
+- **A phone video is enough to train on.** gsplat's held-out renders match their frames well:
+  near the capture path the splat holds, even with poses COLMAP could only weakly fix.
+- **6 GB is not the limit** at this frame size: 2.9 GB peak for 1.16M Gaussians.
+- **The time is COLMAP's, not only gsplat's.** The mapper took 8 minutes on the CPU for 168 frames;
+  training 25 minutes. Both scale with a longer capture, the mapper faster than linearly.
+- **gsplat's training frame is not z-up.** Its principal-axis turn rolled the metro 27 degrees.
+  Up is now the capture cameras' mean up (`capture_up`), which the room also renders correctly with.
+- **The mean camera up keeps the phone's average tilt.** The metro stays pitched: from a level eye
+  the window shows mostly floor. Together with the 50 % focal error, the geometry is not trusted.
+  If a capture made by the guide is also pitched, the next step is up from the floor plane in the
+  point cloud.
+- **Turning in place adds no depth.** The second half of the video barely moved the camera; too
+  little parallax is what left the focal length free. The guide's sweep-a-plane motion is the fix.
+- **Scale is a guess without a measurement.** 0.3 m a unit came from the carriage's width.

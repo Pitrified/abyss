@@ -27,7 +27,7 @@ what rate, and whether g7 can train one. Analysis and decisions in [`00_start.md
 | 0  | CUDA toolkit and COLMAP on g7              | box note `~/repos/plans/2026-11-10_00_cuda_colmap.md` | done |
 | 1  | a public splat on the Pixel, rate tiers    | [`01_pixel_splat.md`](01_pixel_splat.md) | done |
 | 2  | training on g7, a public scene             | [`02_g7_training.md`](02_g7_training.md) | done |
-| 3  | a Pixel capture, placed against the panel  | [`03_pixel_capture.md`](03_pixel_capture.md) | in progress |
+| 3  | a Pixel capture, placed against the panel  | [`03_pixel_capture.md`](03_pixel_capture.md) | done |
 
 Status values: draft / planned / in progress / done / superseded / discarded.
 
@@ -181,3 +181,7 @@ Append-only. Newest at the bottom.
   mostly floor, the corridor only from a low eye. The mean up includes the phone's average
   downward tilt, and the focal length was 50 % off, so the geometry is not trusted. Left as is;
   the recapture by the guide is the fix. `make check` 323, `make e2e` 54 passed.
+- 2026-11-13 : **phase 3 done, folder closed.** The user judged the metro splat "decent enough" and
+  closed the experiment as useful. Training numbers, set against the room's, are in
+  `03_pixel_capture.md` "What the implementation found". Q14 to Q18 stay unanswered: they and the
+  capture guide wait for the next capture, which this folder no longer needs.
